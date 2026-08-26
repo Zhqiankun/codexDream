@@ -121,6 +121,8 @@ npm run verify:package
 
 构建产物保存在 `release/`。包校验会检查渲染进程与主进程资源、图标、Windows x64 可执行文件、原生扩展架构及其实际加载能力。
 
+正式二进制文件由 [Release 工作流](.github/workflows/release.yml) 构建，不使用维护者电脑上的本地产物。推送稳定的 `v*` 标签后，GitHub Windows Runner 会运行完整验证、构建安装包与免安装 ZIP、重新生成 `SHA256SUMS.txt`、保留工作流产物并发布对应的 GitHub Release。手动工作流入口只用于重新构建已经存在的标签，例如首次发布的 `v1.0.0`。
+
 ## 项目结构
 
 ```text

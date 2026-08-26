@@ -121,6 +121,8 @@ npm run verify:package
 
 Artifacts are written to `release/`. Packaging verifies the renderer and main-process resources, icons, Windows x64 executable, native addon architecture, and native addon loading.
 
+Official binaries are built by the [Release workflow](.github/workflows/release.yml), not on a maintainer workstation. A stable `v*` tag runs the full verification suite on GitHub's Windows runner, builds the installer and portable ZIP, regenerates `SHA256SUMS.txt`, preserves the workflow artifact, and publishes the matching GitHub Release. The manual workflow input exists only to rebuild an already-created tag, such as the initial `v1.0.0` tag.
+
 ## Project layout
 
 ```text

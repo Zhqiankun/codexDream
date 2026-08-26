@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  windows-x64:
+    name: Verify, build, and publish Windows x64
+    runs-on: windows-latest
+    env:
+      RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Validate release tag
+        id: release
+        shell: pwsh
+        run: |
+          $tag = Split-Path -Leaf $env:RELEASE_REF
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Release ref must resolve to a stable semantic-version tag, received: $tag"
+          }
+
+          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          if ($tag -ne "v$version") {
+            throw "Release tag $tag does not match package version v$version"
+          }
+
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify formatting
+        run: npm run format:check
+
+      - name: Run lint checks
+        run: npm run lint
+
+      - name: Run type checks
+        run: npm run typecheck
+
+      - name: Verify architecture boundaries
+        run: npm run architecture:check
+
+      - name: Run main-process tests
+        run: npm run test:unit
+
+      - name: Run renderer tests
+        run: npm run test:renderer
+
+      - name: Run acceptance tests
+        run: npm run test:integration
+
+      - name: Run Electron end-to-end tests
+        run: npm run test:e2e
+
+      - name: Build release packages
+        run: npm run package:win
+
+      - name: Verify release packages
+        run: npm run verify:package
+
+      - name: Preserve workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodexStyle-${{ steps.release.outputs.tag }}-windows-x64
+          path: |
+            release/CodexStyle-*-x64.exe
+            release/CodexStyle-*-x64.zip
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Extract release notes
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          $changelog = Get-Content -LiteralPath CHANGELOG.md -Raw
+          $heading = [regex]::Escape("## $env:RELEASE_TAG")
+          $match = [regex]::Match($changelog, "(?ms)^$heading\b.*?(?=^##\s|\z)")
+          if (-not $match.Success) {
+            throw "CHANGELOG.md does not contain a section for $env:RELEASE_TAG"
+          }
+
+          Set-Content -LiteralPath release/RELEASE_NOTES.md -Value $match.Value.Trim() -Encoding utf8
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          $version = $env:RELEASE_TAG.Substring(1)
+          $installer = "release/CodexStyle-$version-x64.exe"
+          $portable = "release/CodexStyle-$version-x64.zip"
+
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:RELEASE_TAG `
+              --draft `
+              --verify-tag `
+              --title "CodexStyle $env:RELEASE_TAG" `
+              --notes-file release/RELEASE_NOTES.md
+          }
+
+          gh release upload $env:RELEASE_TAG `
+            $installer `
+            $portable `
+            release/SHA256SUMS.txt `
+            --clobber
+
+          gh release edit $env:RELEASE_TAG --draft=false --latest
