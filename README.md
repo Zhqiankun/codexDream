@@ -24,6 +24,25 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 > [!IMPORTANT]
 > CodexStyle is an independent community project. It is not affiliated with, endorsed by, or sponsored by OpenAI. Codex and OpenAI are trademarks of OpenAI.
 
+## Screenshots
+
+<p align="center">
+  <a href="docs/viewImages/1a79b280-60db-4c51-86b9-afa3ee8ca0c6.png">
+    <img src="docs/viewImages/1a79b280-60db-4c51-86b9-afa3ee8ca0c6.png" alt="Codex home view with a pink CodexStyle theme" width="100%">
+  </a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>Conversation workspace</strong></td>
+    <td width="50%" align="center"><strong>Themed message surfaces</strong></td>
+  </tr>
+  <tr>
+    <td><a href="docs/viewImages/dbb7011a-a20e-479a-bae4-45e79009a708.png"><img src="docs/viewImages/dbb7011a-a20e-479a-bae4-45e79009a708.png" alt="Codex conversation workspace with a pink CodexStyle theme"></a></td>
+    <td><a href="docs/viewImages/ba92a3fc-046c-4ffc-932c-bfa1b472517d.png"><img src="docs/viewImages/ba92a3fc-046c-4ffc-932c-bfa1b472517d.png" alt="Codex conversation with themed user and assistant messages"></a></td>
+  </tr>
+</table>
+
 ## Highlights
 
 - Live 16:9 previews for the Codex home and conversation views.

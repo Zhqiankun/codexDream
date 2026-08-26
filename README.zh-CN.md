@@ -24,6 +24,25 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 > [!IMPORTANT]
 > CodexStyle 是独立的社区开源项目，与 OpenAI 不存在隶属、认可或赞助关系。Codex 和 OpenAI 是 OpenAI 的商标。
 
+## 效果展示
+
+<p align="center">
+  <a href="docs/viewImages/1a79b280-60db-4c51-86b9-afa3ee8ca0c6.png">
+    <img src="docs/viewImages/1a79b280-60db-4c51-86b9-afa3ee8ca0c6.png" alt="应用粉色 CodexStyle 主题后的 Codex 首页" width="100%">
+  </a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>对话工作区</strong></td>
+    <td width="50%" align="center"><strong>主题化消息面板</strong></td>
+  </tr>
+  <tr>
+    <td><a href="docs/viewImages/dbb7011a-a20e-479a-bae4-45e79009a708.png"><img src="docs/viewImages/dbb7011a-a20e-479a-bae4-45e79009a708.png" alt="应用粉色 CodexStyle 主题后的 Codex 对话工作区"></a></td>
+    <td><a href="docs/viewImages/ba92a3fc-046c-4ffc-932c-bfa1b472517d.png"><img src="docs/viewImages/ba92a3fc-046c-4ffc-932c-bfa1b472517d.png" alt="应用主题后的用户与助手消息面板"></a></td>
+  </tr>
+</table>
+
 ## 功能亮点
 
 - 提供 Codex 首页与对话页面的 16:9 实时预览。
