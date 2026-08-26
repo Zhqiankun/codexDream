@@ -1,0 +1,116 @@
+# CodexStyle 需求与验收
+
+## 目标
+
+CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主题库、离线 Studio、普通 ZIP 导入/导出、托盘常驻，以及对本工具启动并完整验证身份的官方 Microsoft Store `OpenAI.Codex` 会话进行主题注入。
+
+## 非目标
+
+- 在线 Gallery、账号登录、投稿、云同步或协作。
+- 网页一键换肤、`dreamskin://` 或其他深链。
+- 本版本中的联网更新检查、下载、安装或外链跳转。
+- 注入、重启或关闭用户从外部启动的 Codex。
+- WindowsApps ACL/所有权修改、二进制复制、asar 修改、签名绕过或直接 exe 回退。
+
+## 用户流程
+
+1. 用户打开 CodexStyle；关闭主窗口时应用隐藏至托盘，只有托盘“退出”结束工具。
+2. 用户在离线 Studio 创建、编辑、预览并保存主题，或导入兼容普通 ZIP。导入只加入主题库，不自动应用。
+3. 用户显式选择一个 ready 主题用于下次由本工具启动的 Codex 会话。
+4. 若已有任何外部官方 Codex 进程，工具只提示用户自行关闭；取消或等待均不改变该会话。
+5. 外部会话关闭后，用户由工具启动 Codex。工具仅在 AppX、进程、回环端口、Browser ID 和 renderer 标记全部验证通过后注入。
+6. CDP 参数未透传、端点身份不符或选择器不兼容时，工具显示不兼容并保持未注入，不做权限或启动方式绕过。
+7. 暂停和恢复仅影响后续注入；不追溯重写当前页面。运行中的已拥有会话需要改变主题时，提示用户关闭后重启。
+8. 更新入口可见；触发后只显示“更新尚未配置，当前不可用”。
+
+## 主题契约
+
+内部存储主键为 UUID `libraryId`；外部 `theme.json.id` 不是主键。新建和编辑使用严格 v1 字段集。
+
+每个主题还包含以下展示配置，并由 Studio 预览、真实 Codex 注入和简化 ZIP 共用：
+
+- `backgroundScope` 只能为 `"content"`（仅内容区）或 `"window"`（全窗口）。
+- `sidebarOverlayOpacity` 是 `0` 到 `100` 的整数，表示全窗口模式下左侧栏深色遮罩的不透明度；遮罩色固定为 `rgb(15 23 42)`，确保 Studio 与真实注入结果可复现。仅内容区模式保留主题 CSS 原有的侧栏背景。
+- 旧的内部主题或 ZIP 缺少上述字段时按 `backgroundScope: "window"`、`sidebarOverlayOpacity: 75` 读取；新建、编辑和简化导出必须显式写入这两个字段。
+- 修改任一展示配置都按普通主题编辑处理：递增 revision、退回 draft、使正式导入项变为已编辑并只能导出简化 ZIP。
+- `appearance` 只能为 `auto | light | dark`。`art` 包含 `focusX/focusY`（`0..1`）、`safeArea`（`none | left | right`）和 `taskMode`（`ambient | full | off`）。背景焦点必须立即改变预览与真实注入的图片定位。
+- `colors` 固定包含 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；main 将其转换为登记的 `--ds-theme-color-*` 变量，供自动生成或高级 Safe CSS 使用。
+- `style` 包含 `mode`、四个配方开关和受限表面参数。`mode: "configured"` 时，sidebar、composer、message、dialog 配方以及 blur、radius、borderWidth、shadow 由结构化配置确定，并通过唯一共享生成器产生非空 `theme.css`；用户无需手改 CSS。`mode: "advanced"` 时保留既有 Safe CSS 源码编辑和验证能力。
+- 新主题默认使用配置模式；旧内部主题和未声明 `style` 的导入包按高级模式读取，禁止迁移时覆盖原 CSS。两种模式都必须在 commit、导出、选择和注入前通过相同 Safe CSS 校验。
+- Studio 提供“设计 / CSS / theme.json”三个面板。theme.json 源码只能在显式“校验并应用”后进入主题记录；其字段、大小、图片引用和配置范围由 main 复验，未应用的文本不得进入预览、ZIP 或注入。
+
+### 兼容简化 ZIP
+
+- 普通 `.zip`，文件位于根目录或唯一一层目录。
+- 恰好包含非空 `theme.json`、非空 `theme.css` 和 `theme.json.image` 指向的一张 PNG/JPEG/WebP。
+- 默认导出同样的三件套；`theme.json` 携带展示配置，同时导出的 ZIP 必须能被旧版普通主题导入契约再次接受。
+
+### 正式旧包
+
+- 包含 `manifest.json`、`theme.json`、`theme.css` 和一张 `background.jpg|png|webp`。
+- 可选 `LICENSE.txt`、`manifest.sig`；manifest 字段、Windows 平台、最低版本、字节数和 SHA-256 必须严格验证。
+- `manifest.sig` 保留但不验签，UI 标记“签名未验证”。
+- 只有未编辑的正式导入项可重建原始正式包导出；编辑后只能导出明确标记的简化兼容 ZIP。
+
+### 安全限制
+
+- ZIP 不超过 32 MiB、最多 32 项、解压总量不超过 64 MiB。
+- `theme.json` 兼容导入不超过 1 MiB，新建/正式包及 Studio 源码编辑不超过 64 KiB；CSS 不超过 256 KiB。
+- 图片不超过 10 MiB，宽高各不超过 16384，总像素不超过 5000 万，并校验媒体魔数和实际解码。
+- 拒绝绝对路径、路径穿越、重复路径、链接/reparse、嵌套归档、Windows 保留名、未知文件、歧义根目录、加密项和压缩滥用。
+- Safe CSS 固定为 `dreamskin-safe-css/1`：最多 128 条规则、512 个声明、12 个登记 `data-ds-part`，仅允许 `hover`/`focus-visible` 和白名单属性、变量与值；拒绝 `@`、`url()`、转义、注释和未知语法。
+- 导入、commit、选择、注入前均复验；任何失败均 fail closed。
+
+## 冲突与事务
+
+- 同语义指纹返回 `DUPLICATE_CONTENT`，不写入。
+- 同 `themeId` 不同内容先返回 `THEME_ID_CONFLICT`；只有用户显式选择“保留两份”或基于 `expectedRevision` 替换后才继续。
+- 名称重复只提示，不覆盖。
+- 替换使用 journal、backup、staging 和重读指纹；last-known-good 正在引用的主题禁止替换。
+- 导入、编辑或导出失败不改变选择和 last-known-good。
+
+## Windows 受管存储安全契约
+
+- 仅支持 Windows x64。受管存储由仓库内源码受控、随应用构建的 N-API native 模块提供，不下载或信任第三方预编译 secure-store 二进制。
+- 唯一受保护根为当前 Windows 用户的 `%LOCALAPPDATA%\\CodexStyle`。模块只接受编译期登记的相对 managed path/operation 标识，不接受 renderer、IPC、用户输入、绝对路径、UNC、盘符、ADS、`.`、`..` 或任意路径拼接。
+- 主进程初始化存储时安全创建或打开根目录，校验其为真实目录且不是 reparse point，并持有根句柄至受管存储停止或应用退出。根句柄失效、身份变化或关闭顺序异常均 fail closed。
+- `state/`、`themes/`、`transactions/`、`lock/` 与 `ownership/` 是完整保护域。每个路径段都必须从已验证父句柄出发，以 handle-relative NT I/O 和 `FILE_OPEN_REPARSE_POINT` 语义打开，再查询并拒绝任意 reparse tag、错误对象类型、路径逃逸或句柄身份异常。
+- 保护域的读取、创建、锁、删除、恢复和提交不得调用 Node `fs` 作为 fallback。任一 native 加载、路径、reparse、对象类型、I/O、flush、rename 或恢复异常统一映射为既有 `STORE_TAMPERED`，且不得继续启动会话或静默重建状态。
+- 受管原子写必须在目标同目录创建不可预测且受控的临时文件，完成有界写入并 flush 后，通过父目录句柄执行 handle-relative rename。失败后只能保留完整旧版本或完整新版本，恢复流程不得信任未经同样验证的临时、journal 或 backup。
+- native `.node` 必须位于 ASAR unpacked 资源中并随 Windows x64 安装包交付。生产运行时模块缺失、加载失败、N-API/架构不兼容或解析到 ASAR 内错误位置时必须 `STORE_TAMPERED`，禁止使用 JavaScript 文件系统实现降级。
+- 用户通过原生保存对话框选择的主题导出 ZIP 不属于受保护根；它继续使用既有有界 ZIP 导出、取消无副作用和目标文件原子替换规则。该例外不得成为访问任意 managed path 的通道。
+- 受管存储安全边界不改变 IPC 方法集合或 `../old/` 兼容契约。IPC 仍为 `v: 1`，仅在既有 `ThemeDetail`/`ThemePatch` 中扩展展示配置字段；主题 ZIP 仍是原三件套布局。
+
+## 会话与退出行为
+
+- 只接受当前用户注册、`SignatureKind=Store`、非开发模式的 `OpenAI.Codex`。
+- 只经 AppX/AUMID 启动，参数包含随机 256-bit nonce、`--remote-debugging-address=127.0.0.1` 和随机可用端口。
+- 任一 PID、进程开始时间、SID、包身份、nonce、监听 PID、端口、Browser ID 或 selector profile 不匹配即终止 watcher，不重新附着。
+- 外部会话绝不受控。发现外部会话时返回 `EXTERNAL_SESSION_RUNNING`。
+- 托盘“退出”若存在已验证的工具拥有会话，先明确提示将关闭该会话；确认后才清理并优雅关闭。清理失败时工具保持运行，不强杀。
+- 崩溃恢复只显示孤儿会话警告，不自动附着、关闭或注入。
+
+## IPC 与错误
+
+preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑（含背景、外观、焦点、配色、样式配置和显式 theme.json 应用）、背景选择/commit/导入冲突处理/导出/选择、会话启动/暂停/恢复/结束，以及更新占位。main 只发送 `studio:state-changed` 公共 snapshot 事件。renderer 不接收本地路径、PID、端口或 nonce。
+
+错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_UNCONFIGURED`。
+
+## 可观察验收
+
+1. 可创建、编辑、预览、保存本地主题；切换“仅内容区/全窗口”和调整侧栏遮罩时 LIVE PREVIEW 立即更新，保存、重开与简化 ZIP 往返后配置不丢失。
+2. 有效旧版普通 ZIP 可导入；缺件、不安全 CSS/图片/归档或冲突不会静默覆盖。
+3. 导入只进入主题库，必须显式选择才影响后续工具启动。
+4. 支持的 Store Codex 上，仅工具启动且身份验证完整的会话显示主题；外部启动会话保持原样。
+5. 已有外部会话时工具不终止它，用户关闭后才能由工具启动。
+6. 暂停、恢复、关闭窗口至托盘和显式退出都有清晰状态结果。
+7. CDP 或选择器不兼容时显示明确失败，不注入、不绕过、不破坏 Codex。
+8. 更新入口可见并明确返回未配置，不发生网络请求。
+9. 受管根或任一路径段为 junction、symlink 或其他 reparse point，native 模块缺失/加载失败，或 handle-relative 操作出现身份异常时，应用返回 `STORE_TAMPERED`，不使用 Node `fs` 降级且不继续使用该存储。
+10. 在写入、flush、rename 和恢复各失败点，重启后只能读到完整旧状态或完整新状态；`state/themes/transactions/lock/ownership` 均遵守相同根句柄和逐段校验规则。
+11. 打包后的 `.node` 位于 ASAR unpacked 资源并可在无 Build Tools 的普通用户环境加载；删除该文件会稳定 fail closed。用户选择的外部导出 ZIP 仍可按原契约创建，且不能借此访问 managed path。
+12. 全窗口模式下背景覆盖根区域并透过配置的侧栏遮罩可见；仅内容区模式下背景只覆盖主内容区域。相同主题配置在 LIVE PREVIEW 和真实 Codex 注入中使用相同作用域与遮罩规则。
+13. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和十色配色在设计面板可配置，保存、重开、ZIP 往返后不丢失；焦点、颜色变量和 color-scheme 在 LIVE PREVIEW 与真实注入一致。
+14. 配置模式下启停四个样式配方或调整 blur/radius/border/shadow 会立即更新预览，并由共享生成器写入合法非空 theme.css；无需编辑源码。高级模式继续支持现有 CSS，旧主题不会被自动改写。
+15. theme.json 面板可校验并应用合法源码；语法错误、未知字段、越界值或图片引用变化会被拒绝且不改变 revision、预览、选择或已持久化主题。
+16. LIVE PREVIEW 可在“首页”和“对话”之间即时切换；两个页面复用同一主题根、侧栏、背景作用域、焦点、画面处理、颜色变量和 Safe CSS，切换只影响预览内容，不修改草稿或 revision。

@@ -1,0 +1,13 @@
+node_modules/
+out/
+release/
+dist/
+.vite/
+native/secure-store/build/
+coverage/
+test-results/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!*.env.example
