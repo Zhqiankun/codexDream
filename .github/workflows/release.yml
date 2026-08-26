@@ -27,12 +27,12 @@ jobs:
 
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ env.RELEASE_REF }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22.22.0
           cache: npm
@@ -57,7 +57,7 @@ jobs:
         run: npm ci
 
       - name: Verify formatting
-        run: npm run format:check
+        run: npm run format:check -- --end-of-line auto
 
       - name: Run lint checks
         run: npm run lint
