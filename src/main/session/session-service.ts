@@ -40,6 +40,9 @@ interface OwnedSession {
   newDocumentScriptId?: string;
 }
 
+export const CODEX_STARTUP_VERIFY_TIMEOUT_MS = 90_000;
+const CODEX_STARTUP_POLL_INTERVAL_MS = 250;
+
 interface PersistedOwnedSession {
   version: 1;
   packageFullName: string;
@@ -51,11 +54,26 @@ interface PersistedOwnedSession {
   port: number;
   browserId: string;
   targetId: string;
-  selectorProfile: typeof CODEX_SELECTOR_PROFILE;
+  selectorProfile: PersistedSelectorProfile;
   themeLibraryId: string;
   themeFingerprint: string;
   createdAt: string;
 }
+
+type PersistedSelectorProfile =
+  | typeof CODEX_SELECTOR_PROFILE
+  | "openai-codex-shell/1"
+  | "openai-codex-shell/2"
+  | "openai-codex-shell/3"
+  | "openai-codex-shell/4";
+
+const PERSISTED_SELECTOR_PROFILES = new Set<PersistedSelectorProfile>([
+  "openai-codex-shell/1",
+  "openai-codex-shell/2",
+  "openai-codex-shell/3",
+  "openai-codex-shell/4",
+  CODEX_SELECTOR_PROFILE,
+]);
 
 export interface ReadyThemePayload {
   record: ThemeRecord;
@@ -141,16 +159,37 @@ export class CodexSessionService {
     this.messageKey = "session.launching";
     const nonce = randomBytes(32).toString("hex");
     const port = await reservePort();
-    await this.platform.launchStore(packageInfo, nonce, port);
+    let activatedProcessId: number;
+    try {
+      activatedProcessId = await this.platform.launchStore(
+        packageInfo,
+        nonce,
+        port,
+      );
+    } catch {
+      this.fail(
+        "INCOMPATIBLE",
+        "session.launchFailed",
+        "STORE_ACTIVATION_FAILED",
+      );
+    }
     this.state = "VERIFYING_CDP";
     this.messageKey = "session.verifying";
-    const owned = await this.verifyNewProcess(
-      packageInfo,
-      baseline,
-      nonce,
-      port,
-      theme,
-    );
+    let owned: OwnedSession;
+    try {
+      owned = await this.verifyNewProcess(
+        packageInfo,
+        baseline,
+        activatedProcessId,
+        nonce,
+        port,
+        theme,
+      );
+    } catch (error) {
+      this.state = "INCOMPATIBLE";
+      this.messageKey = verificationFailureMessageKey(error);
+      throw error;
+    }
     this.owned = owned;
     try {
       await this.persistOwnership(owned);
@@ -242,11 +281,16 @@ export class CodexSessionService {
   private async verifyNewProcess(
     packageInfo: StorePackage,
     baseline: ProcessIdentity[],
+    activatedProcessId: number,
     nonce: string,
     port: number,
     theme: ThemeRecord,
   ): Promise<OwnedSession> {
-    const deadline = Date.now() + 20_000;
+    // The Store build can expose CDP well before React mounts the stable shell
+    // anchors, especially on the first cold start after an update. Keep the
+    // identity checks strict, but give the verified process enough time to
+    // finish rendering before classifying its selector profile as incompatible.
+    const deadline = Date.now() + CODEX_STARTUP_VERIFY_TIMEOUT_MS;
     const currentSid = await this.platform.currentUserSid();
     if (!currentSid) throw new Error("TARGET_IDENTITY_MISMATCH:current-sid");
     let sawTarget = false;
@@ -256,6 +300,7 @@ export class CodexSessionService {
       );
       const fresh = processes.filter(
         (process) =>
+          process.pid === activatedProcessId &&
           !baseline.some((before) => before.pid === process.pid) &&
           hasNonce(process.commandLine, nonce),
       );
@@ -293,7 +338,7 @@ export class CodexSessionService {
           sawTarget = true;
         }
       }
-      await delay(250);
+      await delay(CODEX_STARTUP_POLL_INTERVAL_MS);
     }
     throw new Error(sawTarget ? "TARGET_INCOMPATIBLE" : "CDP_UNAVAILABLE");
   }
@@ -632,6 +677,14 @@ function isTargetError(error: unknown): boolean {
   );
 }
 
+function verificationFailureMessageKey(error: unknown): string {
+  if (!(error instanceof Error)) return "session.identityMismatch";
+  if (error.message.startsWith("CDP_")) return "session.cdpUnavailable";
+  if (error.message.startsWith("TARGET_INCOMPATIBLE"))
+    return "session.targetIncompatible";
+  return "session.identityMismatch";
+}
+
 function samePath(left: string, right: string): boolean {
   return (
     left.replaceAll("/", "\\").toLowerCase() ===
@@ -697,10 +750,19 @@ function isPersistedOwnedSession(
     Number.isInteger(state.port) &&
     typeof state.browserId === "string" &&
     typeof state.targetId === "string" &&
-    state.selectorProfile === CODEX_SELECTOR_PROFILE &&
+    isPersistedSelectorProfile(state.selectorProfile) &&
     typeof state.themeLibraryId === "string" &&
     typeof fingerprint === "string" &&
     /^[a-f0-9]{64}$/u.test(fingerprint) &&
     typeof state.createdAt === "string"
+  );
+}
+
+function isPersistedSelectorProfile(
+  value: unknown,
+): value is PersistedSelectorProfile {
+  return (
+    typeof value === "string" &&
+    PERSISTED_SELECTOR_PROFILES.has(value as PersistedSelectorProfile)
   );
 }

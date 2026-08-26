@@ -8,7 +8,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 - 在线 Gallery、账号登录、投稿、云同步或协作。
 - 网页一键换肤、`dreamskin://` 或其他深链。
-- 本版本中的联网更新检查、下载、安装或外链跳转。
+- 后台联网更新、自动下载、静默安装或执行远程文件。
 - 注入、重启或关闭用户从外部启动的 Codex。
 - WindowsApps ACL/所有权修改、二进制复制、asar 修改、签名绕过或直接 exe 回退。
 
@@ -21,7 +21,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 5. 外部会话关闭后，用户由工具启动 Codex。工具仅在 AppX、进程、回环端口、Browser ID 和 renderer 标记全部验证通过后注入。
 6. CDP 参数未透传、端点身份不符或选择器不兼容时，工具显示不兼容并保持未注入，不做权限或启动方式绕过。
 7. 暂停和恢复仅影响后续注入；不追溯重写当前页面。运行中的已拥有会话需要改变主题时，提示用户关闭后重启。
-8. 更新入口可见；触发后只显示“更新尚未配置，当前不可用”。
+8. 更新入口可见；只有用户主动触发时才请求固定 GitHub 仓库的最新稳定 Release。发现新版后再次确认才打开经过校验的 Release 页面，由用户手动下载安装。
 
 ## 主题契约
 
@@ -92,9 +92,9 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 ## IPC 与错误
 
-preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑（含背景、外观、焦点、配色、样式配置和显式 theme.json 应用）、背景选择/commit/导入冲突处理/导出/选择、会话启动/暂停/恢复/结束，以及更新占位。main 只发送 `studio:state-changed` 公共 snapshot 事件。renderer 不接收本地路径、PID、端口或 nonce。
+preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑（含背景、外观、焦点、配色、样式配置和显式 theme.json 应用）、背景选择/commit/导入冲突处理/导出/选择、会话启动/暂停/恢复/结束，以及手动检查更新和打开已验证 Release 页面。main 只发送 `studio:state-changed` 公共 snapshot 事件。renderer 不接收本地路径、PID、端口或 nonce，也不能提交任意更新地址。
 
-错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_UNCONFIGURED`。
+错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_CHECK_FAILED`、`UPDATE_OPEN_FAILED`。
 
 ## 可观察验收
 
@@ -105,7 +105,7 @@ preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑�
 5. 已有外部会话时工具不终止它，用户关闭后才能由工具启动。
 6. 暂停、恢复、关闭窗口至托盘和显式退出都有清晰状态结果。
 7. CDP 或选择器不兼容时显示明确失败，不注入、不绕过、不破坏 Codex。
-8. 更新入口可见并明确返回未配置，不发生网络请求。
+8. 应用启动和后台运行不产生更新请求；用户点击“检查更新”后只请求 `api.github.com/repos/Zhqiankun/codexDream/releases/latest`，严格校验稳定语义版本和 `github.com/Zhqiankun/codexDream/releases/tag/` 地址。发现新版时再次确认才打开页面，不自动下载、执行或安装。
 9. 受管根或任一路径段为 junction、symlink 或其他 reparse point，native 模块缺失/加载失败，或 handle-relative 操作出现身份异常时，应用返回 `STORE_TAMPERED`，不使用 Node `fs` 降级且不继续使用该存储。
 10. 在写入、flush、rename 和恢复各失败点，重启后只能读到完整旧状态或完整新状态；`state/themes/transactions/lock/ownership` 均遵守相同根句柄和逐段校验规则。
 11. 打包后的 `.node` 位于 ASAR unpacked 资源并可在无 Build Tools 的普通用户环境加载；删除该文件会稳定 fail closed。用户选择的外部导出 ZIP 仍可按原契约创建，且不能借此访问 managed path。

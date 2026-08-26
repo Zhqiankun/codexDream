@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { dialog, type BrowserWindow } from "electron";
+import sharp from "sharp";
 import type {
   ExportResult,
   ImportResult,
@@ -8,6 +9,7 @@ import type {
   ThemePatch,
   ThemeSnapshot,
 } from "../../contracts";
+import { isThemeIconDataUrl, readThemeConfiguration } from "../../contracts";
 import type { ThemeRecord } from "../domain/theme";
 import { LocalThemeStore } from "../infra/local-store";
 import { readImageFileBounded, validateImage } from "../infra/image";
@@ -93,6 +95,55 @@ export class ThemeService {
         image.mime,
         image.sha256,
       );
+      return {
+        ok: true,
+        data: this.store.getDetail(record.libraryId, "app://theme-asset")!,
+      };
+    } catch (error) {
+      return this.fromError(error);
+    }
+  }
+
+  async chooseSendIcon(
+    libraryId: string,
+    expectedRevision: number,
+  ): Promise<Result<ThemeDetail>> {
+    const window = this.mainWindow();
+    if (!window) return this.error("UNKNOWN", "window.unavailable");
+    const selected = await dialog.showOpenDialog(window, {
+      properties: ["openFile"],
+      filters: [{ name: "透明 PNG 图标", extensions: ["png"] }],
+    });
+    if (selected.canceled || !selected.filePaths[0])
+      return this.error("CANCELLED", "dialog.cancelled");
+    try {
+      const source = await readImageFileBounded(selected.filePaths[0]);
+      await validateImage(source, selected.filePaths[0]);
+      const icon = await sharp(source, {
+        failOn: "error",
+        limitInputPixels: 50_000_000,
+        animated: false,
+      })
+        .ensureAlpha()
+        .resize(64, 64, {
+          fit: "contain",
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+      const dataUrl = "data:image/png;base64," + icon.toString("base64");
+      if (!isThemeIconDataUrl(dataUrl))
+        throw new Error("UNSAFE_IMAGE:icon-size");
+      const current = this.store.get(libraryId);
+      if (!current) return this.error("NOT_FOUND", "theme.notFound");
+      const configuration = readThemeConfiguration(current.json);
+      const record = await this.store.patch(libraryId, expectedRevision, {
+        styleConfig: {
+          ...configuration.styleConfig,
+          sendIcon: "custom",
+          sendIconDataUrl: dataUrl,
+        },
+      });
       return {
         ok: true,
         data: this.store.getDetail(record.libraryId, "app://theme-asset")!,

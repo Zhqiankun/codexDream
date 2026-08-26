@@ -11,6 +11,8 @@ const required = [
   "src/main/infra/local-store.ts",
   "src/main/infra/theme-zip.ts",
   "src/main/infra/safe-css.ts",
+  "src/main/infra/github-releases.ts",
+  "src/main/app/update-service.ts",
   "src/main/session/cdp-client.ts",
   "src/main/session/selector-profile.ts",
   "src/main/session/theme-payload.ts",
@@ -102,9 +104,19 @@ requireMarkers(preload, "preload-contract", [
   "contextBridge.exposeInMainWorld",
   'invoke("update.getStatus"',
   'invoke("update.request"',
+  'invoke("update.openRelease"',
 ]);
 if (/exposeInMainWorld\([^,]+,\s*ipcRenderer\)/u.test(preload))
   failures.push("preload-exposes-raw-ipc");
+
+const githubReleases = source("src/main/infra/github-releases.ts");
+requireMarkers(githubReleases, "manual-update-boundary", [
+  '"https://api.github.com/repos/Zhqiankun/codexDream/releases/latest"',
+  'url.hostname !== "github.com"',
+  'redirect: "error"',
+  "AbortSignal.timeout",
+  "MAX_RESPONSE_BYTES",
+]);
 
 const mainIndex = source("src/main/index.ts");
 requireMarkers(mainIndex, "single-instance", [
@@ -204,13 +216,16 @@ requireMarkers(platform, "windows-platform", [
   "Get-AppxPackageManifest",
   "SignatureKind -eq 'Store'",
   "timeout: POWER_SHELL_TIMEOUT_MS",
-  "shell:AppsFolder",
+  "IApplicationActivationManager",
+  "StoreApplicationActivator",
+  "packageInfo.aumid",
 ]);
 for (const forbidden of [
   "taskkill",
   "killOwnedProcess",
   "existsSync",
   "ExecutionPolicy",
+  "explorer.exe",
 ]) {
   if (platform.includes(forbidden))
     failures.push(`windows-forbidden:${forbidden}`);

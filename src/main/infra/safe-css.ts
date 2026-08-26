@@ -18,6 +18,7 @@ export const SAFE_CSS_PARTS = [
   "message",
   "composer",
   "composer-toolbar",
+  "composer-submit",
   "dialog",
 ] as const;
 
@@ -31,6 +32,7 @@ const variables = new Set([
   "--ds-theme-color-background",
   "--ds-theme-color-panel",
   "--ds-theme-color-panel-alt",
+  "--ds-theme-color-assistant-panel",
   "--ds-theme-color-accent",
   "--ds-theme-color-accent-alt",
   "--ds-theme-color-secondary",

@@ -5,14 +5,15 @@ import {
   type SessionState,
   type ThemeDetail,
   type ThemeSnapshot,
+  type UpdateSnapshot,
 } from "../../contracts";
 import { bridge } from "../api/bridge";
 import {
   StudioControls,
   type StudioTab,
 } from "../features/studio/StudioControls";
+import { SendIconGlyph } from "../features/studio/SendIconGlyph";
 
-const SIDEBAR_OVERLAY_RGB = "15 23 42";
 const PREVIEW_COLOR_PATTERN =
   /^(#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|#[0-9a-fA-F]{3,4}|rgb\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*\)|rgba\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*(?:0|1|1\.0|0?\.[0-9]{1,6})\s*\))$/u;
 
@@ -42,12 +43,14 @@ function unwrap<T>(
 }
 
 const errorMessages: Record<string, string> = {
-  "update.unconfigured": "更新尚未配置，当前不可用。",
+  "update.checkFailed": "无法连接 GitHub 检查更新，请稍后重试。",
+  "update.openFailed": "无法打开下载页面，请前往项目的 GitHub Releases。",
   "ipc.busy": "另一项操作正在进行，请稍后再试。",
   "ipc.invalid": "请求内容无效，请重试。",
   "ipc.unauthorized": "当前页面无权执行此操作。",
   "session.externalRunning": "外部 Codex 正在运行，请自行关闭后再试。",
   "session.storePackageNotFound": "未找到受支持的 Microsoft Store Codex。",
+  "session.launchFailed": "Windows 未能启动 Store Codex，请重试。",
   "session.cdpUnavailable": "当前 Codex 未开放可验证的本地调试端点。",
   "session.identityMismatch": "Codex 会话身份验证失败，未执行注入。",
   "session.targetIncompatible": "当前 Codex 页面与安全选择器不兼容。",
@@ -63,10 +66,11 @@ const errorMessages: Record<string, string> = {
   "theme.formalExportUnavailable": "此主题已编辑，无法原样导出正式包。",
   "import.transactionNotFound": "导入事务已失效，请重新选择 ZIP。",
   "import.replaceArguments": "替换参数无效，请重新导入。",
-  "window.unavailable": "Studio 窗口当前不可用。",
+  "window.unavailable": "主题工作台窗口当前不可用。",
   "error.unsafe_archive": "ZIP 未通过安全或格式校验。",
-  "error.unsafe_css": "CSS 未通过 Safe CSS 校验。",
-  "error.unsafe_image": "图片未通过大小、格式或解码校验。",
+  "error.unsafe_css": "CSS 未通过安全样式校验。",
+  "error.unsafe_image":
+    "图片不符合要求：请使用静态 PNG/JPG/WebP，文件不超过 10 MiB、单边不超过 16,384 px、总像素不超过 5,000 万，并确保文件可正常打开。",
   "error.incomplete_theme": "主题内容不完整，请补齐后再试。",
   "error.stale_revision": "主题已发生变化，请刷新后重试。",
   "error.theme_id_conflict": "主题 ID 与现有主题冲突。",
@@ -93,6 +97,8 @@ export function App() {
   const [view, setView] = useState<View>("library");
   const [notice, setNotice] = useState<string>("");
   const [pendingImport, setPendingImport] = useState<ImportResult>();
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] =
+    useState<string>();
   const [busy, setBusy] = useState(false);
   const selectedLibraryIdRef = useRef<string | undefined>(undefined);
 
@@ -172,6 +178,36 @@ export function App() {
   );
   const readyCount =
     snapshot?.themes.filter((theme) => theme.status === "ready").length ?? 0;
+  const availableUpdate =
+    snapshot?.update.status === "available" &&
+    snapshot.update.latestVersion !== dismissedUpdateVersion
+      ? snapshot.update
+      : undefined;
+  const updateButtonLabel = availableUpdate?.latestVersion
+    ? `发现新版本 v${availableUpdate.latestVersion}`
+    : "检查更新";
+
+  const checkForUpdates = () =>
+    run(
+      () => bridge.requestUpdate(),
+      (update) => {
+        if (update.status === "available") {
+          setDismissedUpdateVersion(undefined);
+          report(`发现新版本 v${update.latestVersion}。`);
+        } else {
+          report(`当前已是最新版 v${update.currentVersion}。`);
+        }
+      },
+    );
+
+  const openUpdatePage = (update: UpdateSnapshot) =>
+    run(
+      () => bridge.openUpdatePage(),
+      () => {
+        setDismissedUpdateVersion(update.latestVersion);
+        report("已打开 GitHub Release 下载页面。");
+      },
+    );
 
   return (
     <div className="shell">
@@ -181,7 +217,7 @@ export function App() {
         </div>
         <div className="brand-copy">
           <strong>CodexStyle</strong>
-          <span>离线 Studio</span>
+          <span>本地主题工作台</span>
         </div>
         <div className="topbar-spacer" />
         <div
@@ -191,10 +227,11 @@ export function App() {
           {sessionLabels[snapshot?.session.state ?? "NO_SESSION"]}
         </div>
         <button
-          className="icon-button"
-          title="检查更新"
-          aria-label="检查更新"
-          onClick={() => void run(() => bridge.requestUpdate())}
+          className={`icon-button update-button ${availableUpdate ? "has-update" : ""}`}
+          title={updateButtonLabel}
+          aria-label={updateButtonLabel}
+          disabled={busy}
+          onClick={() => void checkForUpdates()}
         >
           ↻
         </button>
@@ -289,7 +326,7 @@ export function App() {
               role="tab"
               onClick={() => setView("library")}
             >
-              Studio
+              主题设计
             </button>
             <button
               className={view === "session" ? "tab active" : "tab"}
@@ -304,6 +341,39 @@ export function App() {
             <div className="notice" role="status">
               {notice}
             </div>
+          )}
+          {availableUpdate && (
+            <section className="update-card" aria-label="可用更新">
+              <div className="update-card-mark" aria-hidden="true">
+                ↗
+              </div>
+              <div className="update-card-copy">
+                <span>CODEXSTYLE UPDATE</span>
+                <strong>新版本 v{availableUpdate.latestVersion} 已发布</strong>
+                <p>
+                  当前版本 v{availableUpdate.currentVersion}。确认后将打开固定的
+                  GitHub Release 页面，由你手动下载安装。
+                </p>
+              </div>
+              <div className="update-card-actions">
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() =>
+                    setDismissedUpdateVersion(availableUpdate.latestVersion)
+                  }
+                >
+                  稍后
+                </button>
+                <button
+                  className="primary-button"
+                  disabled={busy}
+                  onClick={() => void openUpdatePage(availableUpdate)}
+                >
+                  打开下载页面
+                </button>
+              </div>
+            </section>
           )}
           {pendingImport?.status === "conflict" && (
             <ImportConflict
@@ -531,6 +601,39 @@ function StudioView({
     );
     if (updated) applyDetail(updated);
   };
+  const chooseSendIcon = async () => {
+    if (themeJsonDirty) {
+      report("请先校验并应用高级配置，或恢复当前配置。");
+      setStudioTab("theme-json");
+      return;
+    }
+    const selectedIcon = await run(() =>
+      bridge.chooseSendIcon({
+        libraryId: detail.libraryId,
+        expectedRevision: detail.revision,
+      }),
+    );
+    if (!selectedIcon) return;
+    if (!changed) {
+      applyDetail(selectedIcon);
+      return;
+    }
+    const updated = await run(() =>
+      bridge.patchDraft({
+        libraryId: selectedIcon.libraryId,
+        expectedRevision: selectedIcon.revision,
+        patch: {
+          ...patchFields(),
+          styleConfig: {
+            ...draft.styleConfig,
+            sendIcon: "custom",
+            sendIconDataUrl: selectedIcon.styleConfig.sendIconDataUrl,
+          },
+        },
+      }),
+    );
+    if (updated) applyDetail(updated);
+  };
   const applyThemeJson = async () => {
     try {
       const parsed: unknown = JSON.parse(themeJsonSource);
@@ -554,7 +657,9 @@ function StudioView({
     colorScheme: draft.appearance === "auto" ? "dark" : draft.appearance,
     "--preview-background": draft.colors.background,
     "--preview-panel": draft.colors.panel,
+    "--preview-sidebar-text": draft.colors.sidebarText,
     "--preview-panel-alt": draft.colors.panelAlt,
+    "--preview-assistant-panel": draft.colors.assistantPanel,
     "--preview-accent": draft.colors.accent,
     "--preview-accent-alt": draft.colors.accentAlt,
     "--preview-secondary": draft.colors.secondary,
@@ -567,7 +672,9 @@ function StudioView({
     "--preview-border": `${draft.styleConfig.borderWidth}px`,
     "--ds-theme-color-background": draft.colors.background,
     "--ds-theme-color-panel": draft.colors.panel,
+    "--ds-theme-color-sidebar-text": draft.colors.sidebarText,
     "--ds-theme-color-panel-alt": draft.colors.panelAlt,
+    "--ds-theme-color-assistant-panel": draft.colors.assistantPanel,
     "--ds-theme-color-accent": draft.colors.accent,
     "--ds-theme-color-accent-alt": draft.colors.accentAlt,
     "--ds-theme-color-secondary": draft.colors.secondary,
@@ -582,7 +689,7 @@ function StudioView({
     <section className="studio-page">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">THEME EDITOR</p>
+          <p className="eyebrow">主题编辑器</p>
           <h1>{draft.name || "未命名主题"}</h1>
           <p className="muted">
             修改仅在保存并选择后影响下一次 CodexStyle 启动。
@@ -593,7 +700,7 @@ function StudioView({
             {cssValid
               ? draft.styleConfig.mode === "configured"
                 ? "主题配置已通过"
-                : "Safe CSS 已通过"
+                : "安全样式已通过"
               : draft.styleConfig.mode === "configured"
                 ? "需要修正颜色"
                 : "需要修正 CSS"}
@@ -667,6 +774,7 @@ function StudioView({
           onTabChange={setStudioTab}
           onDraftChange={setDraft}
           onChooseBackground={() => void chooseBackground()}
+          onChooseSendIcon={() => void chooseSendIcon()}
           onApplyDraft={() => void patch()}
           onThemeJsonChange={(source) => {
             setThemeJsonSource(source);
@@ -683,8 +791,8 @@ function StudioView({
         <div className="preview-column">
           <div className="preview-head">
             <div>
-              <span className="eyebrow">LIVE PREVIEW</span>
-              <h2>Codex Desktop</h2>
+              <span className="eyebrow">实时预览</span>
+              <h2>Codex 桌面效果</h2>
             </div>
             <div className="preview-head-actions">
               <div
@@ -745,108 +853,228 @@ function StudioView({
                 <div className="mock-safe-area" aria-hidden="true" />
               )}
               <style ref={previewStyleRef} />
-              <div
-                className="mock-sidebar"
-                data-ds-part="sidebar"
-                style={
-                  draft.backgroundScope === "window"
-                    ? {
-                        backgroundColor: `rgb(${SIDEBAR_OVERLAY_RGB} / ${draft.sidebarOverlayOpacity / 100})`,
-                      }
-                    : undefined
-                }
-              >
-                <div className="mock-logo">C</div>
-                <div
-                  className={`mock-nav ${previewPage === "home" ? "active" : ""}`}
-                  data-ds-part="thread"
-                >
-                  首页
+              <div className="mock-titlebar" aria-hidden="true">
+                <div className="mock-titlebar-menu">
+                  <span className="mock-app-glyph">◫</span>
+                  <span>←</span>
+                  <span>→</span>
+                  <span>文件</span>
+                  <span>编辑</span>
+                  <span>视图</span>
+                  <span>帮助</span>
                 </div>
-                <div
-                  className={`mock-nav ${previewPage === "conversation" ? "active" : ""}`}
-                  data-ds-part="thread"
-                >
-                  主题会话
-                </div>
-                <div className="mock-nav" data-ds-part="thread">
-                  设置
+                <div className="mock-window-controls">
+                  <span>—</span>
+                  <span>□</span>
+                  <span>×</span>
                 </div>
               </div>
-              <div className="mock-main" data-ds-part="main">
-                {draft.backgroundUrl && draft.backgroundScope === "content" && (
-                  <img
-                    className="mock-background"
-                    src={draft.backgroundUrl}
-                    alt=""
-                    aria-hidden="true"
-                    style={{
-                      objectPosition: `${draft.art.focusX * 100}% ${draft.art.focusY * 100}%`,
-                    }}
-                  />
-                )}
-                <div className="mock-toolbar" data-ds-part="header">
-                  <span>Codex</span>
-                  <span className="mock-toolbar-dot" />
-                </div>
-                {previewPage === "home" ? (
-                  <div className="mock-home" aria-label="Codex 首页预览">
-                    <div className="mock-home-intro">
-                      <span className="mock-home-mark" aria-hidden="true">
-                        C
-                      </span>
-                      <span className="mock-home-kicker">NEW TASK</span>
-                      <h3>今天想做点什么？</h3>
-                      <p>从一个想法开始，让 Codex 在本地工作区里协助你。</p>
+              <div className="mock-workspace-shell">
+                <div
+                  className="mock-sidebar"
+                  data-ds-part="sidebar"
+                  style={
+                    draft.backgroundScope === "window"
+                      ? {
+                          backgroundColor: `color-mix(in srgb, ${draft.colors.panel} ${draft.sidebarOverlayOpacity}%, transparent)`,
+                        }
+                      : undefined
+                  }
+                >
+                  <div className="mock-sidebar-head">
+                    <strong>Codex⌄</strong>
+                    <span aria-hidden="true">⌕ ·</span>
+                  </div>
+                  <div className="mock-primary-nav">
+                    <div className="mock-nav" data-ds-part="thread">
+                      <span aria-hidden="true">✎</span> 新对话
                     </div>
-                    <div
-                      className="mock-composer mock-home-composer"
-                      data-ds-part="composer"
-                    >
-                      <span className="mock-home-prompt">
-                        <span>描述一个任务...</span>
-                        <small>本地工作区 · main</small>
-                      </span>
-                      <button data-ds-part="composer-toolbar">开始</button>
+                    <div className="mock-nav" data-ds-part="thread">
+                      <span aria-hidden="true">⑂</span> 拉取请求
                     </div>
-                    <div
-                      className="mock-home-suggestions"
-                      aria-label="任务建议"
-                    >
-                      <span>解释代码</span>
-                      <span>修复问题</span>
-                      <span>构建功能</span>
+                    <div className="mock-nav" data-ds-part="thread">
+                      <span aria-hidden="true">⌘</span> 站点
                     </div>
-                    <div className="mock-home-recent">
-                      <span>最近</span>
-                      <strong>继续主题会话</strong>
-                      <small>刚刚</small>
+                    <div className="mock-nav" data-ds-part="thread">
+                      <span aria-hidden="true">◷</span> 已安排
+                    </div>
+                    <div className="mock-nav" data-ds-part="thread">
+                      <span aria-hidden="true">◎</span> 插件
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="mock-messages">
-                      <div className="mock-message" data-ds-part="message">
-                        <span className="mock-avatar">C</span>
-                        <span>准备开始。你的本地主题预览会显示在这里。</span>
+                  <span className="mock-sidebar-label">项目</span>
+                  <div
+                    className={`mock-project ${previewPage === "home" ? "active" : ""}`}
+                    data-ds-part="thread"
+                  >
+                    <strong>
+                      <span aria-hidden="true">▱</span> CodexStyle
+                    </strong>
+                    <small>创建一个新任务</small>
+                  </div>
+                  <div
+                    className={`mock-project ${previewPage === "conversation" ? "active" : ""}`}
+                    data-ds-part="thread"
+                  >
+                    <strong>
+                      <span aria-hidden="true">▱</span> 主题工作台
+                    </strong>
+                    <small>调整本地主题预览</small>
+                  </div>
+                  <div className="mock-project" data-ds-part="thread">
+                    <strong>
+                      <span aria-hidden="true">▱</span> Workspace
+                    </strong>
+                    <small>暂无聊天</small>
+                  </div>
+                  <div className="mock-sidebar-profile">
+                    <span className="mock-profile-dot">C</span>
+                    <strong>本地用户</strong>
+                    <span aria-hidden="true">?</span>
+                  </div>
+                </div>
+                <div className="mock-main" data-ds-part="main">
+                  {draft.backgroundUrl &&
+                    draft.backgroundScope === "content" && (
+                      <img
+                        className="mock-background"
+                        src={draft.backgroundUrl}
+                        alt=""
+                        aria-hidden="true"
+                        style={{
+                          objectPosition: `${draft.art.focusX * 100}% ${draft.art.focusY * 100}%`,
+                        }}
+                      />
+                    )}
+                  <div className="mock-toolbar" data-ds-part="header">
+                    <span className="mock-toolbar-title">
+                      {previewPage === "conversation" ? "▱ 主题会话  ···" : ""}
+                    </span>
+                    <span className="mock-toolbar-actions" aria-hidden="true">
+                      ⇧　☷　▢
+                    </span>
+                  </div>
+                  {previewPage === "home" ? (
+                    <div className="mock-home" aria-label="Codex 首页预览">
+                      <div className="mock-home-center">
+                        <div className="mock-home-intro">
+                          <span className="mock-home-mark" aria-hidden="true">
+                            &gt;_
+                          </span>
+                          <h3>
+                            你想让我们在 <u>CodexStyle</u> 中构建什么？
+                          </h3>
+                        </div>
+                        <div
+                          className="mock-home-suggestions"
+                          aria-label="任务建议"
+                        >
+                          <span>
+                            <i>⌕</i>探索并理解代码
+                          </span>
+                          <span>
+                            <i>⌁</i>构建新功能、应用或工具
+                          </span>
+                          <span>
+                            <i>↻</i>审查代码并提出修改建议
+                          </span>
+                          <span>
+                            <i>♙</i>修复问题和失败
+                          </span>
+                        </div>
                       </div>
-                      <div className="mock-code" data-ds-part="message">
-                        <span>
-                          const theme = "{draft.name || "CodexStyle"}";
-                        </span>
-                        <span>await studio.preview(theme);</span>
-                      </div>
-                      <div className="mock-dialog" data-ds-part="dialog">
-                        <span>主题预览</span>
-                        <small>结构化配置已同步到画面</small>
+                      <div className="mock-home-composer-wrap">
+                        <div className="mock-workspace-pill">
+                          <span>▱ CodexStyle</span>
+                          <span>▣ 本地</span>
+                          <span>⑂ main</span>
+                        </div>
+                        <div
+                          className="mock-composer mock-home-composer"
+                          data-ds-part="composer"
+                        >
+                          <span className="mock-composer-placeholder">
+                            随心输入
+                          </span>
+                          <div className="mock-composer-toolbar">
+                            <span>
+                              ＋　<em>◉ 完全访问</em>
+                            </span>
+                            <span>
+                              5.6 Sol 最高⌄　♩　
+                              <button
+                                type="button"
+                                className="mock-send-button"
+                                data-ds-part="composer-submit"
+                                aria-label="发送"
+                              >
+                                <SendIconGlyph
+                                  icon={draft.styleConfig.sendIcon}
+                                  dataUrl={draft.styleConfig.sendIconDataUrl}
+                                />
+                              </button>
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="mock-composer" data-ds-part="composer">
-                      <span>输入消息...</span>
-                      <button data-ds-part="composer-toolbar">发送</button>
+                  ) : (
+                    <div className="mock-conversation">
+                      <div className="mock-messages">
+                        <div
+                          className="mock-user-message"
+                          data-ds-part="message"
+                        >
+                          先看看主题预览吧
+                        </div>
+                        <div className="mock-turn-meta">用时 5 秒　›</div>
+                        <div className="mock-message" data-ds-part="message">
+                          <span>
+                            主题已加载。助手卡片使用与用户气泡一致的舒展内边距。
+                          </span>
+                        </div>
+                        <div className="mock-code">
+                          <span>
+                            const theme = "{draft.name || "CodexStyle"}";
+                          </span>
+                          <span>await studio.preview(theme);</span>
+                        </div>
+                        <div className="mock-dialog" data-ds-part="dialog">
+                          <span>
+                            <b>◉</b> 主题预览
+                          </span>
+                          <small>结构化配置已同步到画面</small>
+                        </div>
+                      </div>
+                      <div className="mock-conversation-composer-wrap">
+                        <div className="mock-composer" data-ds-part="composer">
+                          <span className="mock-composer-placeholder">
+                            随心输入
+                          </span>
+                          <div className="mock-composer-toolbar">
+                            <span>
+                              ＋　<em>◉ 完全访问</em>
+                            </span>
+                            <span>
+                              5.6 Sol 最高⌄　♩　
+                              <button
+                                type="button"
+                                className="mock-send-button"
+                                data-ds-part="composer-submit"
+                                aria-label="发送"
+                              >
+                                <SendIconGlyph
+                                  icon={draft.styleConfig.sendIcon}
+                                  dataUrl={draft.styleConfig.sendIconDataUrl}
+                                />
+                              </button>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -990,34 +1218,12 @@ function SessionView({
   const state = snapshot?.session.state ?? "NO_SESSION";
   const messageKey = snapshot?.session.messageKey;
   const ownedVerified = Boolean(snapshot?.session.canEnd);
-  const launchAdvanced = [
-    "LAUNCHING",
-    "VERIFYING_CDP",
-    "INJECTING",
-    "THEMED_SESSION",
-  ].includes(state);
-  const packageCheck: CheckState =
-    state === "INCOMPATIBLE" && messageKey === "session.storePackageNotFound"
-      ? "fail"
-      : launchAdvanced || ownedVerified || state === "INCOMPATIBLE"
-        ? "pass"
-        : "pending";
-  const externalCheck: CheckState =
-    state === "EXTERNAL_BLOCKED"
-      ? "fail"
-      : launchAdvanced || ownedVerified || state === "INCOMPATIBLE"
-        ? "pass"
-        : "pending";
-  const identityCheck: CheckState = ownedVerified
-    ? "pass"
-    : state === "INCOMPATIBLE"
-      ? "fail"
-      : "pending";
+  const checks = sessionCheckStates(state, messageKey, ownedVerified);
   return (
     <section className="session-page">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">CODEX SESSION</p>
+          <p className="eyebrow">CODEX 会话</p>
           <h1>受管会话</h1>
           <p className="muted">
             只启动和管理由 CodexStyle 完整验证身份的 Store Codex。
@@ -1036,7 +1242,7 @@ function SessionView({
               ? "检测到外部 Codex"
               : sessionLabels[state]}
           </h2>
-          <p>{messageForState(state)}</p>
+          <p>{messageForState(state, messageKey)}</p>
           <div className="session-actions">
             {snapshot?.paused ? (
               <button
@@ -1079,12 +1285,15 @@ function SessionView({
             <span>启动检查</span>
             <span className="revision">本地验证</span>
           </div>
-          <CheckRow label="Microsoft Store OpenAI.Codex" state={packageCheck} />
-          <CheckRow label="外部会话阻断" state={externalCheck} />
-          <CheckRow label="127.0.0.1 CDP 身份" state={identityCheck} />
-          <CheckRow label="版本化选择器" state={identityCheck} />
+          <CheckRow
+            label="Microsoft Store OpenAI.Codex"
+            state={checks.package}
+          />
+          <CheckRow label="外部会话阻断" state={checks.external} />
+          <CheckRow label="127.0.0.1 CDP 身份" state={checks.identity} />
+          <CheckRow label="版本化选择器" state={checks.selector} />
           <button className="text-button" onClick={onOpenStudio}>
-            返回主题 Studio →
+            返回主题设计 →
           </button>
         </div>
       </div>
@@ -1097,6 +1306,85 @@ function SessionView({
 }
 
 type CheckState = "pass" | "fail" | "pending";
+
+interface SessionCheckStates {
+  package: CheckState;
+  external: CheckState;
+  identity: CheckState;
+  selector: CheckState;
+}
+
+function sessionCheckStates(
+  state: SessionState,
+  messageKey: string | undefined,
+  ownedVerified: boolean,
+): SessionCheckStates {
+  const checks: SessionCheckStates = {
+    package: "pending",
+    external: "pending",
+    identity: "pending",
+    selector: "pending",
+  };
+
+  if (ownedVerified || state === "THEMED_SESSION" || state === "INJECTING") {
+    return {
+      package: "pass",
+      external: "pass",
+      identity: "pass",
+      selector: "pass",
+    };
+  }
+
+  if (state === "EXTERNAL_BLOCKED") {
+    return { ...checks, package: "pass", external: "fail" };
+  }
+
+  if (state === "LAUNCHING" || state === "VERIFYING_CDP") {
+    return { ...checks, package: "pass", external: "pass" };
+  }
+
+  if (state !== "INCOMPATIBLE") return checks;
+
+  if (messageKey === "session.storePackageNotFound") {
+    return { ...checks, package: "fail" };
+  }
+
+  if (messageKey === "session.launchFailed") {
+    return { ...checks, package: "pass", external: "pass" };
+  }
+
+  if (
+    messageKey === "session.cdpUnavailable" ||
+    messageKey === "session.identityMismatch"
+  ) {
+    return {
+      ...checks,
+      package: "pass",
+      external: "pass",
+      identity: "fail",
+    };
+  }
+
+  if (messageKey === "session.targetIncompatible") {
+    return {
+      package: "pass",
+      external: "pass",
+      identity: "pass",
+      selector: "fail",
+    };
+  }
+
+  if (messageKey === "session.injectionFailed") {
+    return {
+      package: "pass",
+      external: "pass",
+      identity: "pass",
+      selector: "pass",
+    };
+  }
+
+  return checks;
+}
 
 function CheckRow({ label, state }: { label: string; state: CheckState }) {
   const passed = state === "pass";
@@ -1112,9 +1400,14 @@ function CheckRow({ label, state }: { label: string; state: CheckState }) {
     </div>
   );
 }
-function messageForState(state: SessionState): string {
+function messageForState(
+  state: SessionState,
+  messageKey: string | undefined,
+): string {
   if (state === "EXTERNAL_BLOCKED")
     return "已有外部启动的 Codex。请在系统中自行关闭后再试，CodexStyle 不会触碰它。";
+  if (state === "INCOMPATIBLE" && messageKey === "session.launchFailed")
+    return "Windows 启动调用失败，未创建受管会话，也未注入任何主题。";
   if (state === "INCOMPATIBLE")
     return "当前 Store 版本未提供可验证的 CDP 或选择器，工具不会绕过安全边界。";
   if (state === "ORPHANED")
@@ -1130,7 +1423,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
     <div className="empty-state">
       <div className="empty-icon">✦</div>
       <h1>开始你的主题</h1>
-      <p>创建一个本地主题，使用安全 CSS 预览 Codex Desktop。</p>
+      <p>创建一个本地主题，通过安全样式预览 Codex 桌面效果。</p>
       <button className="primary-button" onClick={onCreate}>
         创建第一个主题
       </button>

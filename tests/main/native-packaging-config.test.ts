@@ -24,11 +24,21 @@ describe("native secure-store packaging", () => {
     expect(packageJson.scripts.build).toBe(
       "npm run build:icons && npm run build:native && electron-vite build",
     );
-    expect(packageJson.scripts["package:win"]).toBe(
-      "npm run build && electron-builder --win --x64",
+    expect(packageJson.scripts["package:win"]).toContain(
+      "npm run release:checksums",
     );
     expect(builderConfig).toMatch(
       /extraResources:\s*[\s\S]*from: native\/secure-store\/build\/Release\/secure_store\.node\s*[\s\S]*to: native\/secure_store\.node/u,
+    );
+    expect(builderConfig).toMatch(
+      /from: resources\/icon\.png\s*[\s\S]*to: icon\.png/u,
+    );
+    expect(builderConfig).toMatch(
+      /from: resources\/tray-icon\.png\s*[\s\S]*to: tray-icon\.png/u,
+    );
+    expect(builderConfig).toMatch(/target: nsis[\s\S]*target: zip/u);
+    expect(packageJson.scripts["release:checksums"]).toBe(
+      "node scripts/generate-checksums.mjs",
     );
   });
 

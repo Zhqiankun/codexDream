@@ -34,7 +34,9 @@ const theme: ThemeDetail = {
   colors: {
     background: "#181818",
     panel: "#282828",
+    sidebarText: "#ffffff",
     panelAlt: "#2d2d2d",
+    assistantPanel: "#2d2d2d",
     accent: "#f59e0b",
     accentAlt: "#d9d9d9",
     secondary: "#808080",
@@ -45,6 +47,7 @@ const theme: ThemeDetail = {
   },
   styleConfig: {
     mode: "advanced",
+    sendIcon: "native",
     recipes: {
       sidebar: true,
       composer: true,
@@ -98,7 +101,7 @@ const snapshot: ThemeSnapshot = {
     canEnd: false,
     launchedByTool: false,
   },
-  update: { configured: false, status: "unavailable" },
+  update: { configured: true, status: "idle", currentVersion: "1.0.0" },
 };
 
 function makeApi() {
@@ -110,6 +113,7 @@ function makeApi() {
       .fn()
       .mockResolvedValue({ ok: true, data: { ...theme, revision: 3 } }),
     chooseBackground: vi.fn(),
+    chooseSendIcon: vi.fn(),
     commit: vi.fn().mockResolvedValue({
       ok: true,
       data: { ...theme, revision: 4, status: "ready" },
@@ -128,15 +132,18 @@ function makeApi() {
     endOwnedSession: vi.fn(),
     getUpdateStatus: vi.fn().mockResolvedValue({
       ok: true,
-      data: { configured: false, status: "unavailable" },
+      data: { configured: true, status: "idle", currentVersion: "1.0.0" },
     }),
     requestUpdate: vi.fn().mockResolvedValue({
-      ok: false,
-      error: {
-        code: "UPDATE_UNCONFIGURED",
-        messageKey: "update.unconfigured",
+      ok: true,
+      data: {
+        configured: true,
+        status: "current",
+        currentVersion: "1.0.0",
+        latestVersion: "1.0.0",
       },
     }),
+    openUpdatePage: vi.fn(),
     onStateChanged: vi.fn().mockReturnValue(() => undefined),
   } satisfies CodexStyleApi;
   return api;
@@ -154,12 +161,95 @@ describe("Studio renderer", () => {
     expect(
       (await screen.findAllByText("Midnight Copper")).length,
     ).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("LIVE PREVIEW")).toBeInTheDocument();
-    expect(screen.getByText("Safe CSS 已通过")).toBeInTheDocument();
+    expect(screen.getByText("实时预览")).toBeInTheDocument();
+    expect(screen.getByText("安全样式已通过")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
+    expect(
+      screen.getByRole("note", { name: "背景图片要求" }),
+    ).toHaveTextContent("推荐 1920 × 1080（16:9）");
     expect(document.querySelector(".mock-background")).toHaveAttribute(
       "src",
       theme.backgroundUrl,
     );
+    expect(document.querySelector(".mock-user-message")).toHaveAttribute(
+      "data-ds-part",
+      "message",
+    );
+    expect(document.querySelector(".mock-message")).toHaveAttribute(
+      "data-ds-part",
+      "message",
+    );
+    expect(document.querySelector(".mock-code")).not.toHaveAttribute(
+      "data-ds-part",
+    );
+  });
+
+  it("offers a verified GitHub release after a manual update check", async () => {
+    const api = makeApi();
+    const available = {
+      configured: true as const,
+      status: "available" as const,
+      currentVersion: "1.0.0",
+      latestVersion: "1.1.0",
+      releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.1.0",
+      checkedAt: "2026-08-26T08:00:00.000Z",
+    };
+    api.requestUpdate.mockResolvedValue({ ok: true, data: available });
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: available },
+    });
+    api.openUpdatePage.mockResolvedValue({ ok: true, data: available });
+    window.codexStyle = api;
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查更新" }));
+
+    expect(await screen.findByText("新版本 v1.1.0 已发布")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "打开下载页面" }));
+    await waitFor(() => expect(api.openUpdatePage).toHaveBeenCalledOnce());
+    expect(
+      await screen.findByText("已打开 GitHub Release 下载页面。"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "检查更新" })).toBeEnabled(),
+    );
+  });
+
+  it("reports when the installed version is already current", async () => {
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查更新" }));
+
+    expect(
+      await screen.findByText("当前已是最新版 v1.0.0。"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "检查更新" })).toBeEnabled(),
+    );
+  });
+
+  it("applies a built-in theme preset without replacing theme identity", async () => {
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+
+    const auroraPreset = screen.getByRole("button", {
+      name: "应用极光青预设",
+    });
+    fireEvent.click(auroraPreset);
+    await waitFor(() =>
+      expect(auroraPreset).toHaveAttribute("aria-pressed", "true"),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("背景颜色")).toHaveValue("#071b22"),
+    );
+    expect(screen.getByLabelText("强调颜色")).toHaveValue("#5eead4");
+    fireEvent.click(screen.getByRole("tab", { name: "基础" }));
+    expect(screen.getByDisplayValue("Midnight Copper")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "应用极光青预设" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("switches the live preview between conversation and home", async () => {
@@ -179,8 +269,12 @@ describe("Studio renderer", () => {
     fireEvent.click(screen.getByRole("button", { name: "首页" }));
 
     expect(preview).toHaveAttribute("data-preview-page", "home");
-    expect(screen.getByText("今天想做点什么？")).toBeInTheDocument();
-    expect(screen.getByText("描述一个任务...")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "你想让我们在 CodexStyle 中构建什么？",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("随心输入")).toBeInTheDocument();
     expect(screen.queryByText("await studio.preview(theme);")).toBeNull();
     expect(document.querySelector(".mock-home-composer")).toHaveAttribute(
       "data-ds-part",
@@ -235,6 +329,7 @@ describe("Studio renderer", () => {
     window.codexStyle = api;
 
     render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "画面" }));
     await screen.findByText("未选择背景");
     const previewBeforeSelection = document.querySelector(".mock-codex");
     expect(document.querySelector(".mock-background")).toBeNull();
@@ -260,6 +355,7 @@ describe("Studio renderer", () => {
     const api = window.codexStyle as ReturnType<typeof makeApi>;
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
 
     expect(
       document.querySelector(".mock-codex > .mock-background"),
@@ -270,7 +366,11 @@ describe("Studio renderer", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "仅内容区" }));
-    expect(document.querySelector(".mock-codex > .mock-background")).toBeNull();
+    await waitFor(() =>
+      expect(
+        document.querySelector(".mock-codex > .mock-background"),
+      ).toBeNull(),
+    );
     expect(
       document.querySelector(".mock-main > .mock-background"),
     ).toBeInTheDocument();
@@ -299,6 +399,7 @@ describe("Studio renderer", () => {
     const api = window.codexStyle as ReturnType<typeof makeApi>;
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
 
     fireEvent.change(screen.getByRole("slider", { name: "背景水平焦点" }), {
       target: { value: "20" },
@@ -306,6 +407,7 @@ describe("Studio renderer", () => {
     fireEvent.change(screen.getByRole("slider", { name: "背景垂直焦点" }), {
       target: { value: "80" },
     });
+    fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
     const accentPicker = screen.getByLabelText("选择强调颜色");
     expect(accentPicker).toHaveValue("#f59e0b");
     fireEvent.change(accentPicker, {
@@ -314,13 +416,36 @@ describe("Studio renderer", () => {
     expect(screen.getByRole("textbox", { name: "强调颜色" })).toHaveValue(
       "#336699",
     );
+    fireEvent.change(screen.getByRole("slider", { name: "强调透明度" }), {
+      target: { value: "42" },
+    });
+    expect(screen.getByRole("textbox", { name: "强调颜色" })).toHaveValue(
+      "rgba(51, 102, 153, 0.42)",
+    );
+    expect(screen.getByRole("textbox", { name: "侧栏文字颜色" })).toHaveValue(
+      "#ffffff",
+    );
+    fireEvent.change(screen.getByRole("slider", { name: "助手面板透明度" }), {
+      target: { value: "36" },
+    });
+    expect(screen.getByRole("textbox", { name: "助手面板颜色" })).toHaveValue(
+      "rgba(45, 45, 45, 0.36)",
+    );
 
     const background = document.querySelector(
       ".mock-codex > .mock-background",
     ) as HTMLImageElement;
     const preview = document.querySelector(".mock-codex") as HTMLElement;
     expect(background.style.objectPosition).toBe("20% 80%");
-    expect(preview.style.getPropertyValue("--preview-accent")).toBe("#336699");
+    expect(preview.style.getPropertyValue("--preview-accent")).toBe(
+      "rgba(51, 102, 153, 0.42)",
+    );
+    expect(preview.style.getPropertyValue("--preview-sidebar-text")).toBe(
+      "#ffffff",
+    );
+    expect(preview.style.getPropertyValue("--preview-assistant-panel")).toBe(
+      "rgba(45, 45, 45, 0.36)",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "应用草稿" }));
     await waitFor(() =>
@@ -329,7 +454,11 @@ describe("Studio renderer", () => {
         expectedRevision: theme.revision,
         patch: expect.objectContaining({
           art: expect.objectContaining({ focusX: 0.2, focusY: 0.8 }),
-          colors: expect.objectContaining({ accent: "#336699" }),
+          colors: expect.objectContaining({
+            accent: "rgba(51, 102, 153, 0.42)",
+            sidebarText: "#ffffff",
+            assistantPanel: "rgba(45, 45, 45, 0.36)",
+          }),
         }),
       }),
     );
@@ -338,13 +467,13 @@ describe("Studio renderer", () => {
   it("offers recipe configuration without requiring CSS source edits", async () => {
     const api = window.codexStyle as ReturnType<typeof makeApi>;
     render(<App />);
-    fireEvent.click(await screen.findByRole("tab", { name: "CSS" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "组件样式" }));
     fireEvent.click(screen.getByRole("button", { name: "配置生成" }));
 
     expect(
       screen.queryByRole("textbox", { name: "Safe CSS 编辑器" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: /消息块/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /对话消息/ }));
     fireEvent.change(screen.getByRole("slider", { name: "表面圆角" }), {
       target: { value: "24" },
     });
@@ -373,6 +502,88 @@ describe("Studio renderer", () => {
     );
   });
 
+  it("previews built-in send icons and includes the selected icon in the patch", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "组件样式" }));
+    fireEvent.click(screen.getByRole("button", { name: "配置生成" }));
+
+    const paperPlane = screen.getByRole("button", {
+      name: "使用纸飞机发送图标",
+    });
+    fireEvent.click(paperPlane);
+
+    expect(paperPlane).toHaveAttribute("aria-pressed", "true");
+    expect(
+      document.querySelector(
+        '.mock-send-button [data-send-icon="paper-plane"]',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "应用草稿" }));
+    await waitFor(() =>
+      expect(api.patchDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          patch: expect.objectContaining({
+            styleConfig: expect.objectContaining({ sendIcon: "paper-plane" }),
+          }),
+        }),
+      ),
+    );
+  });
+
+  it("uploads a custom PNG send icon through the managed file chooser", async () => {
+    const iconDataUrl =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ";
+    const customTheme: ThemeDetail = {
+      ...theme,
+      revision: 3,
+      styleConfig: {
+        ...theme.styleConfig,
+        mode: "configured",
+        sendIcon: "custom",
+        sendIconDataUrl: iconDataUrl,
+      },
+    };
+    const api = makeApi();
+    api.chooseSendIcon.mockResolvedValue({ ok: true, data: customTheme });
+    api.patchDraft.mockResolvedValue({
+      ok: true,
+      data: { ...customTheme, revision: 4 },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "组件样式" }));
+    fireEvent.click(screen.getByRole("button", { name: "配置生成" }));
+    fireEvent.click(screen.getByRole("button", { name: "上传透明 PNG" }));
+
+    await waitFor(() =>
+      expect(api.chooseSendIcon).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: theme.revision,
+      }),
+    );
+    await waitFor(() =>
+      expect(api.patchDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedRevision: 3,
+          patch: expect.objectContaining({
+            styleConfig: expect.objectContaining({
+              sendIcon: "custom",
+              sendIconDataUrl: iconDataUrl,
+            }),
+          }),
+        }),
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: "使用自定义发送图标" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      document.querySelector('.mock-send-button [data-send-icon="custom"]'),
+    ).toBeInTheDocument();
+  });
+
   it("keeps theme.json inert until the main process validates and applies it", async () => {
     const api = makeApi();
     api.patchDraft.mockImplementation(async (request) => {
@@ -392,7 +603,7 @@ describe("Studio renderer", () => {
     });
     window.codexStyle = api;
     render(<App />);
-    fireEvent.click(await screen.findByRole("tab", { name: "theme.json" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "高级配置" }));
     const editor = screen.getByRole("textbox", {
       name: "theme.json 编辑器",
     });
@@ -423,7 +634,7 @@ describe("Studio renderer", () => {
   it("rejects malformed theme.json locally without sending a patch", async () => {
     const api = window.codexStyle as ReturnType<typeof makeApi>;
     render(<App />);
-    fireEvent.click(await screen.findByRole("tab", { name: "theme.json" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "高级配置" }));
     fireEvent.change(
       screen.getByRole("textbox", { name: "theme.json 编辑器" }),
       { target: { value: "{ broken" } },
@@ -439,7 +650,7 @@ describe("Studio renderer", () => {
   it("patches before commit so revisions cannot go stale", async () => {
     const api = window.codexStyle as ReturnType<typeof makeApi>;
     render(<App />);
-    fireEvent.click(await screen.findByRole("tab", { name: "CSS" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "组件样式" }));
     const editor = await screen.findByRole("textbox", {
       name: "Safe CSS 编辑器",
     });
@@ -543,6 +754,7 @@ describe("Studio renderer", () => {
     render(<App />);
     const nameInput = await screen.findByDisplayValue("Midnight Copper");
     fireEvent.change(nameInput, { target: { value: "Prepared Copper" } });
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
     fireEvent.click(screen.getByRole("button", { name: "选择图片" }));
 
     await waitFor(() =>
@@ -573,10 +785,15 @@ describe("Studio renderer", () => {
     render(<App />);
     const nameInput = await screen.findByDisplayValue("Midnight Copper");
     fireEvent.change(nameInput, { target: { value: "Still local" } });
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
     fireEvent.click(screen.getByRole("button", { name: "选择图片" }));
 
     await waitFor(() => expect(api.chooseBackground).toHaveBeenCalled());
     expect(api.patchDraft).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "＋ 新建主题" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "基础" }));
     expect(screen.getByDisplayValue("Still local")).toBeInTheDocument();
   });
 
@@ -683,6 +900,77 @@ describe("Studio renderer", () => {
     await waitFor(() => expect(api.launchSession).toHaveBeenCalledTimes(1));
   });
 
+  it("leaves downstream launch checks pending when Store package lookup fails", async () => {
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: {
+        ...snapshot,
+        selectedLibraryId: theme.libraryId,
+        session: {
+          state: "INCOMPATIBLE",
+          messageKey: "session.storePackageNotFound",
+          canEnd: false,
+          launchedByTool: false,
+        },
+      },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
+
+    expect(
+      screen.getByText("Microsoft Store OpenAI.Codex").closest(".check-row"),
+    ).toHaveTextContent("未通过");
+    expect(
+      screen.getByText("外部会话阻断").closest(".check-row"),
+    ).toHaveTextContent("等待");
+    expect(
+      screen.getByText("127.0.0.1 CDP 身份").closest(".check-row"),
+    ).toHaveTextContent("等待");
+    expect(
+      screen.getByText("版本化选择器").closest(".check-row"),
+    ).toHaveTextContent("等待");
+  });
+
+  it("shows a settled launch failure without claiming CDP checks ran", async () => {
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: {
+        ...snapshot,
+        selectedLibraryId: theme.libraryId,
+        session: {
+          state: "INCOMPATIBLE",
+          messageKey: "session.launchFailed",
+          canEnd: false,
+          launchedByTool: false,
+        },
+      },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
+
+    expect(
+      screen.getByText("Microsoft Store OpenAI.Codex").closest(".check-row"),
+    ).toHaveTextContent("通过");
+    expect(
+      screen.getByText("外部会话阻断").closest(".check-row"),
+    ).toHaveTextContent("通过");
+    expect(
+      screen.getByText("127.0.0.1 CDP 身份").closest(".check-row"),
+    ).toHaveTextContent("等待");
+    expect(
+      screen.getByText("版本化选择器").closest(".check-row"),
+    ).toHaveTextContent("等待");
+    expect(screen.getByText(/Windows 启动调用失败/u)).toBeInTheDocument();
+  });
+
   it("shows a same-ID import conflict and resolves it only after an explicit choice", async () => {
     const conflict: ImportResult = {
       status: "conflict",
@@ -756,7 +1044,7 @@ describe("Studio renderer", () => {
 
   it("does not place unsaved CSS text into the preview document", async () => {
     render(<App />);
-    fireEvent.click(await screen.findByRole("tab", { name: "CSS" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "组件样式" }));
     const editor = await screen.findByRole("textbox", {
       name: "Safe CSS 编辑器",
     });

@@ -34,7 +34,11 @@ describe("preload public boundary", () => {
           canEnd: false,
           launchedByTool: false,
         },
-        update: { configured: false, status: "unavailable" },
+        update: {
+          configured: true,
+          status: "idle",
+          currentVersion: "1.0.0",
+        },
       },
     };
     ipcRenderer.invoke.mockResolvedValue(snapshot);
@@ -43,6 +47,7 @@ describe("preload public boundary", () => {
 
     expect(Object.keys(api).sort()).toEqual([
       "chooseBackground",
+      "chooseSendIcon",
       "clearSelection",
       "commit",
       "createDraft",
@@ -54,6 +59,7 @@ describe("preload public boundary", () => {
       "importZip",
       "launchSession",
       "onStateChanged",
+      "openUpdatePage",
       "patchDraft",
       "pauseSession",
       "requestUpdate",

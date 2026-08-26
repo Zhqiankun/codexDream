@@ -27,6 +27,8 @@ import type {
 } from "../../contracts";
 import { registerIpc } from "../ipc/handlers";
 import { MainOperationBusyError, MainOperationGate } from "./operation-gate";
+import { UpdateService } from "./update-service";
+import { GitHubReleases } from "../infra/github-releases";
 
 export class AppController {
   mainWindow?: BrowserWindow;
@@ -37,15 +39,16 @@ export class AppController {
   readonly themeService: ThemeService;
   private readonly operationGate = new MainOperationGate();
   private quitting = false;
-  private readonly update = {
-    configured: false as const,
-    status: "unavailable" as const,
-  };
+  private readonly updateService: UpdateService;
   private readonly devRendererUrl = resolveDevRendererUrl(
     process.env.ELECTRON_RENDERER_URL,
   );
 
-  constructor() {
+  constructor(updateService?: UpdateService) {
+    const currentVersion = app.getVersion();
+    this.updateService =
+      updateService ??
+      new UpdateService(currentVersion, new GitHubReleases(currentVersion));
     const localAppData = process.env.LOCALAPPDATA || app.getPath("userData");
     this.store = new LocalThemeStore(join(localAppData, "CodexStyle"));
     this.session = new CodexSessionService(
@@ -56,7 +59,11 @@ export class AppController {
         const image = this.store.getBackground(record.libraryId);
         return image ? { record, image } : undefined;
       },
-      () => this.store.snapshot(this.session.snapshot(), this.update).paused,
+      () =>
+        this.store.snapshot(
+          this.session.snapshot(),
+          this.updateService.snapshot(),
+        ).paused,
       this.store.managedStore,
       (libraryId, fingerprint) =>
         this.store.markLastKnownGood(libraryId, fingerprint),
@@ -160,7 +167,10 @@ export class AppController {
   }
 
   snapshot(): ThemeSnapshot {
-    return this.store.snapshot(this.session.snapshot(), this.update);
+    return this.store.snapshot(
+      this.session.snapshot(),
+      this.updateService.snapshot(),
+    );
   }
 
   broadcast(snapshot: ThemeSnapshot = this.snapshot()): void {
@@ -203,6 +213,15 @@ export class AppController {
   ): Promise<Result<ThemeDetail>> {
     return this.runSideEffect(() =>
       this.themeService.chooseBackground(libraryId, expectedRevision),
+    );
+  }
+
+  chooseSendIcon(
+    libraryId: string,
+    expectedRevision: number,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(() =>
+      this.themeService.chooseSendIcon(libraryId, expectedRevision),
     );
   }
 
@@ -309,11 +328,28 @@ export class AppController {
   }
 
   getUpdateStatus(): Result<UpdateSnapshot> {
-    return { ok: true, data: this.update };
+    return { ok: true, data: this.updateService.snapshot() };
   }
 
-  requestUpdate(): Result<UpdateSnapshot> {
-    return resultError("UPDATE_UNCONFIGURED", "update.unconfigured");
+  async requestUpdate(): Promise<Result<UpdateSnapshot>> {
+    try {
+      return { ok: true, data: await this.updateService.check() };
+    } catch {
+      return resultError("UPDATE_CHECK_FAILED", "update.checkFailed");
+    } finally {
+      this.broadcast();
+    }
+  }
+
+  async openUpdatePage(): Promise<Result<UpdateSnapshot>> {
+    try {
+      return {
+        ok: true,
+        data: await this.updateService.openAvailableRelease(),
+      };
+    } catch {
+      return resultError("UPDATE_OPEN_FAILED", "update.openFailed");
+    }
   }
 
   async launch(): Promise<void> {
@@ -423,6 +459,7 @@ export class AppController {
       show: false,
       backgroundColor: "#0b1020",
       title: "CodexStyle Studio",
+      icon: createAppIcon(),
       webPreferences: {
         preload: join(__dirname, "../preload/index.cjs"),
         contextIsolation: true,
@@ -502,17 +539,47 @@ export class AppController {
             ),
         },
         { type: "separator" },
-        {
-          label: "检查更新（未配置）",
-          click: () =>
-            void dialog.showMessageBox({
-              message: "更新尚未配置，当前不可用。",
-              title: "CodexStyle",
-            }),
-        },
+        { label: "检查更新", click: () => void this.checkForUpdatesFromTray() },
         { label: "退出", click: () => void this.requestQuit() },
       ]),
     );
+  }
+
+  private async checkForUpdatesFromTray(): Promise<void> {
+    const result = await this.requestUpdate();
+    if (!result.ok) {
+      await dialog.showMessageBox({
+        type: "warning",
+        title: "CodexStyle 更新",
+        message: "无法连接 GitHub 检查更新，请稍后重试。",
+      });
+      return;
+    }
+    if (result.data.status !== "available") {
+      await dialog.showMessageBox({
+        type: "info",
+        title: "CodexStyle 更新",
+        message: `当前已是最新版 v${result.data.currentVersion}。`,
+      });
+      return;
+    }
+    const response = await dialog.showMessageBox({
+      type: "info",
+      buttons: ["稍后", "打开下载页面"],
+      defaultId: 1,
+      cancelId: 0,
+      title: "CodexStyle 更新",
+      message: `发现新版本 v${result.data.latestVersion}。`,
+      detail: `当前版本 v${result.data.currentVersion}。CodexStyle 将打开固定的 GitHub Release 页面，不会自动下载或安装。`,
+    });
+    if (response.response !== 1) return;
+    const opened = await this.openUpdatePage();
+    if (!opened.ok)
+      await dialog.showMessageBox({
+        type: "warning",
+        title: "CodexStyle 更新",
+        message: "无法打开下载页面，请稍后重试。",
+      });
   }
 }
 
@@ -530,6 +597,8 @@ function sessionError<T>(errorValue: unknown): Result<T> {
       "STORE_PACKAGE_NOT_FOUND",
       "session.storePackageNotFound",
     );
+  if (raw.includes("STORE_ACTIVATION_FAILED"))
+    return resultError("STORE_ACTIVATION_FAILED", "session.launchFailed");
   if (raw.includes("CDP_UNAVAILABLE"))
     return resultError("CDP_UNAVAILABLE", "session.cdpUnavailable");
   if (raw.includes("TARGET_IDENTITY_MISMATCH"))
@@ -553,6 +622,8 @@ function sessionError<T>(errorValue: unknown): Result<T> {
 function launchFailureMessage(code: ErrorCode): string {
   if (code === "EXTERNAL_SESSION_RUNNING")
     return "外部 Codex 正在运行，请关闭它后再试。";
+  if (code === "STORE_ACTIVATION_FAILED")
+    return "Windows 未能启动 Store Codex，未注入任何主题。";
   if (
     code === "TARGET_IDENTITY_MISMATCH" ||
     code === "TARGET_INCOMPATIBLE" ||
@@ -567,11 +638,19 @@ function snapshotsEqual(left: ThemeSnapshot, right: ThemeSnapshot): boolean {
 }
 
 function createTrayIcon(): Electron.NativeImage {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="8" fill="#f5b94c"/><path d="M9 23V9h4.2l2.8 4.1L18.8 9H23v14h-3.4v-8.2l-3.6 5-3.6-5V23H9Z" fill="#17120a"/></svg>`;
-  const image = nativeImage.createFromDataURL(
-    `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`,
-  );
-  return image.isEmpty() ? nativeImage.createEmpty() : image;
+  const image = nativeImage.createFromPath(resourcePath("tray-icon.png"));
+  if (!image.isEmpty()) return image;
+  return createAppIcon().resize({ width: 16, height: 16 });
+}
+
+function createAppIcon(): Electron.NativeImage {
+  return nativeImage.createFromPath(resourcePath("icon.png"));
+}
+
+function resourcePath(fileName: string): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, fileName)
+    : join(app.getAppPath(), "resources", fileName);
 }
 
 function isLibraryId(value: string): boolean {

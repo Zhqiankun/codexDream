@@ -29,20 +29,12 @@ try {
 
 const result = spawnSync(
   process.execPath,
-  [
-    nodeGypEntry,
-    "rebuild",
-    "--directory",
-    nativeDirectory,
-    "--arch=x64",
-    "--msvs_version=2022",
-  ],
+  [nodeGypEntry, "rebuild", "--directory", nativeDirectory, "--arch=x64"],
   {
     cwd: root,
     env: {
       ...process.env,
       npm_config_arch: "x64",
-      npm_config_msvs_version: "2022",
     },
     stdio: "inherit",
     windowsHide: true,

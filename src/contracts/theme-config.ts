@@ -1,3 +1,9 @@
+import {
+  isThemeIconDataUrl,
+  isThemeSendIcon,
+  type ThemeSendIcon,
+} from "./send-icon";
+
 export type ThemeAppearance = "auto" | "light" | "dark";
 export type ThemeSafeArea = "none" | "left" | "right";
 export type ThemeTaskMode = "ambient" | "full" | "off";
@@ -14,7 +20,9 @@ export interface ThemeArt {
 export interface ThemeColors {
   background: string;
   panel: string;
+  sidebarText: string;
   panelAlt: string;
+  assistantPanel: string;
   accent: string;
   accentAlt: string;
   secondary: string;
@@ -34,6 +42,8 @@ export interface ThemeStyleRecipes {
 export interface ThemeStyleConfig {
   mode: ThemeStyleMode;
   recipes: ThemeStyleRecipes;
+  sendIcon: ThemeSendIcon;
+  sendIconDataUrl?: string;
   blur: number;
   radius: number;
   borderWidth: number;
@@ -50,7 +60,9 @@ export interface ThemeConfiguration {
 export const THEME_COLOR_KEYS = [
   "background",
   "panel",
+  "sidebarText",
   "panelAlt",
+  "assistantPanel",
   "accent",
   "accentAlt",
   "secondary",
@@ -59,6 +71,10 @@ export const THEME_COLOR_KEYS = [
   "muted",
   "line",
 ] as const satisfies ReadonlyArray<keyof ThemeColors>;
+
+const LEGACY_THEME_COLOR_KEYS = THEME_COLOR_KEYS.filter(
+  (key) => key !== "sidebarText" && key !== "assistantPanel",
+);
 
 export const DEFAULT_THEME_ART: ThemeArt = {
   focusX: 0.5,
@@ -70,7 +86,9 @@ export const DEFAULT_THEME_ART: ThemeArt = {
 export const DEFAULT_THEME_COLORS: ThemeColors = {
   background: "#181818",
   panel: "#282828",
+  sidebarText: "#ffffff",
   panelAlt: "#2d2d2d",
+  assistantPanel: "#2d2d2d",
   accent: "#ffffff",
   accentAlt: "#d9d9d9",
   secondary: "#808080",
@@ -88,6 +106,7 @@ export const DEFAULT_CONFIGURED_STYLE: ThemeStyleConfig = {
     message: true,
     dialog: true,
   },
+  sendIcon: "native",
   blur: 18,
   radius: 12,
   borderWidth: 1,
@@ -160,6 +179,9 @@ export function normalizeThemeColors(
   for (const key of THEME_COLOR_KEYS) {
     if (isThemeColor(source[key])) result[key] = source[key];
   }
+  if (!isThemeColor(source.assistantPanel) && isThemeColor(source.panelAlt)) {
+    result.assistantPanel = source.panelAlt;
+  }
   if (!isRecord(value) && isThemeColor(legacyAccent))
     result.accent = legacyAccent;
   return result;
@@ -175,6 +197,16 @@ export function normalizeThemeStyleConfig(
       : DEFAULT_ADVANCED_STYLE;
   if (!isRecord(value)) return cloneStyleConfig(fallback);
   const recipes = isRecord(value.recipes) ? value.recipes : {};
+  const sendIconDataUrl = isThemeIconDataUrl(value.sendIconDataUrl)
+    ? value.sendIconDataUrl
+    : undefined;
+  const configuredSendIcon = isThemeSendIcon(value.sendIcon)
+    ? value.sendIcon
+    : fallback.sendIcon;
+  const sendIcon =
+    configuredSendIcon === "custom" && !sendIconDataUrl
+      ? fallback.sendIcon
+      : configuredSendIcon;
   return {
     mode: isThemeStyleMode(value.mode) ? value.mode : fallback.mode,
     recipes: {
@@ -183,6 +215,8 @@ export function normalizeThemeStyleConfig(
       message: booleanValue(recipes.message, fallback.recipes.message),
       dialog: booleanValue(recipes.dialog, fallback.recipes.dialog),
     },
+    sendIcon,
+    ...(sendIconDataUrl ? { sendIconDataUrl } : {}),
     blur: boundedInteger(value.blur, 0, 30, fallback.blur),
     radius: boundedInteger(value.radius, 0, 28, fallback.radius),
     borderWidth: boundedInteger(value.borderWidth, 0, 4, fallback.borderWidth),
@@ -241,6 +275,19 @@ export function isCompleteThemeColors(value: unknown): value is ThemeColors {
   );
 }
 
+export function isCompatibleThemeColors(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = Object.keys(value);
+  return (
+    keys.every((key) =>
+      (THEME_COLOR_KEYS as readonly string[]).includes(key),
+    ) &&
+    LEGACY_THEME_COLOR_KEYS.every((key) => isThemeColor(value[key])) &&
+    (value.sidebarText === undefined || isThemeColor(value.sidebarText)) &&
+    (value.assistantPanel === undefined || isThemeColor(value.assistantPanel))
+  );
+}
+
 export function isCompleteThemeStyleConfig(
   value: unknown,
 ): value is ThemeStyleConfig {
@@ -249,13 +296,25 @@ export function isCompleteThemeStyleConfig(
   const recipeKeys = ["sidebar", "composer", "message", "dialog"];
   return (
     Object.keys(value).every((key) =>
-      ["mode", "recipes", "blur", "radius", "borderWidth", "shadow"].includes(
-        key,
-      ),
+      [
+        "mode",
+        "recipes",
+        "sendIcon",
+        "sendIconDataUrl",
+        "blur",
+        "radius",
+        "borderWidth",
+        "shadow",
+      ].includes(key),
     ) &&
     Object.keys(recipes).length === recipeKeys.length &&
     recipeKeys.every((key) => typeof recipes[key] === "boolean") &&
     isThemeStyleMode(value.mode) &&
+    (value.sendIcon === undefined || isThemeSendIcon(value.sendIcon)) &&
+    (value.sendIconDataUrl === undefined ||
+      isThemeIconDataUrl(value.sendIconDataUrl)) &&
+    (value.sendIcon !== "custom" ||
+      isThemeIconDataUrl(value.sendIconDataUrl)) &&
     isBoundedInteger(value.blur, 0, 30) &&
     isBoundedInteger(value.radius, 0, 28) &&
     isBoundedInteger(value.borderWidth, 0, 4) &&

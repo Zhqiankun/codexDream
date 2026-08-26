@@ -109,6 +109,28 @@ describe("CodexSessionService", () => {
     expect(platform.launchStore).not.toHaveBeenCalled();
   });
 
+  it("leaves launch checks settled when Store activation fails", async () => {
+    const platform = {
+      findStorePackage: vi.fn().mockResolvedValue(packageInfo),
+      listCodexProcesses: vi.fn().mockResolvedValue([]),
+      launchStore: vi
+        .fn()
+        .mockRejectedValue(new Error("STORE_ACTIVATION_FAILED")),
+    } as unknown as WindowsPlatform;
+    const session = new CodexSessionService(
+      platform,
+      async () => ({ record: selectedTheme, image: Buffer.alloc(1) }),
+      () => false,
+    );
+
+    await expect(session.launch()).rejects.toThrow("STORE_ACTIVATION_FAILED");
+    expect(session.snapshot()).toMatchObject({
+      state: "INCOMPATIBLE",
+      messageKey: "session.launchFailed",
+      canEnd: false,
+    });
+  });
+
   it("reinstalls only the future-document script when resuming a paused owned session", async () => {
     const client = {
       command: vi.fn().mockResolvedValue({ identifier: "script-1" }),
@@ -192,6 +214,65 @@ describe("CodexSessionService", () => {
     });
   });
 
+  it.each([
+    "openai-codex-shell/1",
+    "openai-codex-shell/2",
+    "openai-codex-shell/3",
+    "openai-codex-shell/4",
+  ])(
+    "treats the previous selector profile %s as orphaned instead of tampered",
+    async (selectorProfile) => {
+      const managed = await createManagedRoot();
+      const store = SecureManagedStore.open(managed.root);
+      cleanup.push(async () => {
+        store.close();
+        await managed.cleanup();
+      });
+      store.ensureLayout();
+      store.writeFileAtomic(
+        MANAGED_FILES.ownership,
+        ownershipState(selectorProfile),
+      );
+      const session = new CodexSessionService(
+        {} as WindowsPlatform,
+        async () => ({ record: selectedTheme, image: Buffer.from([0]) }),
+        () => false,
+        store,
+      );
+
+      await session.restoreOrphanedState();
+
+      expect(session.snapshot()).toMatchObject({
+        state: "ORPHANED",
+        messageKey: "session.orphaned",
+      });
+    },
+  );
+
+  it("still rejects an unknown selector profile as tampered", async () => {
+    const managed = await createManagedRoot();
+    const store = SecureManagedStore.open(managed.root);
+    cleanup.push(async () => {
+      store.close();
+      await managed.cleanup();
+    });
+    store.ensureLayout();
+    store.writeFileAtomic(
+      MANAGED_FILES.ownership,
+      ownershipState("openai-codex-shell/unknown"),
+    );
+    const session = new CodexSessionService(
+      {} as WindowsPlatform,
+      async () => ({ record: selectedTheme, image: Buffer.from([0]) }),
+      () => false,
+      store,
+    );
+
+    await expect(session.restoreOrphanedState()).rejects.toThrow(
+      "STORE_TAMPERED:ownership-state",
+    );
+  });
+
   it("fails closed when ownership is substituted with a junction during recovery", async () => {
     const managed = await createManagedRoot();
     const external = await mkdtemp(
@@ -225,7 +306,9 @@ describe("CodexSessionService", () => {
   });
 });
 
-function ownershipState(): Buffer {
+function ownershipState(
+  selectorProfile: string = CODEX_SELECTOR_PROFILE,
+): Buffer {
   return Buffer.from(
     JSON.stringify({
       version: 1,
@@ -238,7 +321,7 @@ function ownershipState(): Buffer {
       port: 9222,
       browserId: "browser-1",
       targetId: "target-1",
-      selectorProfile: CODEX_SELECTOR_PROFILE,
+      selectorProfile,
       themeLibraryId: selectedTheme.libraryId,
       themeFingerprint: selectedTheme.fingerprint,
       createdAt: "2026-08-06T00:00:00.000Z",

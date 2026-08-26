@@ -4,6 +4,8 @@ import {
   DEFAULT_THEME_ART,
   DEFAULT_THEME_COLORS,
   generateConfiguredCss,
+  isCompleteThemeStyleConfig,
+  isCompatibleThemeColors,
   readThemeConfiguration,
   themeTokenDeclarations,
   type ThemeShadow,
@@ -39,6 +41,18 @@ describe("structured theme configuration", () => {
     const legacy = readThemeConfiguration({ accent: "#ff00aa" });
     expect(legacy.styleConfig.mode).toBe("advanced");
     expect(legacy.colors.accent).toBe("#ff00aa");
+    expect(legacy.colors.sidebarText).toBe(DEFAULT_THEME_COLORS.sidebarText);
+    expect(legacy.colors.assistantPanel).toBe(
+      DEFAULT_THEME_COLORS.assistantPanel,
+    );
+
+    const {
+      sidebarText: _sidebarText,
+      assistantPanel: _assistantPanel,
+      ...legacyColors
+    } = DEFAULT_THEME_COLORS;
+    expect(isCompatibleThemeColors(legacyColors)).toBe(true);
+    expect(isCompatibleThemeColors(DEFAULT_THEME_COLORS)).toBe(true);
 
     const tokens = new Map(
       themeTokenDeclarations({
@@ -49,8 +63,35 @@ describe("structured theme configuration", () => {
       }),
     );
     expect(tokens.get("--ds-theme-color-accent")).toBe("#336699");
+    expect(tokens.get("--ds-theme-color-sidebar-text")).toBe("#ffffff");
+    expect(tokens.get("--ds-theme-color-assistant-panel")).toBe("#2d2d2d");
     expect(tokens.get("--ds-theme-image-focus-x")).toBe("25%");
     expect(tokens.get("--ds-theme-image-focus-y")).toBe("75%");
     expect(tokens.get("--ds-theme-surface-blur")).toBe("24px");
+  });
+
+  it("accepts only bounded PNG data for a custom send icon", () => {
+    const pngDataUrl =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ";
+    expect(
+      isCompleteThemeStyleConfig({
+        ...DEFAULT_CONFIGURED_STYLE,
+        sendIcon: "custom",
+        sendIconDataUrl: pngDataUrl,
+      }),
+    ).toBe(true);
+    expect(
+      isCompleteThemeStyleConfig({
+        ...DEFAULT_CONFIGURED_STYLE,
+        sendIcon: "custom",
+        sendIconDataUrl: "data:image/svg+xml;base64,PHN2Zy8+",
+      }),
+    ).toBe(false);
+    expect(
+      isCompleteThemeStyleConfig({
+        ...DEFAULT_CONFIGURED_STYLE,
+        sendIcon: "custom",
+      }),
+    ).toBe(false);
   });
 });

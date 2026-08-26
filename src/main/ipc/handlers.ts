@@ -54,6 +54,12 @@ export function registerIpc(controller: AppController): void {
       controller.chooseBackground(libraryId, expectedRevision),
   );
   handle(
+    "theme.chooseSendIcon",
+    RevisionSchema,
+    async ({ libraryId, expectedRevision }) =>
+      controller.chooseSendIcon(libraryId, expectedRevision),
+  );
+  handle(
     "theme.commit",
     RevisionSchema,
     async ({ libraryId, expectedRevision }) =>
@@ -100,6 +106,9 @@ export function registerIpc(controller: AppController): void {
   );
   handle("update.request", EmptyRequestSchema, () =>
     controller.requestUpdate(),
+  );
+  handle("update.openRelease", EmptyRequestSchema, () =>
+    controller.openUpdatePage(),
   );
 }
 

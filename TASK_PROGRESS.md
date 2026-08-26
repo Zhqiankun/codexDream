@@ -51,9 +51,14 @@
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
 - 当前用户安装的 Store 包：`OpenAI.Codex 26.818.8289.0`，x64，`SignatureKind=Store`，非开发模式。
-- `codexStyle/` 是尚无提交的 Git 仓库；全部项目文件仍为未跟踪状态，无法提供基于提交的 diff 证据，测试改用文件清单、源码内容和实际命令结果。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`，`main` 与 `origin/main` 同步；`v1.0.0` 发布改动将在验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-26 `v1.0.0` 发布候选完成：加入用户主动触发的 GitHub Release 更新检查；固定 API 与 Release 地址、稳定语义版本、响应大小和超时均由 main 校验，不后台轮询、不静默下载、不执行远程文件。
+- `npm run test:unit`：20 个文件、95 项通过；`npm run test:renderer`：2 个文件、29 项通过；`npm run test:integration`：2 个文件、6 项通过，仓库外可选旧版验证器缺失时 1 项明确跳过；真实 Electron E2E 1 项通过。
+- `npm run format:check`、`npm run lint`、`npm run typecheck`、`npm run architecture:check`、`npm run test:e2e` 和 `npm run verify:package` 全部通过。native secure-store 使用已安装的 VS 2019 MSVC x64 工具链从源码干净重建。
+- 发布产物：`CodexStyle-1.0.0-x64.exe`（109,217,880 字节）与 `CodexStyle-1.0.0-x64.zip`（152,228,116 字节）；SHA-256 分别为 `b970798e2b6d9f2ec7da1038715817a2cce52fbfc70e4afa1df8b9b2ead8b15a`、`240208c59d7b7d3dac00bb8f71b490b4fb95ed8f9fb89d8e3b0ea5b1d7822e49`。
 
 - 2026-08-26 LIVE PREVIEW 首页 / 对话切换完成：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check` 和 `npx electron-vite build` 通过；`npm run test:renderer` 为 2 个文件、22 项通过。开发版实窗确认首页壁纸覆盖侧栏与主区域，首页输入框复用主题配方，切换不保存草稿或递增 revision。
 - 2026-08-26 结构化主题 Studio 完成：新草稿默认配置生成，旧主题保留高级 CSS；renderer 只 type-import 契约，main 独占生成、校验、revision、持久化、导入导出和注入权威。

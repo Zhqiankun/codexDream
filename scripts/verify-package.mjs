@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
@@ -27,6 +28,11 @@ const installer = resolve(
   "release",
   `CodexStyle-${metadata.version}-x64.exe`,
 );
+const archive = resolve(
+  root,
+  "release",
+  `CodexStyle-${metadata.version}-x64.zip`,
+);
 const icon = resolve(root, "resources", "icon.ico");
 const required = [
   "package.json",
@@ -35,12 +41,20 @@ const required = [
   "out/preload/index.cjs",
   "out/renderer/index.html",
   "native/secure-store/build/Release/secure_store.node",
+  "resources/icon-source.png",
   "resources/icon.ico",
   "resources/icon.png",
+  "resources/tray-icon.png",
+  "resources/tray-icon@2x.png",
   "release/win-unpacked/resources/app.asar",
+  "release/win-unpacked/resources/icon.png",
   "release/win-unpacked/resources/native/secure_store.node",
+  "release/win-unpacked/resources/tray-icon.png",
+  "release/win-unpacked/resources/tray-icon@2x.png",
   "release/win-unpacked/CodexStyle.exe",
   `release/CodexStyle-${metadata.version}-x64.exe`,
+  `release/CodexStyle-${metadata.version}-x64.zip`,
+  "release/SHA256SUMS.txt",
 ];
 const missing = required.filter((entry) => !existsSync(resolve(root, entry)));
 if (missing.length) {
@@ -57,6 +71,28 @@ if (statSync(installer).size < 1024 * 1024) {
   console.error(
     "Package verification failed; installer is unexpectedly small.",
   );
+  process.exit(1);
+}
+
+if (statSync(archive).size < 1024 * 1024) {
+  console.error(
+    "Package verification failed; portable archive is unexpectedly small.",
+  );
+  process.exit(1);
+}
+
+const expectedChecksums = [installer, archive]
+  .map((path) => {
+    const hash = createHash("sha256").update(readFileSync(path)).digest("hex");
+    return `${hash}  ${path.split(/[\\/]/u).at(-1)}`;
+  })
+  .join("\n");
+const actualChecksums = readFileSync(
+  resolve(root, "release", "SHA256SUMS.txt"),
+  "utf8",
+).trim();
+if (actualChecksums !== expectedChecksums) {
+  console.error("Package verification failed; release checksums do not match.");
   process.exit(1);
 }
 

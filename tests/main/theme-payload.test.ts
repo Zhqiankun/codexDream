@@ -35,17 +35,58 @@ describe("theme payload", () => {
 
       const root = document.documentElement;
       const sidebar = document.querySelector("aside");
+      const composer = document.querySelector(
+        "[data-composer-surface-variant]",
+      );
+      const composerToolbar = document.querySelector(
+        "[data-composer-footer-responsive]",
+      );
+      const composerSubmit = document.querySelector(
+        'button[class~="bg-primary-solid"]',
+      );
+      const mainTopFade = document.querySelector(
+        "[data-app-shell-main-content-top-fade]",
+      );
+      const composerBackdrop = document.querySelector(
+        '[class~="bg-gradient-to-t"]',
+      );
+      const userMessage = document.querySelector(
+        '[data-user-message-bubble="true"]',
+      );
+      const assistantMessage = document.querySelector(
+        '[data-markdown-text-style="assistant-message"]',
+      );
+      const legacyMessageWrapper = document.querySelector(
+        "[data-local-conversation-final-assistant]",
+      );
       const style = document.querySelector(
         `style[data-codexstyle-owner="${marker}"]`,
       );
       expect(cleanupCalls).toBe(0);
       expect(root.getAttribute("data-ds-part")).toBe("root");
       expect(sidebar?.getAttribute("data-ds-part")).toBe("sidebar");
+      expect(composer?.getAttribute("data-ds-part")).toBe("composer");
+      expect(composerToolbar?.getAttribute("data-ds-part")).toBe(
+        "composer-toolbar",
+      );
+      expect(composerSubmit?.getAttribute("data-ds-part")).toBe(
+        "composer-submit",
+      );
+      expect(mainTopFade?.getAttribute("data-ds-part")).toBe("main-top-fade");
+      expect(composerBackdrop?.getAttribute("data-ds-part")).toBe(
+        "composer-backdrop",
+      );
+      expect(userMessage?.getAttribute("data-ds-part")).toBe("message");
+      expect(assistantMessage?.getAttribute("data-ds-part")).toBe("message");
+      expect(legacyMessageWrapper?.getAttribute("data-ds-part")).toBeNull();
       expect(style?.getAttribute("data-codexstyle-style")).toBe("1");
       expect(style?.textContent).toContain("data:image/png;base64,AA==");
       expect(style?.textContent).toContain('data-ds-part="root"');
       expect(style?.textContent).toContain(
-        "background-color: rgb(15 23 42 / 0.75) !important",
+        "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 75%, transparent) !important",
+      );
+      expect(style?.textContent).toContain(
+        "color: var(--ds-theme-color-sidebar-text) !important",
       );
     } finally {
       if (mutationObserver)
@@ -82,8 +123,12 @@ describe("theme payload", () => {
       `[data-ds-part="main"][data-codexstyle-owner="${marker}"]`,
     );
     expect(style?.textContent).not.toContain(
-      '[data-ds-part="sidebar"][data-codexstyle-owner=',
+      "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 30%, transparent)",
     );
+    expect(style?.textContent).not.toContain(
+      "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent)",
+    );
+    expect(style?.textContent).not.toContain('data-ds-part="main-top-fade"');
   });
 
   it("uses the configured sidebar overlay in window mode", () => {
@@ -107,11 +152,114 @@ describe("theme payload", () => {
       `style[data-codexstyle-owner="${marker}"]`,
     );
     expect(style?.textContent).toContain(
-      "background-color: rgb(15 23 42 / 0.42) !important",
+      "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 42%, transparent) !important",
     );
-    expect(style?.textContent?.lastIndexOf("0.42")).toBeGreaterThan(
+    expect(style?.textContent).toContain(
+      "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent) !important",
+    );
+    expect(style?.textContent).toContain('data-ds-part="main-top-fade"');
+    expect(style?.textContent).toContain(
+      '.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"]',
+    );
+    expect(style?.textContent).toContain(
+      "background-color: transparent !important; background-image: none !important",
+    );
+    expect(style?.textContent).not.toContain("linear-gradient(to top");
+    expect(style?.textContent?.lastIndexOf("42%")).toBeGreaterThan(
       style?.textContent?.lastIndexOf("#fff") ?? -1,
     );
+  });
+
+  it("covers a recreated bottom fade before selector remapping runs", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+      ),
+    );
+
+    const selector =
+      '.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"]';
+    document.querySelector(selector)?.remove();
+    const replacement = document.createElement("div");
+    replacement.setAttribute("aria-hidden", "true");
+    replacement.className = "bg-gradient-to-t from-surface via-surface";
+    document.querySelector(".thread-scroll-container")?.append(replacement);
+
+    expect(replacement.getAttribute("data-ds-part")).toBeNull();
+    expect(replacement.matches(selector)).toBe(true);
+    expect(
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent,
+    ).toContain(selector);
+  });
+
+  it("adds balanced padding to configured assistant message cards", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="message"] { background-color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+          styleConfig: {
+            ...defaultConfiguration.styleConfig,
+            mode: "configured",
+          },
+        },
+      ),
+    );
+
+    const style = document.querySelector(
+      `style[data-codexstyle-owner="${marker}"]`,
+    );
+    expect(style?.textContent).toContain(
+      'data-markdown-text-style="assistant-message"',
+    );
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-assistant-panel) !important",
+    );
+    expect(style?.textContent).toContain("padding: 12px 16px");
+  });
+
+  it("replaces only the send-state glyph for a built-in icon", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+          styleConfig: {
+            ...defaultConfiguration.styleConfig,
+            mode: "configured",
+            sendIcon: "paper-plane",
+          },
+        },
+      ),
+    );
+
+    const submit = document.querySelector('button[class~="bg-primary-solid"]');
+    const style = document.querySelector(
+      `style[data-codexstyle-owner="${marker}"]`,
+    );
+    expect(submit?.getAttribute("data-ds-part")).toBe("composer-submit");
+    expect(style?.textContent).toContain('data-ds-part="composer-submit"');
+    expect(style?.textContent).toContain("mask-image: url(");
+    expect(style?.textContent).toContain("svg { display: none");
+    expect(style?.textContent).not.toContain('aria-label*="停止"');
   });
 
   it("applies appearance, focus, safe area, and task mode to the real payload", () => {
@@ -173,6 +321,31 @@ describe("theme payload", () => {
     expect(style?.textContent).toContain("background-image: none");
   });
 
+  it("keeps the main surface opaque when window artwork is disabled", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="main"] { background-color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          art: { ...defaultConfiguration.art, taskMode: "off" },
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+        },
+      ),
+    );
+    const style = document.querySelector(
+      `style[data-codexstyle-owner="${marker}"]`,
+    );
+    expect(style?.textContent).toContain("background-image: none");
+    expect(style?.textContent).not.toContain(
+      "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent)",
+    );
+  });
+
   it("fails closed when the target already owns the root mapping", () => {
     resetDocument("");
     document.documentElement.setAttribute("data-ds-part", "host-root");
@@ -193,7 +366,7 @@ describe("theme payload", () => {
 });
 
 function resetDocument(
-  body = '<aside class="app-shell-left-panel"></aside><main class="main-surface"></main>',
+  body = '<aside class="app-shell-left-panel"></aside><main class="main-surface"><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
 ) {
   document.head.innerHTML = "";
   document.body.innerHTML = body;

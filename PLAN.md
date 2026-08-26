@@ -10,7 +10,7 @@
 - Vitest `4.1.10`、React Testing Library、Playwright `1.62.1`。
 - electron-builder `26.15.3`，仅 Windows x64、当前用户 NSIS、asar 开启。
 - 精确依赖版本和 `package-lock.json`；开发/CI 使用 Node `22.22.0`、npm `10.9.4`。
-- native secure-store 使用仓库内 C++ 源码与 Node-API/N-API 构建；构建基线为 Visual Studio Build Tools 2022、MSVC x64 `19.44.35228`、Windows SDK `10.0.26100.0`。最终用户不需要安装编译工具链。
+- native secure-store 使用仓库内 C++ 源码与 Node-API/N-API 构建；支持 Visual Studio Build Tools 2019/2022 的 MSVC x64 C++ 工具链与 Windows SDK `10.0.19041.0` 或更高版本，构建脚本由 node-gyp 选择最新可用实例。最终用户不需要安装编译工具链。
 
 ## 模块与公开契约
 

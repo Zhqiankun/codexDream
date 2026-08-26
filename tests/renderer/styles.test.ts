@@ -12,5 +12,8 @@ describe("renderer styles", () => {
 
     expect(css).toContain("button:focus-visible");
     expect(css).toContain("@media (max-width: 760px)");
+    expect(css).toContain(
+      ".mock-home-composer-wrap,\n.mock-conversation-composer-wrap {\n  width: min(69%, 450px);\n  align-self: center;",
+    );
   });
 });

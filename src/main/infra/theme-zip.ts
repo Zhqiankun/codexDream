@@ -8,7 +8,7 @@ import {
   DEFAULT_SIDEBAR_OVERLAY_OPACITY,
   generateConfiguredCss,
   isCompleteThemeArt,
-  isCompleteThemeColors,
+  isCompatibleThemeColors,
   isCompleteThemeStyleConfig,
   isThemeAppearance,
   readThemeConfiguration,
@@ -117,6 +117,7 @@ const COLOR_KEYS = [
   "muted",
   "line",
 ];
+const OPTIONAL_COLOR_KEYS = ["sidebarText", "assistantPanel"];
 const THEME_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/u;
 const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
 const RFC3339_PATTERN =
@@ -518,7 +519,7 @@ function validatePortableThemeConfiguration(
   if (
     (theme.appearance !== undefined && !isThemeAppearance(theme.appearance)) ||
     (theme.art !== undefined && !isCompleteThemeArt(theme.art)) ||
-    (theme.colors !== undefined && !isCompleteThemeColors(theme.colors)) ||
+    (theme.colors !== undefined && !isCompatibleThemeColors(theme.colors)) ||
     (theme.style !== undefined && !isCompleteThemeStyleConfig(theme.style))
   )
     throw new Error("UNSAFE_ARCHIVE:theme-configuration");
@@ -603,9 +604,25 @@ function validateArt(value: unknown): void {
 
 function validateColors(value: unknown): void {
   if (!isRecord(value)) throw new Error("UNSAFE_ARCHIVE:theme-colors");
-  assertExactKeys(value, COLOR_KEYS, [], "theme-colors");
+  assertExactKeys(value, COLOR_KEYS, OPTIONAL_COLOR_KEYS, "theme-colors");
   for (const key of COLOR_KEYS) {
     assertString(value[key], `theme-color-${key}`, {
+      min: 1,
+      max: 64,
+      pattern: COLOR_PATTERN,
+      controls: undefined,
+    });
+  }
+  if (value.sidebarText !== undefined) {
+    assertString(value.sidebarText, "theme-color-sidebarText", {
+      min: 1,
+      max: 64,
+      pattern: COLOR_PATTERN,
+      controls: undefined,
+    });
+  }
+  if (value.assistantPanel !== undefined) {
+    assertString(value.assistantPanel, "theme-color-assistantPanel", {
       min: 1,
       max: 64,
       pattern: COLOR_PATTERN,

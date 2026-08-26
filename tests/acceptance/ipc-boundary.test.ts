@@ -15,7 +15,8 @@ interface ControllerFixture {
   };
   broadcast: Mock<(snapshot: ThemeSnapshot) => void>;
   launchSession: Mock<() => Promise<Result<ThemeSnapshot>>>;
-  requestUpdate: Mock<() => Result<UpdateSnapshot>>;
+  requestUpdate: Mock<() => Promise<Result<UpdateSnapshot>>>;
+  openUpdatePage: Mock<() => Promise<Result<UpdateSnapshot>>>;
 }
 
 const { handlers } = vi.hoisted(() => ({
@@ -48,7 +49,7 @@ describe("IPC public boundary", () => {
     expect(controller.broadcast).not.toHaveBeenCalled();
   });
 
-  it("returns the zero-network update placeholder to the trusted frame", async () => {
+  it("returns a manual update check result to the trusted frame", async () => {
     const controller = controllerFixture();
     registerFixture(controller);
     const handler = handlers.get("update.request")!;
@@ -56,8 +57,13 @@ describe("IPC public boundary", () => {
     const result = await handler(trustedEvent({ senderId: 17 }), { v: 1 });
 
     expect(result).toEqual({
-      ok: false,
-      error: { code: "UPDATE_UNCONFIGURED", messageKey: "update.unconfigured" },
+      ok: true,
+      data: {
+        configured: true,
+        status: "current",
+        currentVersion: "1.0.0",
+        latestVersion: "1.0.0",
+      },
     });
     expect(controller.requestUpdate).toHaveBeenCalledOnce();
     expect(controller.broadcast).not.toHaveBeenCalled();
@@ -127,8 +133,17 @@ function controllerFixture(): ControllerFixture {
     broadcast: vi.fn<(snapshot: ThemeSnapshot) => void>(),
     launchSession: vi.fn<() => Promise<Result<ThemeSnapshot>>>(),
     requestUpdate: vi
-      .fn<() => Result<UpdateSnapshot>>()
-      .mockReturnValue(error("UPDATE_UNCONFIGURED", "update.unconfigured")),
+      .fn<() => Promise<Result<UpdateSnapshot>>>()
+      .mockResolvedValue({
+        ok: true,
+        data: {
+          configured: true,
+          status: "current",
+          currentVersion: "1.0.0",
+          latestVersion: "1.0.0",
+        },
+      }),
+    openUpdatePage: vi.fn(),
   };
 }
 
@@ -158,6 +173,10 @@ function externalBlockedSnapshot(): ThemeSnapshot {
       canEnd: false,
       launchedByTool: false,
     },
-    update: { configured: false, status: "unavailable" },
+    update: {
+      configured: true,
+      status: "idle",
+      currentVersion: "1.0.0",
+    },
   };
 }

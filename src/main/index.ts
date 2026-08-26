@@ -23,6 +23,8 @@ if (!hasSingleInstanceLock) {
   const controller = new AppController();
 
   void app.whenReady().then(async () => {
+    if (process.platform === "win32")
+      app.setAppUserModelId("com.codexstyle.desktop");
     await controller.init();
     app.on("activate", () => void controller.openStudio());
   });

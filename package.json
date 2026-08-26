@@ -1,10 +1,18 @@
 {
   "name": "codexstyle",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Offline Windows theme studio and launcher for OpenAI Codex Desktop.",
   "main": "out/main/index.js",
   "author": "CodexStyle",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zhqiankun/codexDream.git"
+  },
+  "homepage": "https://github.com/Zhqiankun/codexDream#readme",
+  "bugs": {
+    "url": "https://github.com/Zhqiankun/codexDream/issues"
+  },
   "type": "module",
   "private": true,
   "engines": {
@@ -28,7 +36,8 @@
     "test:renderer": "vitest run tests/renderer --passWithNoTests",
     "test:integration": "npm run build:native && vitest run tests/acceptance --passWithNoTests",
     "test:e2e": "npm run prepare:electron && npm run build && playwright test",
-    "package:win": "npm run build && electron-builder --win --x64",
+    "package:win": "npm run build && electron-builder --win --x64 && npm run release:checksums",
+    "release:checksums": "node scripts/generate-checksums.mjs",
     "verify:package": "node scripts/verify-package.mjs",
     "architecture:check": "node scripts/architecture-check.mjs"
   },

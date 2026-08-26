@@ -100,11 +100,38 @@ describe("IPC handler command boundary", () => {
     expect(controller.patchDraft).not.toHaveBeenCalled();
   });
 
-  it("returns the zero-network update placeholder from AppController", async () => {
+  it("validates and delegates a custom send icon selection", async () => {
     const controller = controllerFixture();
-    controller.requestUpdate.mockReturnValue({
-      ok: false,
-      error: { code: "UPDATE_UNCONFIGURED", messageKey: "update.unconfigured" },
+    controller.chooseSendIcon.mockResolvedValue({ ok: true, data: "updated" });
+    registerIpc(controller as never);
+
+    const request = {
+      v: 1,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 3,
+    };
+    const result = await handlers.get("theme.chooseSendIcon")!(
+      trustedEvent(),
+      request,
+    );
+
+    expect(result).toEqual({ ok: true, data: "updated" });
+    expect(controller.chooseSendIcon).toHaveBeenCalledWith(
+      request.libraryId,
+      request.expectedRevision,
+    );
+  });
+
+  it("returns the manual update check result from AppController", async () => {
+    const controller = controllerFixture();
+    controller.requestUpdate.mockResolvedValue({
+      ok: true,
+      data: {
+        configured: true,
+        status: "current",
+        currentVersion: "1.0.0",
+        latestVersion: "1.0.0",
+      },
     });
     registerIpc(controller as never);
 
@@ -113,8 +140,13 @@ describe("IPC handler command boundary", () => {
     });
 
     expect(result).toEqual({
-      ok: false,
-      error: { code: "UPDATE_UNCONFIGURED", messageKey: "update.unconfigured" },
+      ok: true,
+      data: {
+        configured: true,
+        status: "current",
+        currentVersion: "1.0.0",
+        latestVersion: "1.0.0",
+      },
     });
     expect(controller.requestUpdate).toHaveBeenCalledOnce();
     expect(controller.broadcast).not.toHaveBeenCalled();
@@ -133,6 +165,7 @@ function controllerFixture() {
     createDraft: vi.fn(),
     patchDraft: vi.fn(),
     chooseBackground: vi.fn(),
+    chooseSendIcon: vi.fn(),
     commitTheme: vi.fn(),
     importTheme: vi.fn(),
     resolveThemeImport: vi.fn(),
@@ -145,6 +178,7 @@ function controllerFixture() {
     endOwnedSession: vi.fn(),
     getUpdateStatus: vi.fn(),
     requestUpdate: vi.fn(),
+    openUpdatePage: vi.fn(),
   };
 }
 

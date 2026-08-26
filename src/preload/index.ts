@@ -19,6 +19,8 @@ const api: CodexStyleApi = {
     invoke("theme.patchDraft", { v: PROTOCOL_VERSION, ...request }),
   chooseBackground: (request) =>
     invoke("theme.chooseBackground", { v: PROTOCOL_VERSION, ...request }),
+  chooseSendIcon: (request) =>
+    invoke("theme.chooseSendIcon", { v: PROTOCOL_VERSION, ...request }),
   commit: (request) =>
     invoke("theme.commit", { v: PROTOCOL_VERSION, ...request }),
   importZip: () => invoke("theme.importZip", { v: PROTOCOL_VERSION }),
@@ -35,6 +37,7 @@ const api: CodexStyleApi = {
   endOwnedSession: () => invoke("session.endOwned", { v: PROTOCOL_VERSION }),
   getUpdateStatus: () => invoke("update.getStatus", { v: PROTOCOL_VERSION }),
   requestUpdate: () => invoke("update.request", { v: PROTOCOL_VERSION }),
+  openUpdatePage: () => invoke("update.openRelease", { v: PROTOCOL_VERSION }),
   onStateChanged: (listener: (snapshot: ThemeSnapshot) => void) => {
     const callback = (
       _event: Electron.IpcRendererEvent,

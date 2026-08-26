@@ -159,7 +159,11 @@ function controllerFixture(
     themes: [],
     paused: false,
     session: { ...state },
-    update: { configured: false as const, status: "unavailable" as const },
+    update: {
+      configured: true as const,
+      status: "idle" as const,
+      currentVersion: "1.0.0",
+    },
   }));
   const broadcast = vi.fn();
   const controller = Object.create(AppController.prototype) as AppController;

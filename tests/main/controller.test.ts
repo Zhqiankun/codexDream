@@ -51,7 +51,11 @@ describe("AppController", () => {
         canEnd: false,
         launchedByTool: false,
       },
-      update: { configured: false as const, status: "unavailable" as const },
+      update: {
+        configured: true as const,
+        status: "idle" as const,
+        currentVersion: "1.0.0",
+      },
     }));
     Object.assign(controller as object, {
       operationGate: new MainOperationGate(),

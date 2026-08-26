@@ -4,6 +4,60 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const POWER_SHELL_TIMEOUT_MS = 10_000;
+const STORE_ACTIVATION_SOURCE = String.raw`
+using System;
+using System.Runtime.InteropServices;
+
+namespace CodexStyle
+{
+    [Flags]
+    internal enum ActivateOptions
+    {
+        None = 0
+    }
+
+    [ComImport]
+    [Guid("2e941141-7f97-4756-ba1d-9decde894a3d")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IApplicationActivationManager
+    {
+        [PreserveSig]
+        int ActivateApplication(
+            [MarshalAs(UnmanagedType.LPWStr)] string appUserModelId,
+            [MarshalAs(UnmanagedType.LPWStr)] string arguments,
+            ActivateOptions options,
+            out uint processId);
+    }
+
+    [ComImport]
+    [Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
+    internal class ApplicationActivationManager
+    {
+    }
+
+    public static class StoreApplicationActivator
+    {
+        public static uint Activate(string appUserModelId, string arguments)
+        {
+            var manager = (IApplicationActivationManager)new ApplicationActivationManager();
+            try
+            {
+                uint processId;
+                var result = manager.ActivateApplication(
+                    appUserModelId,
+                    arguments,
+                    ActivateOptions.None,
+                    out processId);
+                Marshal.ThrowExceptionForHR(result);
+                return processId;
+            }
+            finally
+            {
+                Marshal.FinalReleaseComObject(manager);
+            }
+        }
+    }
+}`;
 
 export interface StorePackage {
   name: string;
@@ -29,7 +83,7 @@ export class WindowsPlatform {
       "$package = @(Get-AppxPackage -Name 'OpenAI.Codex' | Where-Object { $_.SignatureKind -eq 'Store' -and $_.IsDevelopmentMode -eq $false } | Select-Object -First 1)",
       "if ($package.Count -ne 1) { exit 2 }",
       "$manifest = Get-AppxPackageManifest -Package $package[0].PackageFullName",
-      "$application = @($manifest.Package.Applications.Application | Where-Object { $_.Executable -eq 'app\\ChatGPT.exe' } | Select-Object -First 1)",
+      "$application = @($manifest.Package.Applications.Application | Where-Object { $_.Executable -in @('app\\ChatGPT.exe', 'app/ChatGPT.exe') } | Select-Object -First 1)",
       "if ($application.Count -ne 1) { exit 3 }",
       "[pscustomobject]@{ name=$package[0].Name; fullName=$package[0].PackageFullName; familyName=$package[0].PackageFamilyName; installLocation=$package[0].InstallLocation; applicationId=$application[0].Id; executable=$application[0].Executable } | ConvertTo-Json -Compress",
     ].join("; ");
@@ -37,7 +91,7 @@ export class WindowsPlatform {
       const result = await runPowerShell(script, 256 * 1024);
       const parsed: unknown = JSON.parse(result.stdout.trim());
       if (!isRecord(parsed) || !isPackageRecord(parsed)) return undefined;
-      if (parsed.executable !== "app\\ChatGPT.exe") return undefined;
+      if (!samePath(parsed.executable, "app\\ChatGPT.exe")) return undefined;
       const executablePath = win32.join(
         parsed.installLocation,
         "app",
@@ -161,22 +215,34 @@ export class WindowsPlatform {
     packageInfo: StorePackage,
     nonce: string,
     port: number,
-  ): Promise<void> {
+  ): Promise<number> {
     if (
       process.platform !== "win32" ||
       !isPort(port) ||
       !/^[a-f0-9]{64}$/u.test(nonce) ||
       !isAumid(packageInfo.aumid)
     )
-      throw new Error("TARGET_INCOMPATIBLE");
+      throw new Error("STORE_ACTIVATION_FAILED:arguments");
     const argument = `--codexstyle-launch=${nonce} --remote-debugging-address=127.0.0.1 --remote-debugging-port=${port}`;
-    // AppsFolder activation is the only allowed launch path: no protected
-    // binary probing, ACL change, or direct executable fallback is used.
-    await execFileAsync(
-      "explorer.exe",
-      [`shell:AppsFolder\\${packageInfo.aumid}`, argument],
-      { windowsHide: true, timeout: 15_000, maxBuffer: 16 * 1024 },
-    );
+    const script = [
+      "$activationSource = @'",
+      STORE_ACTIVATION_SOURCE,
+      "'@",
+      "Add-Type -TypeDefinition $activationSource -Language CSharp -ErrorAction Stop",
+      `$activatedProcessId = [CodexStyle.StoreApplicationActivator]::Activate('${packageInfo.aumid}', '${argument}')`,
+      "$activatedProcessId",
+    ].join("\n");
+    try {
+      // IApplicationActivationManager is the supported AUMID activation path
+      // that carries app-specific arguments and returns the activated PID.
+      const result = await runPowerShell(script, 64 * 1024);
+      const activatedProcessId = Number(result.stdout.trim());
+      if (!isPid(activatedProcessId))
+        throw new Error("STORE_ACTIVATION_FAILED:pid");
+      return activatedProcessId;
+    } catch {
+      throw new Error("STORE_ACTIVATION_FAILED");
+    }
   }
 }
 

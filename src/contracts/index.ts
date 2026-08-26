@@ -6,8 +6,10 @@ import {
   type ThemeColors,
   type ThemeStyleConfig,
 } from "./theme-config";
+import { isThemeIconDataUrl } from "./send-icon";
 
 export * from "./theme-config";
+export * from "./send-icon";
 
 export const PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
@@ -29,6 +31,7 @@ export type ErrorCode =
   | "DUPLICATE_CONTENT"
   | "THEME_ID_CONFLICT"
   | "STORE_PACKAGE_NOT_FOUND"
+  | "STORE_ACTIVATION_FAILED"
   | "EXTERNAL_SESSION_RUNNING"
   | "CDP_UNAVAILABLE"
   | "TARGET_INCOMPATIBLE"
@@ -36,7 +39,8 @@ export type ErrorCode =
   | "INJECTION_FAILED"
   | "CLEANUP_FAILED"
   | "STORE_TAMPERED"
-  | "UPDATE_UNCONFIGURED"
+  | "UPDATE_CHECK_FAILED"
+  | "UPDATE_OPEN_FAILED"
   | "CANCELLED"
   | "UNKNOWN";
 
@@ -117,8 +121,12 @@ export interface SessionSnapshot {
 }
 
 export interface UpdateSnapshot {
-  configured: false;
-  status: "unavailable";
+  configured: true;
+  status: "idle" | "current" | "available" | "error";
+  currentVersion: string;
+  latestVersion?: string;
+  releaseUrl?: string;
+  checkedAt?: string;
 }
 
 export interface ThemePatch {
@@ -178,7 +186,9 @@ const ThemeColorsSchema = z
   .object({
     background: z.string().refine(isThemeColor),
     panel: z.string().refine(isThemeColor),
+    sidebarText: z.string().refine(isThemeColor),
     panelAlt: z.string().refine(isThemeColor),
+    assistantPanel: z.string().refine(isThemeColor),
     accent: z.string().refine(isThemeColor),
     accentAlt: z.string().refine(isThemeColor),
     secondary: z.string().refine(isThemeColor),
@@ -200,12 +210,18 @@ const ThemeStyleConfigSchema = z
         dialog: z.boolean(),
       })
       .strict(),
+    sendIcon: z.enum(["native", "paper-plane", "spark", "rocket", "custom"]),
+    sendIconDataUrl: z.string().refine(isThemeIconDataUrl).optional(),
     blur: z.number().int().min(0).max(30),
     radius: z.number().int().min(0).max(28),
     borderWidth: z.number().int().min(0).max(4),
     shadow: z.enum(["none", "soft", "strong"]),
   })
-  .strict();
+  .strict()
+  .refine(
+    (style) => style.sendIcon !== "custom" || Boolean(style.sendIconDataUrl),
+    { message: "custom-send-icon-required" },
+  );
 
 export const EmptyRequestSchema = z.object(VersionField).strict();
 export const LibraryIdSchema = z
@@ -288,6 +304,9 @@ export interface CodexStyleApi {
   chooseBackground(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
   ): Promise<Result<ThemeDetail>>;
+  chooseSendIcon(
+    request: Omit<z.infer<typeof RevisionSchema>, "v">,
+  ): Promise<Result<ThemeDetail>>;
   commit(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
   ): Promise<Result<ThemeDetail>>;
@@ -308,6 +327,7 @@ export interface CodexStyleApi {
   endOwnedSession(): Promise<Result<ThemeSnapshot>>;
   getUpdateStatus(): Promise<Result<UpdateSnapshot>>;
   requestUpdate(): Promise<Result<UpdateSnapshot>>;
+  openUpdatePage(): Promise<Result<UpdateSnapshot>>;
   onStateChanged(listener: (snapshot: ThemeSnapshot) => void): () => void;
 }
 

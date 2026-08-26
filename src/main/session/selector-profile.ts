@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/1" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/5" as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -10,16 +10,28 @@ export const SELECTOR_PARTS = [
     "header",
     'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"])',
   ],
+  ["main-top-fade", "[data-app-shell-main-content-top-fade]"],
   ["home", '[role="main"]:has([data-testid="home-icon"])'],
   ["home-hero", '[data-testid="home-icon"]'],
   ["project-list", '[class*="project-selector" i]'],
   ["thread", ".thread-scroll-container"],
   [
     "message",
-    ":is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])",
+    ':is([data-user-message-bubble="true"], [data-markdown-text-style="assistant-message"])',
   ],
-  ["composer", ".composer-surface-chrome"],
-  ["composer-toolbar", '.composer-surface-chrome [class*="_footer_"]'],
+  ["composer", "[data-codex-composer-root] [data-composer-surface-variant]"],
+  [
+    "composer-toolbar",
+    "[data-codex-composer-root] [data-composer-footer-responsive]",
+  ],
+  [
+    "composer-submit",
+    '[data-codex-composer-root] button[class~="bg-primary-solid"]:not([aria-label*="停止"]):not([aria-label*="Stop"])',
+  ],
+  [
+    "composer-backdrop",
+    '.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"]',
+  ],
   ["dialog", '[role="dialog"]'],
 ] as const;
 

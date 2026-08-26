@@ -9,7 +9,7 @@ import {
   cloneThemeConfiguration,
   generateConfiguredCss,
   isCompleteThemeArt,
-  isCompleteThemeColors,
+  isCompatibleThemeColors,
   isCompleteThemeStyleConfig,
   isThemeAppearance,
   isThemeColor,
@@ -879,7 +879,7 @@ function isThemeRecord(value: unknown): value is ThemeRecord {
       !isThemeAppearance(theme.json.appearance)) ||
     (theme.json.art !== undefined && !isCompleteThemeArt(theme.json.art)) ||
     (theme.json.colors !== undefined &&
-      !isCompleteThemeColors(theme.json.colors)) ||
+      !isCompatibleThemeColors(theme.json.colors)) ||
     (theme.json.style !== undefined &&
       !isCompleteThemeStyleConfig(theme.json.style))
   )
@@ -1059,7 +1059,7 @@ function applyThemeJsonSource(theme: ThemeRecord, source: string): void {
     parsed.sidebarOverlayOpacity > 100 ||
     !isThemeAppearance(parsed.appearance) ||
     !isCompleteThemeArt(parsed.art) ||
-    !isCompleteThemeColors(parsed.colors) ||
+    !isCompatibleThemeColors(parsed.colors) ||
     !isCompleteThemeStyleConfig(parsed.style) ||
     (parsed.accent !== undefined && !isThemeColor(parsed.accent))
   )
@@ -1083,7 +1083,7 @@ function applyThemeJsonSource(theme: ThemeRecord, source: string): void {
   const configuration: ThemeConfiguration = {
     appearance: parsed.appearance,
     art: { ...parsed.art },
-    colors: { ...parsed.colors },
+    colors: readThemeConfiguration(parsed).colors,
     styleConfig: {
       ...parsed.style,
       recipes: { ...parsed.style.recipes },
