@@ -30,6 +30,7 @@ export type ErrorCode =
   | "UNSAFE_IMAGE"
   | "DUPLICATE_CONTENT"
   | "THEME_ID_CONFLICT"
+  | "THEME_IN_USE"
   | "STORE_PACKAGE_NOT_FOUND"
   | "STORE_ACTIVATION_FAILED"
   | "EXTERNAL_SESSION_RUNNING"
@@ -310,6 +311,9 @@ export interface CodexStyleApi {
   commit(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
   ): Promise<Result<ThemeDetail>>;
+  deleteTheme(
+    request: Omit<z.infer<typeof RevisionSchema>, "v">,
+  ): Promise<Result<ThemeSnapshot>>;
   importZip(): Promise<Result<ImportResult>>;
   resolveImport(
     request: Omit<z.infer<typeof ResolveImportSchema>, "v">,

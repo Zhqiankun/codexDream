@@ -50,6 +50,33 @@ describe("local theme store", () => {
     ).rejects.toThrow("STALE_REVISION");
   });
 
+  it("deletes an unused theme and refuses selected or last-known-good themes", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const [selected, removable] = store.listRecords();
+
+    await store.select(selected.libraryId, selected.revision);
+    await expect(
+      store.delete(selected.libraryId, selected.revision),
+    ).rejects.toThrow("THEME_IN_USE");
+
+    await store.clearSelection();
+    await store.markLastKnownGood(selected.libraryId, selected.fingerprint);
+    await expect(
+      store.delete(selected.libraryId, selected.revision),
+    ).rejects.toThrow("THEME_IN_USE");
+
+    await store.delete(removable.libraryId, removable.revision);
+    expect(store.get(removable.libraryId)).toBeUndefined();
+    expect(store.getBackground(removable.libraryId)).toBeUndefined();
+
+    const reloaded = new LocalThemeStore(managed.root);
+    await reloaded.init();
+    expect(reloaded.get(removable.libraryId)).toBeUndefined();
+  });
+
   it("persists background scope and sidebar overlay as revisioned theme data", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);

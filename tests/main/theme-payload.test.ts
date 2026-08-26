@@ -34,6 +34,7 @@ describe("theme payload", () => {
       );
 
       const root = document.documentElement;
+      const canvas = document.body;
       const sidebar = document.querySelector("aside");
       const composer = document.querySelector(
         "[data-composer-surface-variant]",
@@ -64,6 +65,7 @@ describe("theme payload", () => {
       );
       expect(cleanupCalls).toBe(0);
       expect(root.getAttribute("data-ds-part")).toBe("root");
+      expect(canvas.getAttribute("data-ds-part")).toBe("canvas");
       expect(sidebar?.getAttribute("data-ds-part")).toBe("sidebar");
       expect(composer?.getAttribute("data-ds-part")).toBe("composer");
       expect(composerToolbar?.getAttribute("data-ds-part")).toBe(
@@ -82,6 +84,10 @@ describe("theme payload", () => {
       expect(style?.getAttribute("data-codexstyle-style")).toBe("1");
       expect(style?.textContent).toContain("data:image/png;base64,AA==");
       expect(style?.textContent).toContain('data-ds-part="root"');
+      expect(style?.textContent).toContain('data-ds-part="canvas"');
+      expect(style?.textContent).toContain(
+        "background-attachment: fixed !important",
+      );
       expect(style?.textContent).toContain(
         "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 75%, transparent) !important",
       );
@@ -170,6 +176,40 @@ describe("theme payload", () => {
     );
   });
 
+  it("places window artwork on the body canvas above its fallback color", () => {
+    resetDocument();
+    document.body.style.backgroundColor = "rgb(12, 34, 56)";
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          art: { ...defaultConfiguration.art, taskMode: "full" },
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+        },
+      ),
+    );
+
+    const style = document.querySelector(
+      `style[data-codexstyle-owner="${marker}"]`,
+    );
+    expect(document.body.getAttribute("data-ds-part")).toBe("canvas");
+    expect(style?.textContent).toContain(
+      `[data-ds-part="root"][data-codexstyle-owner="${marker}"], [data-ds-part="canvas"][data-codexstyle-owner="${marker}"]`,
+    );
+    expect(style?.textContent).toContain(
+      'url("data:image/png;base64,AA==") !important',
+    );
+    expect(getComputedStyle(document.body).backgroundImage).toContain(
+      "data:image/png;base64,AA==",
+    );
+  });
+
   it("covers a recreated bottom fade before selector remapping runs", () => {
     resetDocument();
     const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
@@ -225,7 +265,7 @@ describe("theme payload", () => {
       'data-markdown-text-style="assistant-message"',
     );
     expect(style?.textContent).toContain(
-      "background-color: var(--ds-theme-color-assistant-panel) !important",
+      "background-color: color-mix(in srgb, var(--ds-theme-color-assistant-panel) 92%, transparent) !important",
     );
     expect(style?.textContent).toContain("padding: 12px 16px");
   });
@@ -260,6 +300,21 @@ describe("theme payload", () => {
     expect(style?.textContent).toContain("mask-image: url(");
     expect(style?.textContent).toContain("svg { display: none");
     expect(style?.textContent).not.toContain('aria-label*="停止"');
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-accent) !important",
+    );
+    expect(style?.textContent).toContain(
+      "border-color: var(--ds-theme-color-accent-alt) !important",
+    );
+    expect(style?.textContent).toContain(
+      "color: var(--ds-theme-color-secondary) !important",
+    );
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-highlight)",
+    );
+    expect(style?.textContent).toContain(
+      "color: var(--ds-theme-color-muted) !important",
+    );
   });
 
   it("applies appearance, focus, safe area, and task mode to the real payload", () => {
@@ -373,4 +428,8 @@ function resetDocument(
   document.documentElement.removeAttribute("data-ds-part");
   document.documentElement.removeAttribute("data-codexstyle-owner");
   document.documentElement.removeAttribute("data-codexstyle-part");
+  document.body.removeAttribute("data-ds-part");
+  document.body.removeAttribute("data-codexstyle-owner");
+  document.body.removeAttribute("data-codexstyle-part");
+  document.body.removeAttribute("style");
 }

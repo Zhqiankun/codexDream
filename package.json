@@ -1,6 +1,6 @@
 {
   "name": "codexstyle",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Offline Windows theme studio and launcher for OpenAI Codex Desktop.",
   "main": "out/main/index.js",
   "author": "CodexStyle",

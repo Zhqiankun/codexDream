@@ -118,6 +118,7 @@ function makeApi() {
       ok: true,
       data: { ...theme, revision: 4, status: "ready" },
     }),
+    deleteTheme: vi.fn().mockResolvedValue({ ok: true, data: snapshot }),
     importZip: vi.fn(),
     resolveImport: vi.fn(),
     exportZip: vi.fn().mockResolvedValue({
@@ -237,7 +238,9 @@ describe("Studio renderer", () => {
     });
     fireEvent.click(auroraPreset);
     await waitFor(() =>
-      expect(auroraPreset).toHaveAttribute("aria-pressed", "true"),
+      expect(
+        screen.getByRole("button", { name: "应用极光青预设" }),
+      ).toHaveAttribute("aria-pressed", "true"),
     );
     fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
 
@@ -382,7 +385,7 @@ describe("Studio renderer", () => {
     );
     expect(screen.getByText("35%")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "应用草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
       expect(api.patchDraft).toHaveBeenCalledWith({
         libraryId: theme.libraryId,
@@ -447,7 +450,7 @@ describe("Studio renderer", () => {
       "rgba(45, 45, 45, 0.36)",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "应用草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
       expect(api.patchDraft).toHaveBeenCalledWith({
         libraryId: theme.libraryId,
@@ -486,7 +489,7 @@ describe("Studio renderer", () => {
       "false",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "应用草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
       expect(api.patchDraft).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -520,7 +523,7 @@ describe("Studio renderer", () => {
       ),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "应用草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
       expect(api.patchDraft).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -655,7 +658,7 @@ describe("Studio renderer", () => {
       name: "Safe CSS 编辑器",
     });
     fireEvent.change(editor, {
-      target: { value: '[data-ds-part="app"] { color: #22c55e; }' },
+      target: { value: '[data-ds-part="root"] { color: #22c55e; }' },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() => expect(api.patchDraft).toHaveBeenCalled());
@@ -856,13 +859,57 @@ describe("Studio renderer", () => {
     fireEvent.change(nameInput, {
       target: { value: "Personal Studio Theme" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "应用草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
 
     await waitFor(() =>
       expect(api.patchDraft).toHaveBeenCalledWith({
         libraryId: draftTheme.libraryId,
         expectedRevision: 0,
         patch: expect.objectContaining({ name: "Personal Studio Theme" }),
+      }),
+    );
+  });
+
+  it("selects a saved theme for the next launch on double click", async () => {
+    const api = makeApi();
+    api.selectForNextLaunch.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, selectedLibraryId: theme.libraryId },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    const row = await screen.findByRole("button", { name: /Midnight Copper/u });
+    fireEvent.doubleClick(row);
+
+    await waitFor(() =>
+      expect(api.selectForNextLaunch).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: theme.revision,
+      }),
+    );
+  });
+
+  it("deletes a theme only after explicit confirmation", async () => {
+    const api = makeApi();
+    api.deleteTheme.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, themes: [] },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("button", { name: "删除主题" }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Midnight Copper");
+    expect(api.deleteTheme).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+
+    await waitFor(() =>
+      expect(api.deleteTheme).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: theme.revision,
       }),
     );
   });
@@ -922,16 +969,13 @@ describe("Studio renderer", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
 
     expect(
-      screen.getByText("Microsoft Store OpenAI.Codex").closest(".check-row"),
+      screen.getByText("Store Codex 可启动").closest(".check-row"),
     ).toHaveTextContent("未通过");
     expect(
-      screen.getByText("外部会话阻断").closest(".check-row"),
+      screen.getByText("会话可安全管理").closest(".check-row"),
     ).toHaveTextContent("等待");
     expect(
-      screen.getByText("127.0.0.1 CDP 身份").closest(".check-row"),
-    ).toHaveTextContent("等待");
-    expect(
-      screen.getByText("版本化选择器").closest(".check-row"),
+      screen.getByText("主题与当前版本兼容").closest(".check-row"),
     ).toHaveTextContent("等待");
   });
 
@@ -957,16 +1001,13 @@ describe("Studio renderer", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
 
     expect(
-      screen.getByText("Microsoft Store OpenAI.Codex").closest(".check-row"),
-    ).toHaveTextContent("通过");
+      screen.getByText("Store Codex 可启动").closest(".check-row"),
+    ).toHaveTextContent("未通过");
     expect(
-      screen.getByText("外部会话阻断").closest(".check-row"),
-    ).toHaveTextContent("通过");
-    expect(
-      screen.getByText("127.0.0.1 CDP 身份").closest(".check-row"),
+      screen.getByText("会话可安全管理").closest(".check-row"),
     ).toHaveTextContent("等待");
     expect(
-      screen.getByText("版本化选择器").closest(".check-row"),
+      screen.getByText("主题与当前版本兼容").closest(".check-row"),
     ).toHaveTextContent("等待");
     expect(screen.getByText(/Windows 启动调用失败/u)).toBeInTheDocument();
   });

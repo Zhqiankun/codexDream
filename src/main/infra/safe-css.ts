@@ -27,10 +27,11 @@ const MAX_RULES = 128;
 const MAX_DECLARATIONS = 512;
 const MAX_VALUE_CHARACTERS = 512;
 const parts = new Set<string>(SAFE_CSS_PARTS);
-const states = new Set(["hover", "focus-visible"]);
+const states = new Set(["hover", "focus-visible", "focus-within"]);
 const variables = new Set([
   "--ds-theme-color-background",
   "--ds-theme-color-panel",
+  "--ds-theme-color-sidebar-text",
   "--ds-theme-color-panel-alt",
   "--ds-theme-color-assistant-panel",
   "--ds-theme-color-accent",

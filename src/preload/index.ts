@@ -23,6 +23,8 @@ const api: CodexStyleApi = {
     invoke("theme.chooseSendIcon", { v: PROTOCOL_VERSION, ...request }),
   commit: (request) =>
     invoke("theme.commit", { v: PROTOCOL_VERSION, ...request }),
+  deleteTheme: (request) =>
+    invoke("theme.delete", { v: PROTOCOL_VERSION, ...request }),
   importZip: () => invoke("theme.importZip", { v: PROTOCOL_VERSION }),
   resolveImport: (request) =>
     invoke("theme.resolveImport", { v: PROTOCOL_VERSION, ...request }),

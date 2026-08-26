@@ -21,7 +21,6 @@ export type StudioTab = "design" | "css" | "theme-json";
 interface StudioControlsProps {
   draft: ThemeDetail;
   busy: boolean;
-  changed: boolean;
   cssValid: boolean;
   backgroundKey: string;
   tab: StudioTab;
@@ -32,7 +31,6 @@ interface StudioControlsProps {
   onDraftChange: (draft: ThemeDetail) => void;
   onChooseBackground: () => void;
   onChooseSendIcon: () => void;
-  onApplyDraft: () => void;
   onThemeJsonChange: (source: string) => void;
   onApplyThemeJson: () => void;
   onResetThemeJson: () => void;
@@ -82,7 +80,6 @@ const sendIconOptions = [
 export function StudioControls({
   draft,
   busy,
-  changed,
   cssValid,
   backgroundKey,
   tab,
@@ -93,7 +90,6 @@ export function StudioControls({
   onDraftChange,
   onChooseBackground,
   onChooseSendIcon,
-  onApplyDraft,
   onThemeJsonChange,
   onApplyThemeJson,
   onResetThemeJson,
@@ -152,16 +148,6 @@ export function StudioControls({
           onApply={onApplyThemeJson}
           onReset={onResetThemeJson}
         />
-      )}
-
-      {tab !== "theme-json" && (
-        <button
-          className="text-button studio-apply-draft"
-          disabled={busy || !changed || themeJsonDirty}
-          onClick={onApplyDraft}
-        >
-          应用草稿
-        </button>
       )}
     </div>
   );

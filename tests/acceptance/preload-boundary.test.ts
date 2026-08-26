@@ -51,6 +51,7 @@ describe("preload public boundary", () => {
       "clearSelection",
       "commit",
       "createDraft",
+      "deleteTheme",
       "endOwnedSession",
       "exportZip",
       "getSnapshot",

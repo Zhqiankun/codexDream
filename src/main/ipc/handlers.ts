@@ -65,6 +65,12 @@ export function registerIpc(controller: AppController): void {
     async ({ libraryId, expectedRevision }) =>
       controller.commitTheme(libraryId, expectedRevision),
   );
+  handle(
+    "theme.delete",
+    RevisionSchema,
+    async ({ libraryId, expectedRevision }) =>
+      controller.deleteTheme(libraryId, expectedRevision),
+  );
   handle("theme.importZip", EmptyRequestSchema, async () =>
     controller.importTheme(),
   );

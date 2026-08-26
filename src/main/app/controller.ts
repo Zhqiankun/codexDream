@@ -234,6 +234,17 @@ export class AppController {
     );
   }
 
+  deleteTheme(
+    libraryId: string,
+    expectedRevision: number,
+  ): Promise<Result<ThemeSnapshot>> {
+    if (this.session.snapshot().canEnd)
+      return Promise.resolve(resultError("THEME_IN_USE", "theme.inUse"));
+    return this.runSideEffect(() =>
+      this.themeService.delete(libraryId, expectedRevision),
+    );
+  }
+
   importTheme(): Promise<Result<ImportResult>> {
     return this.runSideEffect(() => this.themeService.importZip());
   }

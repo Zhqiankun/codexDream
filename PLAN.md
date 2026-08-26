@@ -37,7 +37,7 @@ native/secure-store/                   Windows x64 N-API 源码、预定义路�
 
 `Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。IPC 协议版本 `v:1`，handler 验证唯一主窗口 `webContents`、`app://` frame、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
 
-公开调用固定为：`studio.getSnapshot`；`theme.get/createDraft/patchDraft/chooseBackground/commit/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request`。唯一事件是 `studio:state-changed`。
+公开调用固定为：`studio.getSnapshot`；`theme.get/createDraft/patchDraft/chooseBackground/chooseSendIcon/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/openRelease`。唯一事件是 `studio:state-changed`。
 
 主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。现有 IPC 方法和 `v:1` 不变，`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏遮罩使用固定 `rgb(15 23 42)`，由注入 bridge 以受控样式覆盖主题侧栏背景，防止 Safe CSS 顺序造成预览与真实结果偏差。
 
@@ -122,6 +122,8 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 8. 结构化 Studio：实现共享配置契约与生成器；接入存储、ZIP 和 payload；将编辑器拆为设计、CSS、theme.json 三面板。CSS 面板默认展示配方开关与有界参数，高级源码为显式次级模式。验收覆盖旧 CSS 不改写、自动 CSS 安全性、JSON 原子拒绝、焦点/变量注入、配置往返和键盘可访问性。
 
 9. 多页面 LIVE PREVIEW：预览根继续由 Studio 草稿唯一驱动，页面状态仅保留在 renderer 内；首页与对话共享背景、侧栏、结构化变量和 Safe CSS 注入，不扩展 IPC、主题数据或持久化边界。
+
+10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、十二色和透明磨砂表面提供实际消费者。
 
 ## 验证命令
 

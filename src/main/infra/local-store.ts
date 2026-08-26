@@ -372,6 +372,49 @@ export class LocalThemeStore {
     });
   }
 
+  async delete(libraryId: string, expectedRevision: number): Promise<void> {
+    const index = this.index.themes.findIndex(
+      (theme) => theme.libraryId === libraryId,
+    );
+    if (index < 0) throw new Error("NOT_FOUND");
+    const theme = this.index.themes[index];
+    if (theme.revision !== expectedRevision) throw new Error("STALE_REVISION");
+    if (
+      this.index.selectedLibraryId === libraryId ||
+      this.index.lastKnownGoodLibraryId === libraryId
+    )
+      throw new Error("THEME_IN_USE");
+
+    const before = this.captureState();
+    const image = this.backgrounds.get(libraryId);
+    this.index.themes.splice(index, 1);
+    this.backgrounds.delete(libraryId);
+    try {
+      await this.persist();
+    } catch (error) {
+      this.restoreState(before);
+      throw error;
+    }
+
+    if (!theme.backgroundFile) return;
+    try {
+      this.managedStore.removeFile(managedThemeFile(theme.backgroundFile));
+    } catch (error) {
+      this.restoreState(before);
+      try {
+        if (image)
+          this.managedStore.writeFileAtomic(
+            managedThemeFile(theme.backgroundFile),
+            image,
+          );
+        await this.persist();
+      } catch {
+        throw new Error("STORE_TAMPERED:delete-rollback");
+      }
+      throw error;
+    }
+  }
+
   async setPaused(paused: boolean): Promise<void> {
     await this.mutate(() => {
       this.index.paused = paused;

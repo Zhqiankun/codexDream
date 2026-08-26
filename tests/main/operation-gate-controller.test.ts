@@ -136,6 +136,24 @@ describe("AppController operation gate", () => {
     expect(appQuit).toHaveBeenCalledOnce();
     expect(fixture.broadcast).toHaveBeenCalledOnce();
   });
+
+  it("refuses theme deletion while an owned Codex session is active", async () => {
+    const fixture = controllerFixture({
+      canEnd: true,
+      state: "THEMED_SESSION",
+    });
+
+    const result = await fixture.controller.deleteTheme(
+      "11111111-1111-4111-8111-111111111111",
+      2,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "THEME_IN_USE", messageKey: "theme.inUse" },
+    });
+    expect(fixture.themeService.delete).not.toHaveBeenCalled();
+  });
 });
 
 function controllerFixture(
@@ -166,6 +184,10 @@ function controllerFixture(
     },
   }));
   const broadcast = vi.fn();
+  const themeService = {
+    delete: vi.fn(),
+    setPaused: vi.fn().mockResolvedValue({ ok: true }),
+  };
   const controller = Object.create(AppController.prototype) as AppController;
   Object.assign(controller as object, {
     operationGate: new MainOperationGate(),
@@ -176,12 +198,12 @@ function controllerFixture(
     platform,
     session,
     store: { setPaused: vi.fn().mockResolvedValue(undefined) },
-    themeService: { setPaused: vi.fn().mockResolvedValue({ ok: true }) },
+    themeService,
     snapshot,
     broadcast,
     tray: { destroy: vi.fn() },
   });
-  return { controller, session, platform, state, broadcast };
+  return { controller, session, platform, state, broadcast, themeService };
 }
 
 function trustedEvent() {

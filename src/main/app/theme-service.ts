@@ -168,6 +168,18 @@ export class ThemeService {
     }
   }
 
+  async delete(
+    libraryId: string,
+    expectedRevision: number,
+  ): Promise<Result<ThemeSnapshot>> {
+    try {
+      await this.store.delete(libraryId, expectedRevision);
+      return { ok: true, data: this.snapshot() };
+    } catch (error) {
+      return this.fromError(error);
+    }
+  }
+
   async importZip(): Promise<Result<ImportResult>> {
     const window = this.mainWindow();
     if (!window) return this.error("UNKNOWN", "window.unavailable");
@@ -370,6 +382,7 @@ export class ThemeService {
       "UNSAFE_CSS",
       "UNSAFE_IMAGE",
       "DUPLICATE_CONTENT",
+      "THEME_IN_USE",
       "CANCELLED",
       "THEME_ID_CONFLICT",
       "STORE_TAMPERED",

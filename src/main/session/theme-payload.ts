@@ -15,7 +15,7 @@ interface PayloadConfig {
   artDataUrl: string;
   backgroundScope: BackgroundScope;
   sidebarOverlayOpacity: number;
-  configuredMessagePadding: boolean;
+  configuredRecipes?: ThemeConfiguration["styleConfig"]["recipes"];
   sendIcon: ThemeConfiguration["styleConfig"]["sendIcon"];
   sendIconDataUrl?: string;
   sendIconMask?: string;
@@ -47,9 +47,10 @@ export function buildThemePayload(
     artDataUrl,
     backgroundScope: settings.backgroundScope,
     sidebarOverlayOpacity: settings.sidebarOverlayOpacity,
-    configuredMessagePadding:
-      settings.styleConfig.mode === "configured" &&
-      settings.styleConfig.recipes.message,
+    configuredRecipes:
+      settings.styleConfig.mode === "configured"
+        ? settings.styleConfig.recipes
+        : undefined,
     sendIcon: settings.styleConfig.sendIcon,
     sendIconDataUrl: settings.styleConfig.sendIconDataUrl,
     sendIconMask: builtInSendIconMask(settings.styleConfig.sendIcon),
@@ -99,6 +100,7 @@ export function buildThemePayload(
       if (root.hasAttribute(partAttribute) && root.getAttribute(ownerAttribute) !== config.marker) return false;
       const desired = new Map();
       desired.set(root, "root");
+      if (document.body) desired.set(document.body, "canvas");
       for (const [part, selector] of config.parts) {
         try {
           for (const node of document.querySelectorAll(selector)) {
@@ -119,11 +121,12 @@ export function buildThemePayload(
       root.setAttribute("data-codexstyle-appearance", config.appearance);
       root.setAttribute("data-codexstyle-safe-area", config.art.safeArea);
       root.setAttribute("data-codexstyle-task-mode", config.art.taskMode);
-      const backgroundPart = config.backgroundScope === "window" ? "root" : "main";
       const rootSelector = '[data-ds-part="root"][data-codexstyle-owner="' + config.marker + '"]';
+      const canvasSelector = '[data-ds-part="canvas"][data-codexstyle-owner="' + config.marker + '"]';
+      const mainSelector = '[data-ds-part="main"][data-codexstyle-owner="' + config.marker + '"]';
       const tokenDeclarations = config.tokens.map(([property, value]) => property + ': ' + value + ';').join(' ');
       const colorScheme = config.appearance === "auto" ? "light dark" : config.appearance;
-      const tokenBridge = rootSelector + ' { ' + tokenDeclarations + ' color-scheme: ' + colorScheme + '; }';
+      const tokenBridge = rootSelector + ' { ' + tokenDeclarations + ' color-scheme: ' + colorScheme + '; accent-color: var(--ds-theme-color-accent); }';
       const taskLayer = config.art.taskMode === "ambient"
         ? 'linear-gradient(rgb(2 6 23 / 0.18), rgb(2 6 23 / 0.36)), '
         : '';
@@ -135,7 +138,13 @@ export function buildThemePayload(
       const backgroundImage = config.art.taskMode === "off"
         ? 'none'
         : taskLayer + safeAreaLayer + 'url("' + config.artDataUrl + '")';
-      const backgroundBridge = '[data-ds-part="' + backgroundPart + '"][data-codexstyle-owner="' + config.marker + '"] { background-image: ' + backgroundImage + '; background-size: cover; background-position: ' + (config.art.focusX * 100) + '% ' + (config.art.focusY * 100) + '%; background-repeat: no-repeat; }';
+      const backgroundTargets = config.backgroundScope === "window"
+        ? rootSelector + ', ' + canvasSelector
+        : mainSelector;
+      const backgroundAttachment = config.backgroundScope === "window"
+        ? ' background-attachment: fixed !important;'
+        : '';
+      const backgroundBridge = backgroundTargets + ' { background-image: ' + backgroundImage + ' !important; background-size: cover !important; background-position: ' + (config.art.focusX * 100) + '% ' + (config.art.focusY * 100) + '% !important; background-repeat: no-repeat !important;' + backgroundAttachment + ' }';
       const mainSurfaceBridge = config.backgroundScope === "window" && config.art.taskMode !== "off"
         ? '\\n[data-ds-part="main"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent) !important; }'
         : "";
@@ -150,8 +159,27 @@ export function buildThemePayload(
       const sidebarTextSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
       const sidebarTextBridge = '\\n' + sidebarTextSelector + ' { color: var(--ds-theme-color-sidebar-text) !important; }' +
         '\\n' + sidebarTextSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [role="treeitem"], [class*="text-"]) { color: var(--ds-theme-color-sidebar-text) !important; }';
-      const assistantMessageBridge = config.configuredMessagePadding
-        ? '\\n[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="' + config.marker + '"] { box-sizing: border-box; background-color: var(--ds-theme-color-assistant-panel) !important; padding: 12px 16px; }'
+      const configuredSurfaceBridge = config.configuredRecipes
+        ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-background); }' +
+          '\\n[data-ds-part="header"][data-codexstyle-owner="' + config.marker + '"] :where(button, span) { color: var(--ds-theme-color-muted) !important; }' +
+          (config.configuredRecipes.sidebar && config.backgroundScope === "content"
+            ? '\\n' + sidebarTextSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel) 88%, transparent) !important; }'
+            : '') +
+          (config.configuredRecipes.composer
+            ? '\\n[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 88%, transparent) !important; }' +
+              '\\n[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]:focus-within { border-color: var(--ds-theme-color-accent-alt) !important; }' +
+              '\\n[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"] :where(button, span) { color: var(--ds-theme-color-secondary) !important; }' +
+              '\\n[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-background) !important; }'
+            : '') +
+          (config.configuredRecipes.message
+            ? '\\n[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 92%, transparent) !important; }'
+            : '') +
+          (config.configuredRecipes.dialog
+            ? '\\n[data-ds-part="dialog"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-panel) 88%, transparent) !important; }'
+            : '')
+        : '';
+      const assistantMessageBridge = config.configuredRecipes?.message
+        ? '\\n[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="' + config.marker + '"] { box-sizing: border-box; background-color: color-mix(in srgb, var(--ds-theme-color-assistant-panel) 92%, transparent) !important; padding: 12px 16px; }'
         : "";
       const sendIconSelector = '[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"]';
       const sendIconBridge = config.sendIcon === "native"
@@ -162,7 +190,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-background); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

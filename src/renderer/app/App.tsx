@@ -62,6 +62,7 @@ const errorMessages: Record<string, string> = {
   "store.tampered": "本地受管存储校验失败，操作已安全停止。",
   "theme.notFound": "主题不存在或已被移除。",
   "theme.staleRevision": "主题已发生变化，请刷新后重试。",
+  "theme.inUse": "该主题正在用于下次启动或当前受管会话，请先切换并结束会话。",
   "theme.imageMissing": "请先为主题选择有效背景图。",
   "theme.formalExportUnavailable": "此主题已编辑，无法原样导出正式包。",
   "import.transactionNotFound": "导入事务已失效，请重新选择 ZIP。",
@@ -74,6 +75,7 @@ const errorMessages: Record<string, string> = {
   "error.incomplete_theme": "主题内容不完整，请补齐后再试。",
   "error.stale_revision": "主题已发生变化，请刷新后重试。",
   "error.theme_id_conflict": "主题 ID 与现有主题冲突。",
+  "error.theme_in_use": "该主题正在使用中，暂时不能删除。",
   "error.store_tampered": "本地受管存储校验失败，操作已安全停止。",
   "error.unknown": "操作未完成，请重试。",
 };
@@ -97,6 +99,8 @@ export function App() {
   const [view, setView] = useState<View>("library");
   const [notice, setNotice] = useState<string>("");
   const [pendingImport, setPendingImport] = useState<ImportResult>();
+  const [deleteCandidate, setDeleteCandidate] =
+    useState<ThemeSnapshot["themes"][number]>();
   const [dismissedUpdateVersion, setDismissedUpdateVersion] =
     useState<string>();
   const [busy, setBusy] = useState(false);
@@ -209,6 +213,39 @@ export function App() {
       },
     );
 
+  const activateTheme = (theme: ThemeSnapshot["themes"][number]) => {
+    if (theme.status !== "ready") {
+      report("请先保存主题，再双击启用。");
+      return;
+    }
+    void run(
+      () =>
+        bridge.selectForNextLaunch({
+          libraryId: theme.libraryId,
+          expectedRevision: theme.revision,
+        }),
+      () => report(`已启用“${theme.name}”，下次启动 Codex 时生效。`),
+    );
+  };
+
+  const confirmDeleteTheme = () => {
+    const candidate = deleteCandidate;
+    if (!candidate) return;
+    void run(
+      () =>
+        bridge.deleteTheme({
+          libraryId: candidate.libraryId,
+          expectedRevision: candidate.revision,
+        }),
+      () => {
+        selectedLibraryIdRef.current = undefined;
+        setSelected(undefined);
+        setDeleteCandidate(undefined);
+        report(`已删除“${candidate.name}”。`);
+      },
+    );
+  };
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -287,7 +324,13 @@ export function App() {
               <button
                 key={theme.libraryId}
                 className={`theme-row ${selected?.libraryId === theme.libraryId ? "active" : ""}`}
+                title={
+                  theme.status === "ready"
+                    ? "单击编辑，双击启用"
+                    : "单击编辑；保存后可双击启用"
+                }
                 onClick={() => void refresh(theme.libraryId)}
+                onDoubleClick={() => activateTheme(theme)}
               >
                 <span
                   className="theme-swatch"
@@ -392,6 +435,9 @@ export function App() {
               report={report}
               run={run}
               onDetailChanged={adoptSelectedDetail}
+              onRequestDelete={() => {
+                if (selectedSummary) setDeleteCandidate(selectedSummary);
+              }}
             />
           )}
           {view === "library" && !selected && (
@@ -411,6 +457,14 @@ export function App() {
           )}
         </main>
       </div>
+      {deleteCandidate && (
+        <DeleteThemeDialog
+          theme={deleteCandidate}
+          busy={busy}
+          onCancel={() => setDeleteCandidate(undefined)}
+          onConfirm={confirmDeleteTheme}
+        />
+      )}
     </div>
   );
 }
@@ -421,6 +475,7 @@ interface StudioProps {
   busy: boolean;
   report: (message: string) => void;
   onDetailChanged: (detail: ThemeDetail) => void;
+  onRequestDelete: () => void;
   run: <T>(
     operation: () => Promise<Result<T>>,
     onSuccess?: (data: T) => void,
@@ -473,6 +528,7 @@ function StudioView({
   report,
   run,
   onDetailChanged,
+  onRequestDelete,
 }: StudioProps) {
   const [draft, setDraft] = useState(detail);
   const [studioTab, setStudioTab] = useState<StudioTab>("design");
@@ -545,16 +601,6 @@ function StudioView({
     colors: draft.colors,
     styleConfig: draft.styleConfig,
   });
-  const patch = () =>
-    run(
-      () =>
-        bridge.patchDraft({
-          libraryId: detail.libraryId,
-          expectedRevision: detail.revision,
-          patch: patchFields(),
-        }),
-      applyDetail,
-    );
   const persistAnd = async <T,>(
     action: (current: ThemeDetail) => Promise<Result<T>>,
     onSuccess?: (data: T) => void,
@@ -740,6 +786,18 @@ function StudioView({
             </button>
           )}
           <button
+            className="danger-button"
+            disabled={busy || selectedForNextLaunch}
+            title={
+              selectedForNextLaunch
+                ? "请先启用另一个主题，再删除当前主题"
+                : "删除当前主题"
+            }
+            onClick={onRequestDelete}
+          >
+            删除主题
+          </button>
+          <button
             className="primary-button"
             disabled={busy || themeJsonDirty}
             onClick={() =>
@@ -764,7 +822,6 @@ function StudioView({
         <StudioControls
           draft={draft}
           busy={busy}
-          changed={changed}
           cssValid={cssValid}
           backgroundKey={backgroundKey}
           tab={studioTab}
@@ -775,7 +832,6 @@ function StudioView({
           onDraftChange={setDraft}
           onChooseBackground={() => void chooseBackground()}
           onChooseSendIcon={() => void chooseSendIcon()}
-          onApplyDraft={() => void patch()}
           onThemeJsonChange={(source) => {
             setThemeJsonSource(source);
             setThemeJsonDirty(true);
@@ -1124,6 +1180,48 @@ function StudioView({
   );
 }
 
+function DeleteThemeDialog({
+  theme,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  theme: ThemeSnapshot["themes"][number];
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="confirm-backdrop" role="presentation">
+      <div
+        className="confirm-dialog panel-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-theme-title"
+      >
+        <span className="confirm-kicker">删除本地主题</span>
+        <h2 id="delete-theme-title">确定删除“{theme.name}”吗？</h2>
+        <p>
+          主题配置和背景图片将从 CodexStyle 本地主题库移除。此操作无法撤销。
+        </p>
+        <div className="confirm-actions">
+          <button
+            className="secondary-button"
+            disabled={busy}
+            onClick={onCancel}
+            autoFocus
+          >
+            取消
+          </button>
+          <button className="danger-button" disabled={busy} onClick={onConfirm}>
+            {busy ? "删除中…" : "确认删除"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ImportConflict({
   conflict,
   busy,
@@ -1285,13 +1383,9 @@ function SessionView({
             <span>启动检查</span>
             <span className="revision">本地验证</span>
           </div>
-          <CheckRow
-            label="Microsoft Store OpenAI.Codex"
-            state={checks.package}
-          />
-          <CheckRow label="外部会话阻断" state={checks.external} />
-          <CheckRow label="127.0.0.1 CDP 身份" state={checks.identity} />
-          <CheckRow label="版本化选择器" state={checks.selector} />
+          <CheckRow label="Store Codex 可启动" state={checks.package} />
+          <CheckRow label="会话可安全管理" state={checks.ownership} />
+          <CheckRow label="主题与当前版本兼容" state={checks.compatibility} />
           <button className="text-button" onClick={onOpenStudio}>
             返回主题设计 →
           </button>
@@ -1309,9 +1403,8 @@ type CheckState = "pass" | "fail" | "pending";
 
 interface SessionCheckStates {
   package: CheckState;
-  external: CheckState;
-  identity: CheckState;
-  selector: CheckState;
+  ownership: CheckState;
+  compatibility: CheckState;
 }
 
 function sessionCheckStates(
@@ -1321,26 +1414,24 @@ function sessionCheckStates(
 ): SessionCheckStates {
   const checks: SessionCheckStates = {
     package: "pending",
-    external: "pending",
-    identity: "pending",
-    selector: "pending",
+    ownership: "pending",
+    compatibility: "pending",
   };
 
   if (ownedVerified || state === "THEMED_SESSION" || state === "INJECTING") {
     return {
       package: "pass",
-      external: "pass",
-      identity: "pass",
-      selector: "pass",
+      ownership: "pass",
+      compatibility: "pass",
     };
   }
 
   if (state === "EXTERNAL_BLOCKED") {
-    return { ...checks, package: "pass", external: "fail" };
+    return { ...checks, package: "pass", ownership: "fail" };
   }
 
   if (state === "LAUNCHING" || state === "VERIFYING_CDP") {
-    return { ...checks, package: "pass", external: "pass" };
+    return { ...checks, package: "pass", ownership: "pass" };
   }
 
   if (state !== "INCOMPATIBLE") return checks;
@@ -1350,7 +1441,7 @@ function sessionCheckStates(
   }
 
   if (messageKey === "session.launchFailed") {
-    return { ...checks, package: "pass", external: "pass" };
+    return { ...checks, package: "fail" };
   }
 
   if (
@@ -1360,26 +1451,23 @@ function sessionCheckStates(
     return {
       ...checks,
       package: "pass",
-      external: "pass",
-      identity: "fail",
+      ownership: "fail",
     };
   }
 
   if (messageKey === "session.targetIncompatible") {
     return {
       package: "pass",
-      external: "pass",
-      identity: "pass",
-      selector: "fail",
+      ownership: "pass",
+      compatibility: "fail",
     };
   }
 
   if (messageKey === "session.injectionFailed") {
     return {
       package: "pass",
-      external: "pass",
-      identity: "pass",
-      selector: "pass",
+      ownership: "pass",
+      compatibility: "fail",
     };
   }
 

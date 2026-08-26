@@ -122,6 +122,28 @@ describe("IPC handler command boundary", () => {
     );
   });
 
+  it("validates and delegates theme deletion", async () => {
+    const controller = controllerFixture();
+    controller.deleteTheme.mockResolvedValue({
+      ok: true,
+      data: { themes: [] },
+    });
+    registerIpc(controller as never);
+    const request = {
+      v: 1,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 3,
+    };
+
+    const result = await handlers.get("theme.delete")!(trustedEvent(), request);
+
+    expect(controller.deleteTheme).toHaveBeenCalledWith(
+      request.libraryId,
+      request.expectedRevision,
+    );
+    expect(result).toEqual({ ok: true, data: { themes: [] } });
+  });
+
   it("returns the manual update check result from AppController", async () => {
     const controller = controllerFixture();
     controller.requestUpdate.mockResolvedValue({
@@ -167,6 +189,7 @@ function controllerFixture() {
     chooseBackground: vi.fn(),
     chooseSendIcon: vi.fn(),
     commitTheme: vi.fn(),
+    deleteTheme: vi.fn(),
     importTheme: vi.fn(),
     resolveThemeImport: vi.fn(),
     exportTheme: vi.fn(),
