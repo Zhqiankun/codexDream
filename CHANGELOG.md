@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.2.0 — 2026-08-27
+
+### English
+
+- Reorganized Theme Studio colors into four location-based groups, with plain-language labels, hover and keyboard-focus preview locators, and an advanced view for raw token names.
+- Added configurable user-message text, top-bar background, and top-bar text colors. The top bar defaults to transparent and now covers version-gated Store Codex application-menu and conversation-header selectors.
+- Kept current and older themes safe across upgrades with optional color fallbacks, selector-profile v5 ownership recovery, and the user-facing “Previous session needs confirmation” state instead of internal orphan terminology.
+- Split lossless current-theme ZIP export from explicit v1.0.x/v1.1.x-compatible export, backed by a frozen v1.0.x Safe CSS policy and clear guidance when advanced CSS requires the current format.
+- Aligned live-preview message surfaces, opacity behavior, disabled artwork, and configured recipes with the real injected Codex styles.
+
+> The v1.2.0 binaries are not code-signed. Windows SmartScreen may display an unknown-publisher warning. Verify `SHA256SUMS.txt` before running a downloaded artifact.
+
+### 简体中文
+
+- 将主题颜色整理为四个按页面位置划分的分组，使用直白名称；鼠标悬停或键盘聚焦时会在预览中定位影响区域，高级视图才显示原始 token 名称。
+- 新增“我的消息文字、顶部栏背景、顶部栏文字”三项配置。顶部栏背景默认透明，并覆盖版本化受控的 Store Codex 应用菜单栏和会话标题栏选择器。
+- 通过可选颜色回退、selector profile v5 ownership 恢复，以及“上次会话待确认”的用户文案，保证当前主题和旧主题升级时不会被误判为篡改。
+- 将无损的当前主题 ZIP 与显式面向 v1.0.x/v1.1.x 的兼容 ZIP 分开导出；兼容路径使用冻结的 v1.0.x Safe CSS 策略，高级 CSS 不兼容时会明确提示改用完整格式。
+- 统一 LIVE PREVIEW 与真实 Codex 注入的消息面板、透明度、关闭背景画面和组件配方效果。
+
+> v1.2.0 构建产物尚未进行代码签名，Windows SmartScreen 可能显示“未知发布者”。运行下载文件前请核对 `SHA256SUMS.txt`。
+
 ## v1.1.0 — 2026-08-27
 
 ### English

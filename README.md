@@ -48,7 +48,7 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 - Live 16:9 previews for the Codex home and conversation views.
 - Theme presets plus controls for colors, opacity, background images, panel styling, shadows, corner radius, sidebar text, message surfaces, and send icons.
 - Validated background-image and custom-icon imports with clear size and format guidance.
-- Local theme library with ordinary ZIP import and export.
+- Local theme library with lossless current-theme ZIP export and an explicit v1.0.x/v1.1.x compatibility export. Compatibility export drops the three new color fields and rejects advanced CSS that older clients cannot read.
 - Optional constrained Safe CSS for advanced styling.
 - A dedicated Windows app icon, tray icon, and packaged application identity.
 - Managed Codex launch with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
@@ -57,15 +57,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.1.0` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.2.0` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.1.0-x64.exe` — guided Windows installer.
-- `CodexStyle-1.1.0-x64.zip` — portable archive.
+- `CodexStyle-1.2.0-x64.exe` — guided Windows installer.
+- `CodexStyle-1.2.0-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.1.0` is the first updater-enabled release. Users on `v1.0.1` or earlier must install `v1.1.0` manually once; installed builds can then update internally. The portable ZIP remains manual-update only.
+`v1.1.0` introduced the in-app updater. Users on `v1.0.1` or earlier must install `v1.1.0` or later manually once; installing the current `v1.2.0` directly is sufficient. Installed builds can then update internally. The portable ZIP remains manual-update only.
 
 ## Requirements
 
@@ -83,6 +83,8 @@ The release is currently unsigned. Windows SmartScreen may show an unknown-publi
 3. Adjust the colors, opacity, panels, background, message surfaces, and send icon while checking the live preview.
 4. Save the theme and open **Codex Session**.
 5. Close externally launched Codex windows, select the saved theme, and choose **Launch Codex**.
+
+Use **Export theme ZIP** to preserve all current theme fields. Use **Export legacy-compatible ZIP** only when sharing with CodexStyle v1.0.x or v1.1.x. An untouched imported formal package can be rebuilt with its original formal contents intact; editing it disables original-formal export.
 
 CodexStyle verifies that the launched Store Codex session belongs to it before applying the selected theme. If the installed Codex build no longer matches the supported selector profile, CodexStyle stops at the compatibility boundary instead of injecting uncertain styles.
 
