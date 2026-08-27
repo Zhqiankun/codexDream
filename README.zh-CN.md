@@ -53,17 +53,19 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 - 独立的 Windows 应用图标、托盘图标和打包身份。
 - 受管 Codex 启动流程，包含 Store 包检测、会话隔离、CDP 身份校验和版本选择器兼容性检查。
 - 数据本地优先，通过 Windows x64 原生 secure-store 组件保护关键状态。
-- 用户主动触发时可检查本仓库最新的 GitHub 稳定版，不后台轮询，也不静默安装。
+- Windows 正式安装版可由用户主动触发应用内检查和校验下载，显示进度并支持取消、重启安装或退出时安装；不后台轮询，也不静默安装。
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.0.1`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.1.0`：
 
-- `CodexStyle-1.0.1-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.0.1-x64.zip` — 免安装压缩包。
-- `SHA256SUMS.txt` — 两个程序包的 SHA-256 校验值。
+- `CodexStyle-1.1.0-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.1.0-x64.zip` — 免安装压缩包。
+- `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
+
+`v1.1.0` 是首个支持应用内更新器的版本。`v1.0.1` 及更早版本需要手动安装一次 `v1.1.0`；之后正式安装版即可在应用内升级。ZIP 便携版仍需手动更新。
 
 ## 运行要求
 
@@ -92,7 +94,7 @@ CodexStyle 会严格限制自身作用范围：
 - 不接管、关闭、重启或注入从 CodexStyle 外部启动的 Codex 会话。
 - 只在运行时向由本工具拥有且验证通过的会话应用主题。
 - 存储或应用前会校验导入的 ZIP、图片、图标和 Safe CSS。
-- 不进行后台更新检查，不包含静默自动安装器，也不接入远程分析服务。只有用户点击**检查更新**时才会访问 GitHub。
+- 不进行后台更新检查，不包含静默自动安装器，也不接入远程分析服务。只有用户点击**检查并更新**时才会访问 GitHub；仅 NSIS 正式安装版可下载更新，并且 SHA-512 校验通过后仍需用户明确选择安装时机。
 - 受管数据固定保存在当前 Windows 用户的 `%LOCALAPPDATA%\CodexStyle`。
 
 完整的产品和安全契约请查看 [REQUIREMENTS.md](REQUIREMENTS.md)。
@@ -140,7 +142,7 @@ npm run verify:package
 
 构建产物保存在 `release/`。包校验会检查渲染进程与主进程资源、图标、Windows x64 可执行文件、原生扩展架构及其实际加载能力。
 
-正式二进制文件由 [Release 工作流](.github/workflows/release.yml) 构建，不使用维护者电脑上的本地产物。推送稳定的 `v*` 标签后，GitHub Windows Runner 会运行完整验证、构建安装包与免安装 ZIP、重新生成 `SHA256SUMS.txt`、保留工作流产物并发布对应的 GitHub Release。手动工作流入口只用于重新构建已经存在的标签，例如首次发布的 `v1.0.0`。
+正式二进制文件由 [Release 工作流](.github/workflows/release.yml) 构建，不使用维护者电脑上的本地产物。推送稳定的 `v*` 标签后，GitHub Windows Runner 会运行完整验证、构建安装包与免安装 ZIP、校验并发布 `latest.yml` 和 NSIS blockmap、重新生成 `SHA256SUMS.txt`、保留工作流产物并发布对应的 GitHub Release。频道清单最后上传，已经公开的同版本 Release 不允许覆盖。
 
 ## 项目结构
 

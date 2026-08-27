@@ -1,6 +1,6 @@
 # CodexStyle 交付计划与架构契约
 
-本文件连同 `REQUIREMENTS.md` 构成本轮实现的最终契约。其他历史或并行设计说明不是实现依据；冲突时以此处锁定的零网络更新占位、严格三件套 ZIP、仅下次工具启动注入和本文件 IPC 契约为准。
+本文件连同 `REQUIREMENTS.md` 构成本轮实现的最终契约。其他历史或并行设计说明不是实现依据；冲突时以此处锁定的用户触发正式安装版自更新、严格三件套 ZIP、仅下次工具启动注入和本文件 IPC 契约为准。
 
 ## 固定技术栈
 
@@ -24,7 +24,7 @@ src/main/infra/secure-store/           受限 TypeScript 端口与 native bindin
 src/main/platform/                     Windows AppX/进程/端口查询
 src/main/session/                      CDP 启动、身份锚点、watcher、清理
 src/main/tray/                         托盘与窗口生命周期
-src/main/updates/                      零网络更新占位
+src/main/updates/                      正式安装版更新状态机与 Electron updater adapter
 src/main/protocols/                    app://theme-asset 映射
 src/preload/                           最小白名单 bridge
 src/renderer/app/                      页面编排
@@ -37,7 +37,7 @@ native/secure-store/                   Windows x64 N-API 源码、预定义路�
 
 `Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。IPC 协议版本 `v:1`，handler 验证唯一主窗口 `webContents`、`app://` frame、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
 
-公开调用固定为：`studio.getSnapshot`；`theme.get/createDraft/patchDraft/chooseBackground/chooseSendIcon/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/openRelease`。唯一事件是 `studio:state-changed`。
+公开调用固定为：`studio.getSnapshot`；`theme.get/createDraft/patchDraft/chooseBackground/chooseSendIcon/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`。唯一事件是 `studio:state-changed`。
 
 主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。现有 IPC 方法和 `v:1` 不变，`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏遮罩使用固定 `rgb(15 23 42)`，由注入 bridge 以受控样式覆盖主题侧栏背景，防止 Safe CSS 顺序造成预览与真实结果偏差。
 
@@ -125,6 +125,8 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、十二色和透明磨砂表面提供实际消费者。
 
+11. 正式安装版自更新：以 `UpdateService` 持有检查、下载、进度、取消、已下载、延后安装和安装失败状态；infra adapter 独占 `electron-updater`，固定 generic GitHub Release 源并显式关闭隐式下载/退出安装。NSIS 写入安装标记，开发版与 ZIP fail closed。renderer 只接收无路径的进度快照；立即安装或退出时安装都必须先经 controller operation gate 清理本工具拥有的 Codex 会话。Actions 发布并验证同构建的安装包、blockmap、`latest.yml` 和校验和。
+
 ## 验证命令
 
 ```powershell
@@ -149,6 +151,7 @@ native 阶段还必须在 Visual Studio x64 开发环境中实际编译 addon，
 
 - CDP 对同一 Windows 用户的本地进程没有认证；回环、nonce、PID/Browser ID 绑定只能降低风险。
 - Store 升级可能破坏参数透传或 selector profile，应明确报不兼容，不得降级安全边界。
+- 未签名 NSIS 更新只能依赖固定 HTTPS Release 源和 `latest.yml` SHA-512 完整性，Windows 仍可能显示未知发布者；代码签名启用前不得宣称发布者身份已验证。首个带自更新能力的版本仍需旧用户手动安装一次。
 - ZIP、图片解析和崩溃遗留调试会话属于高风险，必须由测试工程师独立验证，并由高风险安全审计师复核。
 - native 文件系统边界、reparse/TOCTOU、原子提交、跨进程锁和 `.node` 打包属于高风险；未获得行为测试与独立安全审计通过不得交付。
 - 产品代码完成、自报测试通过、构建成功均不是交付完成。只有测试工程师检查最终契约、diff 和实际命令后通过，安全审计结论明确，才可完成。

@@ -11,7 +11,7 @@ const required = [
   "src/main/infra/local-store.ts",
   "src/main/infra/theme-zip.ts",
   "src/main/infra/safe-css.ts",
-  "src/main/infra/github-releases.ts",
+  "src/main/infra/electron-updater-gateway.ts",
   "src/main/app/update-service.ts",
   "src/main/session/cdp-client.ts",
   "src/main/session/selector-profile.ts",
@@ -37,11 +37,10 @@ for (const [section, dependencies] of Object.entries({
       failures.push(`unpinned:${section}.${name}`);
   }
 }
-if (
-  packageJson.dependencies?.["electron-updater"] ||
-  packageJson.dependencies?.["auto-updater"]
-)
-  failures.push("network-update-dependency");
+if (packageJson.dependencies?.["electron-updater"] !== "6.8.9")
+  failures.push("updater-version-not-pinned");
+if (packageJson.dependencies?.["auto-updater"])
+  failures.push("unexpected-auto-updater-dependency");
 
 const builder = source("electron-builder.yml");
 requireMarkers(builder, "package-fuses", [
@@ -104,18 +103,25 @@ requireMarkers(preload, "preload-contract", [
   "contextBridge.exposeInMainWorld",
   'invoke("update.getStatus"',
   'invoke("update.request"',
+  'invoke("update.cancel"',
+  'invoke("update.install"',
   'invoke("update.openRelease"',
 ]);
 if (/exposeInMainWorld\([^,]+,\s*ipcRenderer\)/u.test(preload))
   failures.push("preload-exposes-raw-ipc");
 
-const githubReleases = source("src/main/infra/github-releases.ts");
-requireMarkers(githubReleases, "manual-update-boundary", [
-  '"https://api.github.com/repos/Zhqiankun/codexDream/releases/latest"',
-  'url.hostname !== "github.com"',
-  'redirect: "error"',
-  "AbortSignal.timeout",
-  "MAX_RESPONSE_BYTES",
+const electronUpdater = source("src/main/infra/electron-updater-gateway.ts");
+requireMarkers(electronUpdater, "installed-update-boundary", [
+  'import("electron-updater")',
+  "autoDownload = false",
+  "autoInstallOnAppQuit = false",
+  "allowPrerelease = false",
+  "allowDowngrade = false",
+  "disableWebInstaller = true",
+  "updater.setFeedURL({",
+  "url: UPDATE_BASE_URL",
+  'INSTALL_MARKER_NAME = ".codexstyle-installed"',
+  '"https://github.com/Zhqiankun/codexDream/releases/latest/download/"',
 ]);
 
 const mainIndex = source("src/main/index.ts");
@@ -240,11 +246,17 @@ for (const file of sourceFiles) {
     "icacls",
     "app.asar",
     "dreamskin://",
-    "electron-updater",
   ]) {
     if (text.includes(forbidden))
       failures.push(`main-forbidden:${forbidden}:${relative(file)}`);
   }
+  if (
+    /(?:from\s+["']electron-updater["']|import\(["']electron-updater["']\))/u.test(
+      text,
+    ) &&
+    relative(file) !== "src/main/infra/electron-updater-gateway.ts"
+  )
+    failures.push(`updater-import-outside-adapter:${relative(file)}`);
 }
 
 if (failures.length) {

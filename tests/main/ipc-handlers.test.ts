@@ -173,6 +173,37 @@ describe("IPC handler command boundary", () => {
     expect(controller.requestUpdate).toHaveBeenCalledOnce();
     expect(controller.broadcast).not.toHaveBeenCalled();
   });
+
+  it("validates the fixed update installation mode", async () => {
+    const controller = controllerFixture();
+    controller.installUpdate.mockResolvedValue({
+      ok: true,
+      data: {
+        configured: true,
+        status: "installing",
+        currentVersion: "1.0.0",
+        latestVersion: "1.1.0",
+      },
+    });
+    registerIpc(controller as never);
+
+    const valid = await handlers.get("update.install")!(trustedEvent(), {
+      v: 1,
+      mode: "now",
+    });
+    const invalid = await handlers.get("update.install")!(trustedEvent(), {
+      v: 1,
+      mode: "silent-with-path",
+      path: "C:\\untrusted.exe",
+    });
+
+    expect(controller.installUpdate).toHaveBeenCalledWith("now");
+    expect(valid).toMatchObject({ ok: true });
+    expect(invalid).toEqual({
+      ok: false,
+      error: { code: "IPC_INVALID", messageKey: "ipc.invalid" },
+    });
+  });
 });
 
 function controllerFixture() {
@@ -201,6 +232,8 @@ function controllerFixture() {
     endOwnedSession: vi.fn(),
     getUpdateStatus: vi.fn(),
     requestUpdate: vi.fn(),
+    cancelUpdate: vi.fn(),
+    installUpdate: vi.fn(),
     openUpdatePage: vi.fn(),
   };
 }

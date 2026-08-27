@@ -8,7 +8,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 - 在线 Gallery、账号登录、投稿、云同步或协作。
 - 网页一键换肤、`dreamskin://` 或其他深链。
-- 后台联网更新、自动下载、静默安装或执行远程文件。
+- 后台轮询更新、未由用户触发的下载、静默安装、任意更新源或更新官方 Codex。
 - 注入、重启或关闭用户从外部启动的 Codex。
 - WindowsApps ACL/所有权修改、二进制复制、asar 修改、签名绕过或直接 exe 回退。
 
@@ -21,7 +21,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 5. 外部会话关闭后，用户由工具启动 Codex。工具仅在 AppX、进程、回环端口、Browser ID 和 renderer 标记全部验证通过后注入。
 6. CDP 参数未透传、端点身份不符或选择器不兼容时，工具显示不兼容并保持未注入，不做权限或启动方式绕过。
 7. 暂停和恢复仅影响后续注入；不追溯重写当前页面。运行中的已拥有会话需要改变主题时，提示用户关闭后重启。
-8. 更新入口可见；只有用户主动触发时才请求固定 GitHub 仓库的最新稳定 Release。发现新版后再次确认才打开经过校验的 Release 页面，由用户手动下载安装。
+8. 更新入口可见；只有用户主动触发时，Windows x64 NSIS 正式安装版才从固定 GitHub Release 更新源检查最新稳定版并在应用内下载。下载完成且 SHA-512 校验通过后，用户可选择立即重启安装或退出时安装；开发版与 ZIP 便携版明确提示不支持，并保留经过校验的 Release 页面作为手动下载回退。
 
 ## 主题契约
 
@@ -94,9 +94,9 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 ## IPC 与错误
 
-preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑（含背景、外观、焦点、配色、样式配置和显式 theme.json 应用）、背景选择/commit/导入冲突处理/导出/选择、会话启动/暂停/恢复/结束，以及手动检查更新和打开已验证 Release 页面。main 只发送 `studio:state-changed` 公共 snapshot 事件。renderer 不接收本地路径、PID、端口或 nonce，也不能提交任意更新地址。
+preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑（含背景、外观、焦点、配色、样式配置和显式 theme.json 应用）、背景选择/commit/导入冲突处理/导出/选择、会话启动/暂停/恢复/结束，以及检查并下载更新、取消下载、选择安装时机和打开已验证 Release 页面。main 只发送 `studio:state-changed` 公共 snapshot 事件。renderer 不接收本地路径、下载路径、PID、端口或 nonce，也不能提交任意更新地址、版本或安装器参数。
 
-错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`THEME_IN_USE`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_CHECK_FAILED`、`UPDATE_OPEN_FAILED`。
+错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`THEME_IN_USE`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_UNSUPPORTED`、`UPDATE_CHECK_FAILED`、`UPDATE_DOWNLOAD_FAILED`、`UPDATE_INSTALL_FAILED`、`UPDATE_OPEN_FAILED`。
 
 ## 可观察验收
 
@@ -107,15 +107,16 @@ preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑�
 5. 已有外部会话时工具不终止它，用户关闭后才能由工具启动。
 6. 暂停、恢复、关闭窗口至托盘和显式退出都有清晰状态结果。
 7. CDP 或选择器不兼容时显示明确失败，不注入、不绕过、不破坏 Codex。
-8. 应用启动和后台运行不产生更新请求；用户点击“检查更新”后只请求 `api.github.com/repos/Zhqiankun/codexDream/releases/latest`，严格校验稳定语义版本和 `github.com/Zhqiankun/codexDream/releases/tag/` 地址。发现新版时再次确认才打开页面，不自动下载、执行或安装。
-9. 受管根或任一路径段为 junction、symlink 或其他 reparse point，native 模块缺失/加载失败，或 handle-relative 操作出现身份异常时，应用返回 `STORE_TAMPERED`，不使用 Node `fs` 降级且不继续使用该存储。
-10. 在写入、flush、rename 和恢复各失败点，重启后只能读到完整旧状态或完整新状态；`state/themes/transactions/lock/ownership` 均遵守相同根句柄和逐段校验规则。
-11. 打包后的 `.node` 位于 ASAR unpacked 资源并可在无 Build Tools 的普通用户环境加载；删除该文件会稳定 fail closed。用户选择的外部导出 ZIP 仍可按原契约创建，且不能借此访问 managed path。
-12. 全窗口模式下背景覆盖根区域并透过配置的侧栏遮罩可见；仅内容区模式下背景只覆盖主内容区域。相同主题配置在 LIVE PREVIEW 和真实 Codex 注入中使用相同作用域与遮罩规则。
-13. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和十色配色在设计面板可配置，保存、重开、ZIP 往返后不丢失；焦点、颜色变量和 color-scheme 在 LIVE PREVIEW 与真实注入一致。
-14. 配置模式下启停四个样式配方或调整 blur/radius/border/shadow 会立即更新预览，并由共享生成器写入合法非空 theme.css；无需编辑源码。高级模式继续支持现有 CSS，旧主题不会被自动改写。
-15. theme.json 面板可校验并应用合法源码；语法错误、未知字段、越界值或图片引用变化会被拒绝且不改变 revision、预览、选择或已持久化主题。
-16. LIVE PREVIEW 可在“首页”和“对话”之间即时切换；两个页面复用同一主题根、侧栏、背景作用域、焦点、画面处理、颜色变量和 Safe CSS，切换只影响预览内容，不修改草稿或 revision。
-17. 主题可在确认后删除并从重启后的主题库消失；已选择、last-known-good 或工具拥有会话期间的删除返回 `THEME_IN_USE` 且不改变主题或资产。左侧双击 ready 主题立即更新下次启动选择，双击草稿不提交。
-18. 普通编辑区只显示一个“保存主题”操作，并自动保持 patch-before-commit 的 revision 顺序；高级 JSON 的独立校验边界不变。
-19. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、十二色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。
+8. 应用启动和后台运行不产生更新请求；用户点击“检查并更新”后，正式安装版只请求固定的 GitHub `releases/latest/download` 更新元数据及其中声明的资产。`latest.yml` 必须是稳定 SemVer，安装包名称、大小和 SHA-512 必须一致；下载进度可见且可取消。校验成功前不能安装，安装必须再次由用户选择“立即重启安装”或“退出时安装”。
+9. 开发版、非 Windows、缺少 NSIS 安装标记或 ZIP 便携版返回 `UPDATE_UNSUPPORTED`，不得下载或执行安装器。当前不带更新能力的旧版本需要手动安装首个支持自更新的版本，此后才可应用内升级。
+10. 受管根或任一路径段为 junction、symlink 或其他 reparse point，native 模块缺失/加载失败，或 handle-relative 操作出现身份异常时，应用返回 `STORE_TAMPERED`，不使用 Node `fs` 降级且不继续使用该存储。
+11. 在写入、flush、rename 和恢复各失败点，重启后只能读到完整旧状态或完整新状态；`state/themes/transactions/lock/ownership` 均遵守相同根句柄和逐段校验规则。
+12. 打包后的 `.node` 位于 ASAR unpacked 资源并可在无 Build Tools 的普通用户环境加载；删除该文件会稳定 fail closed。用户选择的外部导出 ZIP 仍可按原契约创建，且不能借此访问 managed path。
+13. 全窗口模式下背景覆盖根区域并透过配置的侧栏遮罩可见；仅内容区模式下背景只覆盖主内容区域。相同主题配置在 LIVE PREVIEW 和真实 Codex 注入中使用相同作用域与遮罩规则。
+14. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和十色配色在设计面板可配置，保存、重开、ZIP 往返后配置不丢失；焦点、颜色变量和 color-scheme 在 LIVE PREVIEW 与真实 Codex 注入中一致。
+15. 配置模式下启停四个样式配方或调整 blur/radius/border/shadow 会立即更新预览，并由共享生成器写入合法非空 theme.css；无需编辑源码。高级模式继续支持现有 CSS，旧主题不会被自动改写。
+16. theme.json 面板可校验并应用合法源码；语法错误、未知字段、越界值或图片引用变化会被拒绝且不改变 revision、预览、选择或已持久化主题。
+17. LIVE PREVIEW 可在“首页”和“对话”之间即时切换；两个页面复用同一主题根、侧栏、背景作用域、焦点、画面处理、颜色变量和 Safe CSS，切换只影响预览内容，不修改草稿或 revision。
+18. 主题可在确认后删除并从重启后的主题库消失；已选择、last-known-good 或工具拥有会话期间的删除返回 `THEME_IN_USE` 且不改变主题或资产。左侧双击 ready 主题立即更新下次启动选择，双击草稿不提交。
+19. 普通编辑区只显示一个“保存主题”操作，并自动保持 patch-before-commit 的 revision 顺序；高级 JSON 的独立校验边界不变。
+20. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、十二色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。

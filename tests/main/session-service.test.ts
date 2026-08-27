@@ -8,6 +8,7 @@ import {
   SecureManagedStore,
 } from "../../src/main/infra/secure-store";
 import type {
+  ProcessIdentity,
   StorePackage,
   WindowsPlatform,
 } from "../../src/main/platform/windows";
@@ -18,6 +19,7 @@ import { createManagedRoot } from "../fixtures/managed-root";
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((operation) => operation()));
+  vi.restoreAllMocks();
 });
 
 const packageInfo: StorePackage = {
@@ -129,6 +131,103 @@ describe("CodexSessionService", () => {
       messageKey: "session.launchFailed",
       canEnd: false,
     });
+  });
+
+  it("waits for the owned process to open its loopback CDP listener", async () => {
+    const processIdentity: ProcessIdentity = {
+      pid: 42,
+      executablePath: packageInfo.executablePath,
+      startedAt: "2026-08-27T00:00:00.000Z",
+      commandLine: `ChatGPT.exe --codexstyle-launch=${"b".repeat(64)}`,
+    };
+    const listeningPids = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([42]);
+    const platform = {
+      listCodexProcesses: vi.fn().mockResolvedValue([processIdentity]),
+      currentUserSid: vi.fn().mockResolvedValue("S-1-5-21-1000"),
+      processOwnerSid: vi.fn().mockResolvedValue("S-1-5-21-1000"),
+      listeningPids,
+    } as unknown as WindowsPlatform;
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          Browser: "Codex/Test",
+          webSocketDebuggerUrl:
+            "ws://127.0.0.1:9222/devtools/browser/browser-1",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const session = new CodexSessionService(
+      platform,
+      async () => undefined,
+      () => false,
+    );
+    const client = { close: vi.fn() };
+    const harness = session as unknown as VerificationHarness;
+    harness.findCompatibleTarget = vi.fn().mockResolvedValue({
+      target: {
+        id: "target-1",
+        type: "page",
+        url: "app://-/index.html",
+        webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/target-1",
+      },
+      client,
+    });
+
+    await expect(
+      harness.verifyNewProcess(
+        packageInfo,
+        [],
+        42,
+        "b".repeat(64),
+        9222,
+        selectedTheme,
+      ),
+    ).resolves.toMatchObject({
+      pid: 42,
+      browserId: "browser-1",
+      targetId: "target-1",
+    });
+    expect(listeningPids).toHaveBeenCalledTimes(2);
+    expect(harness.findCompatibleTarget).toHaveBeenCalledOnce();
+  });
+
+  it("still fails immediately when the CDP listener belongs to another PID", async () => {
+    const platform = {
+      listCodexProcesses: vi.fn().mockResolvedValue([
+        {
+          pid: 42,
+          executablePath: packageInfo.executablePath,
+          startedAt: "2026-08-27T00:00:00.000Z",
+          commandLine: `ChatGPT.exe --codexstyle-launch=${"b".repeat(64)}`,
+        },
+      ]),
+      currentUserSid: vi.fn().mockResolvedValue("S-1-5-21-1000"),
+      processOwnerSid: vi.fn().mockResolvedValue("S-1-5-21-1000"),
+      listeningPids: vi.fn().mockResolvedValue([99]),
+    } as unknown as WindowsPlatform;
+    const session = new CodexSessionService(
+      platform,
+      async () => undefined,
+      () => false,
+    );
+    const harness = session as unknown as VerificationHarness;
+    harness.findCompatibleTarget = vi.fn();
+
+    await expect(
+      harness.verifyNewProcess(
+        packageInfo,
+        [],
+        42,
+        "b".repeat(64),
+        9222,
+        selectedTheme,
+      ),
+    ).rejects.toThrow("TARGET_IDENTITY_MISMATCH:listener");
+    expect(harness.findCompatibleTarget).not.toHaveBeenCalled();
   });
 
   it("reinstalls only the future-document script when resuming a paused owned session", async () => {
@@ -305,6 +404,22 @@ describe("CodexSessionService", () => {
     expect(await readFile(sentinel, "utf8")).toBe("unchanged");
   });
 });
+
+interface VerificationHarness {
+  verifyNewProcess(
+    packageInfo: StorePackage,
+    baseline: ProcessIdentity[],
+    activatedProcessId: number,
+    nonce: string,
+    port: number,
+    theme: ThemeRecord,
+  ): Promise<{
+    pid: number;
+    browserId: string;
+    targetId: string;
+  }>;
+  findCompatibleTarget: ReturnType<typeof vi.fn>;
+}
 
 function ownershipState(
   selectorProfile: string = CODEX_SELECTOR_PROFILE,

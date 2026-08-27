@@ -2,83 +2,236 @@ import { describe, expect, it, vi } from "vitest";
 import {
   compareVersions,
   UpdateService,
+  type DownloadProgress,
+  type ReleaseInfo,
   type UpdateGateway,
 } from "../../src/main/app/update-service";
 
 describe("UpdateService", () => {
-  it("reports a newer stable release and opens only its verified URL", async () => {
+  it("checks, downloads, reports bounded progress, and opens the fixed release", async () => {
     const gateway = gatewayFixture({
       version: "1.2.0",
       url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
     });
+    gateway.download.mockImplementation(async (onProgress) => {
+      onProgress({
+        percent: 48.6,
+        transferredBytes: 512,
+        totalBytes: 1024,
+        bytesPerSecond: 2048,
+      });
+    });
+    const changed = vi.fn();
     const service = new UpdateService(
       "1.0.0",
       gateway,
-      () => new Date("2026-08-26T08:00:00.000Z"),
+      () => new Date("2026-08-27T08:00:00.000Z"),
+      changed,
     );
 
-    await expect(service.check()).resolves.toEqual({
+    await expect(service.checkAndDownload()).resolves.toEqual({
       configured: true,
-      status: "available",
+      status: "downloaded",
       currentVersion: "1.0.0",
       latestVersion: "1.2.0",
       releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
-      checkedAt: "2026-08-26T08:00:00.000Z",
+      checkedAt: "2026-08-27T08:00:00.000Z",
     });
+    expect(changed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "downloading",
+        progress: {
+          percent: 49,
+          transferredBytes: 512,
+          totalBytes: 1024,
+          bytesPerSecond: 2048,
+        },
+      }),
+    );
     await service.openAvailableRelease();
-
     expect(gateway.openRelease).toHaveBeenCalledWith(
       "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
     );
   });
 
-  it("treats the same or an older release as current", async () => {
-    const same = new UpdateService(
-      "1.0.0",
-      gatewayFixture({
-        version: "1.0.0",
-        url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.0.0",
-      }),
-    );
-    const older = new UpdateService(
-      "1.0.0",
-      gatewayFixture({
-        version: "0.9.9",
-        url: "https://github.com/Zhqiankun/codexDream/releases/tag/v0.9.9",
-      }),
-    );
+  it("treats the same or an older release as current without downloading", async () => {
+    for (const version of ["1.0.0", "0.9.9"]) {
+      const gateway = gatewayFixture({
+        version,
+        url: `https://github.com/Zhqiankun/codexDream/releases/tag/v${version}`,
+      });
+      const service = new UpdateService("1.0.0", gateway);
 
-    await expect(same.check()).resolves.toMatchObject({ status: "current" });
-    await expect(older.check()).resolves.toMatchObject({ status: "current" });
-    await expect(same.openAvailableRelease()).rejects.toThrow(
-      "UPDATE_OPEN_FAILED",
-    );
+      await expect(service.checkAndDownload()).resolves.toMatchObject({
+        status: "current",
+        latestVersion: version,
+      });
+      expect(gateway.download).not.toHaveBeenCalled();
+      await service.openAvailableRelease();
+      expect(gateway.openRelease).toHaveBeenCalledWith(
+        "https://github.com/Zhqiankun/codexDream/releases/latest",
+      );
+    }
   });
 
-  it("deduplicates concurrent manual checks and records a fail-closed error", async () => {
+  it("deduplicates concurrent requests and records check failures", async () => {
     let rejectLatest!: (error: Error) => void;
-    const fetchLatest = vi.fn(
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    gateway.fetchLatest.mockImplementation(
       () =>
         new Promise<never>((_resolve, reject) => {
           rejectLatest = reject;
         }),
     );
-    const service = new UpdateService("1.0.0", {
-      fetchLatest,
-      openRelease: vi.fn(),
-    });
+    const service = new UpdateService("1.0.0", gateway);
 
-    const first = service.check();
-    const second = service.check();
+    const first = service.checkAndDownload();
+    const second = service.checkAndDownload();
     rejectLatest(new Error("offline"));
 
     await expect(first).rejects.toThrow("offline");
     await expect(second).rejects.toThrow("offline");
-    expect(fetchLatest).toHaveBeenCalledOnce();
+    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
     expect(service.snapshot()).toMatchObject({
       status: "error",
+      errorPhase: "check",
+    });
+  });
+
+  it("returns to available when a user cancels an active download", async () => {
+    let rejectDownload!: (error: Error) => void;
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    gateway.download.mockImplementation(
+      () =>
+        new Promise<never>((_resolve, reject) => {
+          rejectDownload = reject;
+        }),
+    );
+    const service = new UpdateService("1.0.0", gateway);
+
+    const request = service.checkAndDownload();
+    await vi.waitFor(() =>
+      expect(service.snapshot().status).toBe("downloading"),
+    );
+    expect(service.cancel()).toMatchObject({ status: "available" });
+    rejectDownload(new Error("cancelled"));
+
+    await expect(request).resolves.toMatchObject({ status: "available" });
+    expect(gateway.cancelDownload).toHaveBeenCalledOnce();
+  });
+
+  it("records download failures without exposing infrastructure details", async () => {
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    gateway.download.mockRejectedValue(new Error("C:\\private\\cache.exe"));
+    const service = new UpdateService("1.0.0", gateway);
+
+    await expect(service.checkAndDownload()).rejects.toThrow("cache.exe");
+    expect(service.snapshot()).toEqual({
+      configured: true,
+      status: "error",
+      currentVersion: "1.0.0",
+      latestVersion: "1.2.0",
+      releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+      checkedAt: expect.any(String),
+      errorPhase: "download",
+    });
+  });
+
+  it("records malformed release versions as check failures", async () => {
+    const gateway = gatewayFixture({
+      version: "999999999999999999999.0.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/latest",
+    });
+    const service = new UpdateService("1.0.0", gateway);
+
+    await expect(service.checkAndDownload()).rejects.toThrow(
+      "UPDATE_CHECK_FAILED",
+    );
+    expect(service.snapshot()).toMatchObject({
+      status: "error",
+      errorPhase: "check",
+    });
+  });
+
+  it("requires a verified download before scheduling or installing", async () => {
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    const service = new UpdateService("1.0.0", gateway);
+
+    expect(() => service.installNow()).toThrow("not-downloaded");
+    expect(() => service.scheduleInstallOnQuit()).toThrow("not-downloaded");
+    await service.checkAndDownload();
+
+    expect(service.scheduleInstallOnQuit()).toMatchObject({
+      status: "scheduled",
+      installOnQuit: true,
+    });
+    expect(service.shouldInstallOnQuit()).toBe(true);
+    const checksBefore = gateway.fetchLatest.mock.calls.length;
+    await expect(service.checkAndDownload()).resolves.toMatchObject({
+      status: "scheduled",
+      installOnQuit: true,
+    });
+    expect(gateway.fetchLatest).toHaveBeenCalledTimes(checksBefore);
+    expect(service.cancel()).toMatchObject({
+      status: "downloaded",
+      installOnQuit: false,
+    });
+    expect(service.installNow()).toMatchObject({ status: "installing" });
+    expect(gateway.install).toHaveBeenCalledOnce();
+    expect(() => service.installNow()).toThrow("not-downloaded");
+  });
+
+  it("fails closed when auto-update is unavailable", async () => {
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    gateway.supported = false;
+    const service = new UpdateService("1.0.0", gateway);
+
+    expect(service.snapshot()).toEqual({
+      configured: false,
+      status: "unsupported",
       currentVersion: "1.0.0",
     });
+    await expect(service.checkAndDownload()).rejects.toThrow(
+      "UPDATE_UNSUPPORTED",
+    );
+    expect(gateway.fetchLatest).not.toHaveBeenCalled();
+  });
+
+  it("allows a verified cached installer to retry after a startup failure", async () => {
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    gateway.install
+      .mockImplementationOnce(() => {
+        throw new Error("spawn failed");
+      })
+      .mockImplementationOnce(() => undefined);
+    const service = new UpdateService("1.0.0", gateway);
+    await service.checkAndDownload();
+
+    expect(() => service.installNow()).toThrow("spawn failed");
+    expect(service.snapshot()).toMatchObject({
+      status: "error",
+      errorPhase: "install",
+    });
+    expect(service.installNow()).toMatchObject({ status: "installing" });
+    expect(gateway.install).toHaveBeenCalledTimes(2);
   });
 
   it("compares semantic version components numerically", () => {
@@ -91,11 +244,29 @@ describe("UpdateService", () => {
   });
 });
 
-function gatewayFixture(release: { version: string; url: string }) {
+type GatewayFixture = UpdateGateway & {
+  supported: boolean;
+  fetchLatest: ReturnType<typeof vi.fn<() => Promise<ReleaseInfo>>>;
+  download: ReturnType<
+    typeof vi.fn<
+      (onProgress: (progress: DownloadProgress) => void) => Promise<void>
+    >
+  >;
+  cancelDownload: ReturnType<typeof vi.fn<() => void>>;
+  install: ReturnType<typeof vi.fn<() => void>>;
+  openRelease: ReturnType<typeof vi.fn<(url: string) => Promise<void>>>;
+};
+
+function gatewayFixture(release: ReleaseInfo): GatewayFixture {
   return {
-    fetchLatest: vi
-      .fn<UpdateGateway["fetchLatest"]>()
-      .mockResolvedValue(release),
-    openRelease: vi.fn<UpdateGateway["openRelease"]>().mockResolvedValue(),
+    supported: true,
+    fallbackUrl: "https://github.com/Zhqiankun/codexDream/releases/latest",
+    fetchLatest: vi.fn<() => Promise<ReleaseInfo>>().mockResolvedValue(release),
+    download: vi
+      .fn<(onProgress: (progress: DownloadProgress) => void) => Promise<void>>()
+      .mockResolvedValue(),
+    cancelDownload: vi.fn<() => void>(),
+    install: vi.fn<() => void>(),
+    openRelease: vi.fn<(url: string) => Promise<void>>().mockResolvedValue(),
   };
 }

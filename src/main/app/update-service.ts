@@ -1,78 +1,246 @@
-import type { UpdateSnapshot } from "../../contracts";
+import type { UpdateProgress, UpdateSnapshot } from "../../contracts";
 
 export interface ReleaseInfo {
   version: string;
   url: string;
 }
 
+export interface DownloadProgress {
+  percent: number;
+  transferredBytes: number;
+  totalBytes: number;
+  bytesPerSecond: number;
+}
+
+/** Infrastructure port for the fixed CodexStyle update source. */
 export interface UpdateGateway {
+  readonly supported: boolean;
+  readonly fallbackUrl: string;
   fetchLatest(): Promise<ReleaseInfo>;
+  download(onProgress: (progress: DownloadProgress) => void): Promise<void>;
+  cancelDownload(): void;
+  install(): void;
   openRelease(url: string): Promise<void>;
 }
 
 export class UpdateService {
   private state: UpdateSnapshot;
-  private pendingCheck?: Promise<UpdateSnapshot>;
+  private pendingRequest?: Promise<UpdateSnapshot>;
+  private cancelRequested = false;
 
   constructor(
     currentVersion: string,
     private readonly gateway: UpdateGateway,
     private readonly now: () => Date = () => new Date(),
+    private readonly onChanged: (snapshot: UpdateSnapshot) => void = () => {},
   ) {
     if (!parseVersion(currentVersion))
       throw new Error("UPDATE_CHECK_FAILED:current-version");
     this.state = {
-      configured: true,
-      status: "idle",
+      configured: gateway.supported,
+      status: gateway.supported ? "idle" : "unsupported",
       currentVersion,
     };
   }
 
   snapshot(): UpdateSnapshot {
-    return { ...this.state };
+    return cloneSnapshot(this.state);
   }
 
-  check(): Promise<UpdateSnapshot> {
-    if (this.pendingCheck) return this.pendingCheck;
-    const pending = this.performCheck().finally(() => {
-      if (this.pendingCheck === pending) this.pendingCheck = undefined;
+  checkAndDownload(): Promise<UpdateSnapshot> {
+    if (!this.gateway.supported)
+      return Promise.reject(new Error("UPDATE_UNSUPPORTED"));
+    if (
+      this.state.status === "downloaded" ||
+      this.state.status === "scheduled" ||
+      this.state.status === "installing" ||
+      (this.state.status === "error" && this.state.errorPhase === "install")
+    )
+      return Promise.resolve(this.snapshot());
+    if (this.pendingRequest) return this.pendingRequest;
+    const pending = this.performCheckAndDownload().finally(() => {
+      if (this.pendingRequest === pending) this.pendingRequest = undefined;
     });
-    this.pendingCheck = pending;
+    this.pendingRequest = pending;
     return pending;
   }
 
-  async openAvailableRelease(): Promise<UpdateSnapshot> {
-    if (this.state.status !== "available" || !this.state.releaseUrl)
-      throw new Error("UPDATE_OPEN_FAILED:not-available");
-    await this.gateway.openRelease(this.state.releaseUrl);
+  cancel(): UpdateSnapshot {
+    if (this.state.status === "scheduled") {
+      this.setState({
+        ...this.state,
+        status: "downloaded",
+        installOnQuit: false,
+      });
+      return this.snapshot();
+    }
+    if (this.state.status !== "downloading") return this.snapshot();
+    this.cancelRequested = true;
+    this.gateway.cancelDownload();
+    this.setState({
+      configured: true,
+      status: "available",
+      currentVersion: this.state.currentVersion,
+      latestVersion: this.state.latestVersion,
+      releaseUrl: this.state.releaseUrl,
+      checkedAt: this.state.checkedAt,
+    });
     return this.snapshot();
   }
 
-  private async performCheck(): Promise<UpdateSnapshot> {
-    const checkedAt = this.now().toISOString();
+  scheduleInstallOnQuit(): UpdateSnapshot {
+    if (!this.hasDownloadedUpdate())
+      throw new Error("UPDATE_INSTALL_FAILED:not-downloaded");
+    this.setState({
+      ...this.state,
+      status: "scheduled",
+      installOnQuit: true,
+      progress: undefined,
+    });
+    return this.snapshot();
+  }
+
+  shouldInstallOnQuit(): boolean {
+    return (
+      this.state.status === "scheduled" && this.state.installOnQuit === true
+    );
+  }
+
+  installNow(): UpdateSnapshot {
+    if (!this.hasDownloadedUpdate())
+      throw new Error("UPDATE_INSTALL_FAILED:not-downloaded");
+    const installing: UpdateSnapshot = {
+      ...this.state,
+      status: "installing",
+      installOnQuit: false,
+      progress: undefined,
+      errorPhase: undefined,
+    };
+    this.setState(installing);
     try {
-      const latest = await this.gateway.fetchLatest();
-      const comparison = compareVersions(
-        latest.version,
-        this.state.currentVersion,
-      );
-      this.state = {
-        configured: true,
-        status: comparison > 0 ? "available" : "current",
-        currentVersion: this.state.currentVersion,
-        latestVersion: latest.version,
-        releaseUrl: comparison > 0 ? latest.url : undefined,
-        checkedAt,
-      };
+      this.gateway.install();
       return this.snapshot();
     } catch (error) {
-      this.state = {
+      this.setState({
+        ...installing,
+        status: "error",
+        errorPhase: "install",
+      });
+      throw error;
+    }
+  }
+
+  async openAvailableRelease(): Promise<UpdateSnapshot> {
+    await this.gateway.openRelease(
+      this.state.releaseUrl ?? this.gateway.fallbackUrl,
+    );
+    return this.snapshot();
+  }
+
+  private async performCheckAndDownload(): Promise<UpdateSnapshot> {
+    const checkedAt = this.now().toISOString();
+    this.cancelRequested = false;
+    this.setState({
+      configured: true,
+      status: "checking",
+      currentVersion: this.state.currentVersion,
+      checkedAt,
+    });
+
+    let latest: ReleaseInfo;
+    try {
+      latest = await this.gateway.fetchLatest();
+    } catch (error) {
+      this.setState({
         configured: true,
         status: "error",
         currentVersion: this.state.currentVersion,
         checkedAt,
-      };
+        errorPhase: "check",
+      });
       throw error;
+    }
+
+    let comparison: number;
+    try {
+      comparison = compareVersions(latest.version, this.state.currentVersion);
+    } catch (error) {
+      this.setState({
+        configured: true,
+        status: "error",
+        currentVersion: this.state.currentVersion,
+        checkedAt,
+        errorPhase: "check",
+      });
+      throw error;
+    }
+    if (comparison <= 0) {
+      this.setState({
+        configured: true,
+        status: "current",
+        currentVersion: this.state.currentVersion,
+        latestVersion: latest.version,
+        checkedAt,
+      });
+      return this.snapshot();
+    }
+
+    const available: UpdateSnapshot = {
+      configured: true,
+      status: "available",
+      currentVersion: this.state.currentVersion,
+      latestVersion: latest.version,
+      releaseUrl: latest.url,
+      checkedAt,
+    };
+    this.setState(available);
+    this.setState({
+      ...available,
+      status: "downloading",
+      progress: emptyProgress(),
+    });
+
+    try {
+      await this.gateway.download((progress) => this.reportProgress(progress));
+      if (this.cancelRequested || this.state.status !== "downloading")
+        return this.snapshot();
+      this.setState({
+        ...available,
+        status: "downloaded",
+      });
+      return this.snapshot();
+    } catch (error) {
+      if (this.cancelRequested) return this.snapshot();
+      this.setState({
+        ...available,
+        status: "error",
+        errorPhase: "download",
+      });
+      throw error;
+    }
+  }
+
+  private reportProgress(progress: DownloadProgress): void {
+    if (this.state.status !== "downloading") return;
+    const next = normalizeProgress(progress);
+    if (this.state.progress?.percent === next.percent) return;
+    this.setState({ ...this.state, progress: next });
+  }
+
+  private hasDownloadedUpdate(): boolean {
+    return (
+      this.state.status === "downloaded" ||
+      this.state.status === "scheduled" ||
+      (this.state.status === "error" && this.state.errorPhase === "install")
+    );
+  }
+
+  private setState(next: UpdateSnapshot): void {
+    this.state = cloneSnapshot(next);
+    try {
+      this.onChanged(this.snapshot());
+    } catch {
+      // A renderer notification failure must not corrupt the update state.
     }
   }
 }
@@ -96,4 +264,38 @@ function parseVersion(value: string): [number, number, number] | undefined {
   return parts.every(Number.isSafeInteger)
     ? (parts as [number, number, number])
     : undefined;
+}
+
+function normalizeProgress(progress: DownloadProgress): UpdateProgress {
+  return {
+    percent: clampInteger(progress.percent, 0, 100),
+    transferredBytes: clampInteger(progress.transferredBytes, 0),
+    totalBytes: clampInteger(progress.totalBytes, 0),
+    bytesPerSecond: clampInteger(progress.bytesPerSecond, 0),
+  };
+}
+
+function emptyProgress(): UpdateProgress {
+  return {
+    percent: 0,
+    transferredBytes: 0,
+    totalBytes: 0,
+    bytesPerSecond: 0,
+  };
+}
+
+function clampInteger(
+  value: number,
+  minimum: number,
+  maximum = Number.MAX_SAFE_INTEGER,
+): number {
+  if (!Number.isFinite(value)) return minimum;
+  return Math.min(maximum, Math.max(minimum, Math.round(value)));
+}
+
+function cloneSnapshot(snapshot: UpdateSnapshot): UpdateSnapshot {
+  return {
+    ...snapshot,
+    progress: snapshot.progress ? { ...snapshot.progress } : undefined,
+  };
 }

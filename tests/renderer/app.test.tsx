@@ -144,6 +144,11 @@ function makeApi() {
         latestVersion: "1.0.0",
       },
     }),
+    cancelUpdate: vi.fn().mockResolvedValue({
+      ok: true,
+      data: { configured: true, status: "idle", currentVersion: "1.0.0" },
+    }),
+    installUpdate: vi.fn(),
     openUpdatePage: vi.fn(),
     onStateChanged: vi.fn().mockReturnValue(() => undefined),
   } satisfies CodexStyleApi;
@@ -185,35 +190,106 @@ describe("Studio renderer", () => {
     );
   });
 
-  it("offers a verified GitHub release after a manual update check", async () => {
+  it("downloads a verified update internally and offers installation choices", async () => {
     const api = makeApi();
-    const available = {
+    const downloaded = {
       configured: true as const,
-      status: "available" as const,
+      status: "downloaded" as const,
       currentVersion: "1.0.0",
       latestVersion: "1.1.0",
       releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.1.0",
-      checkedAt: "2026-08-26T08:00:00.000Z",
+      checkedAt: "2026-08-27T08:00:00.000Z",
     };
-    api.requestUpdate.mockResolvedValue({ ok: true, data: available });
-    api.getSnapshot.mockResolvedValue({
-      ok: true,
-      data: { ...snapshot, update: available },
-    });
-    api.openUpdatePage.mockResolvedValue({ ok: true, data: available });
+    const scheduled = {
+      ...downloaded,
+      status: "scheduled" as const,
+      installOnQuit: true,
+    };
+    api.requestUpdate.mockResolvedValue({ ok: true, data: downloaded });
+    api.installUpdate.mockResolvedValue({ ok: true, data: scheduled });
     window.codexStyle = api;
 
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "检查更新" }));
 
-    expect(await screen.findByText("新版本 v1.1.0 已发布")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "打开下载页面" }));
-    await waitFor(() => expect(api.openUpdatePage).toHaveBeenCalledOnce());
-    expect(
-      await screen.findByText("已打开 GitHub Release 下载页面。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("v1.1.0 已准备好安装")).toBeInTheDocument();
+    expect(screen.getByText(/完整性校验已通过/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "退出时安装" }));
+
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "检查更新" })).toBeEnabled(),
+      expect(api.installUpdate).toHaveBeenCalledWith({ mode: "on-quit" }),
+    );
+    expect(await screen.findByText("已安排退出时安装")).toBeInTheDocument();
+  });
+
+  it("shows determinate download progress and allows cancellation", async () => {
+    const api = makeApi();
+    const downloading = {
+      configured: true as const,
+      status: "downloading" as const,
+      currentVersion: "1.0.0",
+      latestVersion: "1.1.0",
+      releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.1.0",
+      progress: {
+        percent: 42,
+        transferredBytes: 42 * 1024 * 1024,
+        totalBytes: 100 * 1024 * 1024,
+        bytesPerSecond: 2 * 1024 * 1024,
+      },
+    };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: downloading },
+    });
+    api.cancelUpdate.mockResolvedValue({
+      ok: true,
+      data: {
+        configured: true,
+        status: "available",
+        currentVersion: "1.0.0",
+        latestVersion: "1.1.0",
+        releaseUrl: downloading.releaseUrl,
+      },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    const progress = await screen.findByRole("progressbar", {
+      name: "更新下载进度",
+    });
+    expect(progress).toHaveAttribute("aria-valuenow", "42");
+    expect(screen.getByText(/42% · 42.0 MB \/ 100 MB/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "取消下载" }));
+    await waitFor(() => expect(api.cancelUpdate).toHaveBeenCalledOnce());
+    expect(await screen.findByText("更新下载已取消。")).toBeInTheDocument();
+  });
+
+  it("offers an installer retry after a verified download cannot start", async () => {
+    const api = makeApi();
+    const installError = {
+      configured: true as const,
+      status: "error" as const,
+      currentVersion: "1.0.0",
+      latestVersion: "1.1.0",
+      releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.1.0",
+      errorPhase: "install" as const,
+    };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: installError },
+    });
+    api.installUpdate.mockResolvedValue({
+      ok: true,
+      data: { ...installError, status: "installing", errorPhase: undefined },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    expect(await screen.findByText("无法启动更新安装")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试安装" }));
+
+    await waitFor(() =>
+      expect(api.installUpdate).toHaveBeenCalledWith({ mode: "now" }),
     );
   });
 
@@ -227,6 +303,33 @@ describe("Studio renderer", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "检查更新" })).toBeEnabled(),
     );
+  });
+
+  it("opens the manual release fallback for a portable build", async () => {
+    const api = makeApi();
+    const unsupported = {
+      configured: false as const,
+      status: "unsupported" as const,
+      currentVersion: "1.0.0",
+    };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: unsupported },
+    });
+    api.openUpdatePage.mockResolvedValue({ ok: true, data: unsupported });
+    window.codexStyle = api;
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "此版本不支持应用内更新",
+      }),
+    );
+
+    await waitFor(() => expect(api.openUpdatePage).toHaveBeenCalledOnce());
+    expect(
+      await screen.findByText("已打开 GitHub Release 手动下载页面。"),
+    ).toBeInTheDocument();
   });
 
   it("applies a built-in theme preset without replacing theme identity", async () => {
@@ -1011,6 +1114,58 @@ describe("Studio renderer", () => {
     ).toHaveTextContent("等待");
     expect(screen.getByText(/Windows 启动调用失败/u)).toBeInTheDocument();
   });
+
+  it.each([
+    {
+      messageKey: "session.cdpUnavailable",
+      message: /未在等待时间内打开可验证的 127\.0\.0\.1 CDP 端口/u,
+      ownership: "未通过",
+      compatibility: "等待",
+    },
+    {
+      messageKey: "session.identityMismatch",
+      message: /PID、用户身份、启动参数或 Browser ID 不匹配/u,
+      ownership: "未通过",
+      compatibility: "等待",
+    },
+    {
+      messageKey: "session.targetIncompatible",
+      message: /本地 CDP 已验证，但当前 Codex 页面结构/u,
+      ownership: "通过",
+      compatibility: "未通过",
+    },
+  ])(
+    "explains the actionable startup stage for $messageKey",
+    async ({ messageKey, message, ownership, compatibility }) => {
+      const api = makeApi();
+      api.getSnapshot.mockResolvedValue({
+        ok: true,
+        data: {
+          ...snapshot,
+          selectedLibraryId: theme.libraryId,
+          session: {
+            state: "INCOMPATIBLE",
+            messageKey,
+            canEnd: false,
+            launchedByTool: false,
+          },
+        },
+      });
+      window.codexStyle = api;
+
+      render(<App />);
+      await screen.findByDisplayValue("Midnight Copper");
+      fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
+
+      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(
+        screen.getByText("会话可安全管理").closest(".check-row"),
+      ).toHaveTextContent(ownership);
+      expect(
+        screen.getByText("主题与当前版本兼容").closest(".check-row"),
+      ).toHaveTextContent(compatibility);
+    },
+  );
 
   it("shows a same-ID import conflict and resolves it only after an explicit choice", async () => {
     const conflict: ImportResult = {

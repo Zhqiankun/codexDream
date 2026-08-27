@@ -16,6 +16,10 @@ interface ControllerFixture {
   broadcast: Mock<(snapshot: ThemeSnapshot) => void>;
   launchSession: Mock<() => Promise<Result<ThemeSnapshot>>>;
   requestUpdate: Mock<() => Promise<Result<UpdateSnapshot>>>;
+  cancelUpdate: Mock<() => Result<UpdateSnapshot>>;
+  installUpdate: Mock<
+    (mode: "now" | "on-quit") => Promise<Result<UpdateSnapshot>>
+  >;
   openUpdatePage: Mock<() => Promise<Result<UpdateSnapshot>>>;
 }
 
@@ -67,6 +71,22 @@ describe("IPC public boundary", () => {
     });
     expect(controller.requestUpdate).toHaveBeenCalledOnce();
     expect(controller.broadcast).not.toHaveBeenCalled();
+  });
+
+  it("rejects an install command from an untrusted frame", async () => {
+    const controller = controllerFixture();
+    registerFixture(controller);
+
+    const result = await handlers.get("update.install")!(
+      trustedEvent({ senderId: 77 }),
+      { v: 1, mode: "now" },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "UNAUTHORIZED_RENDERER", messageKey: "ipc.unauthorized" },
+    });
+    expect(controller.installUpdate).not.toHaveBeenCalled();
   });
 
   it("publishes the changed session state when a launch is fail-closed", async () => {
@@ -143,6 +163,9 @@ function controllerFixture(): ControllerFixture {
           latestVersion: "1.0.0",
         },
       }),
+    cancelUpdate: vi.fn<() => Result<UpdateSnapshot>>(),
+    installUpdate:
+      vi.fn<(mode: "now" | "on-quit") => Promise<Result<UpdateSnapshot>>>(),
     openUpdatePage: vi.fn(),
   };
 }

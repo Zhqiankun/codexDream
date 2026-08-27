@@ -36,6 +36,7 @@ win:
         - x64
   artifactName: CodexStyle-${version}-${arch}.${ext}
 nsis:
+  include: resources/installer.nsh
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
@@ -43,4 +44,8 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: CodexStyle
   runAfterFinish: true
-publish: null
+publish:
+  provider: generic
+  url: https://github.com/Zhqiankun/codexDream/releases/latest/download/
+  channel: latest
+  useMultipleRangeRequest: false

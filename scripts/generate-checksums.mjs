@@ -9,6 +9,8 @@ const metadata = JSON.parse(
 );
 const artifacts = [
   resolve(root, "release", `CodexStyle-${metadata.version}-x64.exe`),
+  resolve(root, "release", `CodexStyle-${metadata.version}-x64.exe.blockmap`),
+  resolve(root, "release", "latest.yml"),
   resolve(root, "release", `CodexStyle-${metadata.version}-x64.zip`),
 ];
 const lines = artifacts.map((artifact) => {
@@ -23,4 +25,6 @@ writeFileSync(
   `${lines.join("\n")}\n`,
   "utf8",
 );
-console.log("Generated SHA256SUMS.txt for Windows release artifacts.");
+console.log(
+  "Generated SHA256SUMS.txt for Windows release and update artifacts.",
+);

@@ -28,7 +28,7 @@ import type {
 import { registerIpc } from "../ipc/handlers";
 import { MainOperationBusyError, MainOperationGate } from "./operation-gate";
 import { UpdateService } from "./update-service";
-import { GitHubReleases } from "../infra/github-releases";
+import { ElectronUpdaterGateway } from "../infra/electron-updater-gateway";
 
 export class AppController {
   mainWindow?: BrowserWindow;
@@ -48,7 +48,12 @@ export class AppController {
     const currentVersion = app.getVersion();
     this.updateService =
       updateService ??
-      new UpdateService(currentVersion, new GitHubReleases(currentVersion));
+      new UpdateService(
+        currentVersion,
+        new ElectronUpdaterGateway(),
+        undefined,
+        () => this.broadcast(),
+      );
     const localAppData = process.env.LOCALAPPDATA || app.getPath("userData");
     this.store = new LocalThemeStore(join(localAppData, "CodexStyle"));
     this.session = new CodexSessionService(
@@ -78,6 +83,8 @@ export class AppController {
 
   dispose(): void {
     this.quitting = true;
+    if (this.updateService.snapshot().status === "downloading")
+      this.updateService.cancel();
     this.store.managedStore.close();
   }
 
@@ -344,12 +351,33 @@ export class AppController {
 
   async requestUpdate(): Promise<Result<UpdateSnapshot>> {
     try {
-      return { ok: true, data: await this.updateService.check() };
-    } catch {
-      return resultError("UPDATE_CHECK_FAILED", "update.checkFailed");
+      return { ok: true, data: await this.updateService.checkAndDownload() };
+    } catch (error) {
+      return updateError(error, this.updateService.snapshot());
     } finally {
       this.broadcast();
     }
+  }
+
+  cancelUpdate(): Result<UpdateSnapshot> {
+    const data = this.updateService.cancel();
+    this.broadcast();
+    return { ok: true, data };
+  }
+
+  installUpdate(mode: "now" | "on-quit"): Promise<Result<UpdateSnapshot>> {
+    if (mode === "on-quit") {
+      try {
+        const data = this.updateService.scheduleInstallOnQuit();
+        this.broadcast();
+        return Promise.resolve({ ok: true, data });
+      } catch (error) {
+        return Promise.resolve(
+          updateError(error, this.updateService.snapshot()),
+        );
+      }
+    }
+    return this.installDownloadedUpdate();
   }
 
   async openUpdatePage(): Promise<Result<UpdateSnapshot>> {
@@ -412,11 +440,72 @@ export class AppController {
           }
         }
         this.quitting = true;
+        if (this.updateService.shouldInstallOnQuit()) {
+          try {
+            this.updateService.installNow();
+            return;
+          } catch {
+            this.quitting = false;
+            await dialog.showMessageBox({
+              type: "error",
+              title: "CodexStyle 更新",
+              message: "无法启动已下载的更新，CodexStyle 将继续运行。",
+            });
+            return;
+          }
+        }
         this.tray?.destroy();
         app.quit();
       });
     } catch (error) {
       if (!(error instanceof MainOperationBusyError)) throw error;
+    }
+  }
+
+  private async installDownloadedUpdate(): Promise<Result<UpdateSnapshot>> {
+    try {
+      return await this.runMainOperation(async () => {
+        const update = this.updateService.snapshot();
+        if (
+          update.status !== "downloaded" &&
+          update.status !== "scheduled" &&
+          !(update.status === "error" && update.errorPhase === "install")
+        )
+          return resultError("UPDATE_INSTALL_FAILED", "update.installFailed");
+
+        const ownsSession = this.session.snapshot().canEnd;
+        const response = await dialog.showMessageBox({
+          type: "warning",
+          buttons: ["取消", ownsSession ? "关闭 Codex 并安装" : "重启并安装"],
+          defaultId: 0,
+          cancelId: 0,
+          title: "安装 CodexStyle 更新",
+          message: `即将安装 CodexStyle v${update.latestVersion}。`,
+          detail: ownsSession
+            ? "安装包已通过 SHA-512 完整性校验，但尚未代码签名。继续将先安全关闭本工具启动的 Codex 会话；Windows 仍可能显示未知发布者。"
+            : "安装包已通过 SHA-512 完整性校验，但尚未代码签名。Windows 仍可能显示未知发布者。",
+        });
+        if (response.response !== 1)
+          return resultError("CANCELLED", "update.installCancelled");
+
+        if (ownsSession) {
+          const ended = await this.endOwnedSession();
+          if (!ended.ok)
+            return resultError("CLEANUP_FAILED", "session.cleanupFailed");
+        }
+
+        this.quitting = true;
+        try {
+          return { ok: true, data: this.updateService.installNow() };
+        } catch (error) {
+          this.quitting = false;
+          return updateError(error, this.updateService.snapshot());
+        }
+      });
+    } catch (error) {
+      return error instanceof MainOperationBusyError
+        ? resultError("OPERATION_BUSY", "ipc.busy")
+        : resultError("UPDATE_INSTALL_FAILED", "update.installFailed");
     }
   }
 
@@ -559,14 +648,23 @@ export class AppController {
   private async checkForUpdatesFromTray(): Promise<void> {
     const result = await this.requestUpdate();
     if (!result.ok) {
-      await dialog.showMessageBox({
+      const response = await dialog.showMessageBox({
         type: "warning",
+        buttons: ["取消", "打开下载页面"],
+        defaultId: 1,
+        cancelId: 0,
         title: "CodexStyle 更新",
-        message: "无法连接 GitHub 检查更新，请稍后重试。",
+        message:
+          result.error.code === "UPDATE_UNSUPPORTED"
+            ? "应用内更新仅支持正式安装的 Windows 版本。开发版或 ZIP 便携版请从 GitHub Release 手动更新。"
+            : result.error.code === "UPDATE_DOWNLOAD_FAILED"
+              ? "更新下载或完整性校验失败，请稍后重试。"
+              : "无法连接 GitHub 检查更新，请稍后重试。",
       });
+      if (response.response === 1) await this.openUpdatePage();
       return;
     }
-    if (result.data.status !== "available") {
+    if (result.data.status === "current") {
       await dialog.showMessageBox({
         type: "info",
         title: "CodexStyle 更新",
@@ -574,28 +672,42 @@ export class AppController {
       });
       return;
     }
+    if (result.data.status !== "downloaded") return;
     const response = await dialog.showMessageBox({
-      type: "info",
-      buttons: ["稍后", "打开下载页面"],
+      type: "warning",
+      buttons: ["稍后", "重启并安装", "退出时安装"],
       defaultId: 1,
       cancelId: 0,
       title: "CodexStyle 更新",
-      message: `发现新版本 v${result.data.latestVersion}。`,
-      detail: `当前版本 v${result.data.currentVersion}。CodexStyle 将打开固定的 GitHub Release 页面，不会自动下载或安装。`,
+      message: `CodexStyle v${result.data.latestVersion} 已下载并通过完整性校验。`,
+      detail:
+        "当前安装包尚未代码签名，Windows 仍可能显示未知发布者。你可以立即重启安装，或在之后从托盘退出时安装。",
     });
-    if (response.response !== 1) return;
-    const opened = await this.openUpdatePage();
-    if (!opened.ok)
-      await dialog.showMessageBox({
-        type: "warning",
-        title: "CodexStyle 更新",
-        message: "无法打开下载页面，请稍后重试。",
-      });
+    if (response.response === 1) await this.installUpdate("now");
+    if (response.response === 2) await this.installUpdate("on-quit");
   }
 }
 
 function resultError<T>(code: ErrorCode, messageKey: string): Result<T> {
   return { ok: false, error: { code, messageKey } };
+}
+
+function updateError<T>(
+  errorValue: unknown,
+  snapshot: UpdateSnapshot,
+): Result<T> {
+  const raw =
+    errorValue instanceof Error ? errorValue.message : String(errorValue);
+  if (raw.includes("UPDATE_UNSUPPORTED"))
+    return resultError("UPDATE_UNSUPPORTED", "update.unsupported");
+  if (
+    raw.includes("UPDATE_INSTALL_FAILED") ||
+    snapshot.errorPhase === "install"
+  )
+    return resultError("UPDATE_INSTALL_FAILED", "update.installFailed");
+  if (snapshot.errorPhase === "download")
+    return resultError("UPDATE_DOWNLOAD_FAILED", "update.downloadFailed");
+  return resultError("UPDATE_CHECK_FAILED", "update.checkFailed");
 }
 
 function sessionError<T>(errorValue: unknown): Result<T> {

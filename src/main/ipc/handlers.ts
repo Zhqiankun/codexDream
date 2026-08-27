@@ -4,6 +4,7 @@ import {
   EmptyRequestSchema,
   ExportSchema,
   CreateDraftSchema,
+  InstallUpdateSchema,
   LibraryIdSchema,
   PatchDraftSchema,
   ResolveImportSchema,
@@ -112,6 +113,10 @@ export function registerIpc(controller: AppController): void {
   );
   handle("update.request", EmptyRequestSchema, () =>
     controller.requestUpdate(),
+  );
+  handle("update.cancel", EmptyRequestSchema, () => controller.cancelUpdate());
+  handle("update.install", InstallUpdateSchema, ({ mode }) =>
+    controller.installUpdate(mode),
   );
   handle("update.openRelease", EmptyRequestSchema, () =>
     controller.openUpdatePage(),

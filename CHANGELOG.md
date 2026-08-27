@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.1.0 — 2026-08-27
+
+### English
+
+- Added user-triggered in-app updates for NSIS-installed Windows builds, including fixed-source checks, verified downloads, progress, cancellation, restart-to-install, and install-on-exit.
+- Added fail-closed installed-build detection so development and portable ZIP builds never execute an update installer.
+- Added `latest.yml`, NSIS blockmap, SHA-512, installation-marker, packaged-runtime, and immutable-Release verification to the Windows release pipeline.
+- Fixed intermittent managed Codex startup failures by retrying an empty loopback listener and transient process/SID queries while still rejecting wrong listener PIDs and identity mismatches immediately.
+
+> The v1.1.0 binaries are not code-signed. Windows SmartScreen may display an unknown-publisher warning. Verify `SHA256SUMS.txt` before running a downloaded artifact.
+
+### 简体中文
+
+- 为 Windows NSIS 正式安装版新增用户主动触发的应用内更新，包括固定来源检查、校验下载、进度、取消、重启安装和退出时安装。
+- 新增失败即停止的安装版检测，开发版和 ZIP 便携版不会执行更新安装器。
+- Windows 发布流水线新增 `latest.yml`、NSIS blockmap、SHA-512、安装标记、打包运行时及公开 Release 不可覆盖校验。
+- 修复受管 Codex 偶发启动失败：回环端口尚未监听、进程或 SID 查询短暂不可用时会继续严格重试；监听 PID 或身份不匹配时仍立即拒绝。
+
+> v1.1.0 构建产物尚未进行代码签名，Windows SmartScreen 可能显示“未知发布者”。运行下载文件前请核对 `SHA256SUMS.txt`。
+
 ## v1.0.1 — 2026-08-27
 
 ### English

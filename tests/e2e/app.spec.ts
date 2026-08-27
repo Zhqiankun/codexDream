@@ -42,7 +42,9 @@ test("starts the real Electron shell with native storage and completes a local w
     expect(snapshot.ok).toBe(true);
     if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(3);
 
-    await expect(page.getByRole("button", { name: "检查更新" })).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "此版本不支持应用内更新" }),
+    ).toBeEnabled();
 
     await mkdir(screenshotDirectory, { recursive: true });
     await page.screenshot({

@@ -44,6 +44,10 @@ function unwrap<T>(
 
 const errorMessages: Record<string, string> = {
   "update.checkFailed": "无法连接 GitHub 检查更新，请稍后重试。",
+  "update.downloadFailed": "更新下载或完整性校验失败，请稍后重试。",
+  "update.installFailed": "无法启动已下载的更新，请重试或手动安装。",
+  "update.unsupported":
+    "应用内更新仅支持正式安装的 Windows 版本；开发版或 ZIP 便携版请手动更新。",
   "update.openFailed": "无法打开下载页面，请前往项目的 GitHub Releases。",
   "ipc.busy": "另一项操作正在进行，请稍后再试。",
   "ipc.invalid": "请求内容无效，请重试。",
@@ -93,6 +97,69 @@ function messageForImport(result: ImportResult): string {
   return warnings.length ? `导入完成。${warnings.join(" ")}` : "主题导入完成。";
 }
 
+function updateButtonText(update?: UpdateSnapshot): string {
+  if (!update) return "检查更新";
+  if (update.status === "checking") return "正在检查更新";
+  if (update.status === "downloading")
+    return `正在下载更新 ${update.progress?.percent ?? 0}%`;
+  if (update.status === "downloaded") return `v${update.latestVersion} 已就绪`;
+  if (update.status === "scheduled") return "更新将在退出时安装";
+  if (update.status === "installing") return "正在启动更新安装";
+  if (update.status === "unsupported") return "此版本不支持应用内更新";
+  return "检查更新";
+}
+
+function updateCardTitle(update: UpdateSnapshot): string {
+  if (update.status === "checking") return "正在检查最新版本";
+  if (update.status === "available")
+    return `发现新版本 v${update.latestVersion}`;
+  if (update.status === "downloading")
+    return `正在下载 v${update.latestVersion}`;
+  if (update.status === "downloaded")
+    return `v${update.latestVersion} 已准备好安装`;
+  if (update.status === "scheduled") return "已安排退出时安装";
+  if (update.status === "installing") return "正在启动安装程序";
+  if (update.status === "error")
+    return update.errorPhase === "install"
+      ? "无法启动更新安装"
+      : update.errorPhase === "download"
+        ? "更新下载失败"
+        : "更新检查失败";
+  return "CodexStyle 更新";
+}
+
+function updateCardDescription(update: UpdateSnapshot): string {
+  if (update.status === "checking")
+    return "正在从固定的 GitHub Release 更新源读取 latest.yml。";
+  if (update.status === "available") return "已确认版本，正在准备安全下载。";
+  if (update.status === "downloading")
+    return "下载完成后会核对同一次构建声明的 SHA-512。";
+  if (update.status === "downloaded")
+    return "完整性校验已通过。安装包尚未代码签名，Windows 仍可能显示未知发布者。";
+  if (update.status === "scheduled")
+    return `v${update.latestVersion} 将在你从托盘退出 CodexStyle 时安装。`;
+  if (update.status === "installing")
+    return "CodexStyle 将退出并由 NSIS 覆盖安装，然后重新启动。";
+  if (update.status === "error")
+    return update.errorPhase === "install"
+      ? "已下载的安装包仍保留在更新缓存中；你可以重试安装或改为手动下载。"
+      : update.errorPhase === "download"
+        ? "网络中断或完整性校验未通过，没有执行安装文件。"
+        : "暂时无法读取更新信息，当前版本不会发生变化。";
+  return "";
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+  );
+  const value = bytes / 1024 ** index;
+  return `${value >= 100 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
+}
+
 export function App() {
   const [snapshot, setSnapshot] = useState<ThemeSnapshot | undefined>();
   const [selected, setSelected] = useState<ThemeDetail | undefined>();
@@ -105,13 +172,16 @@ export function App() {
     useState<string>();
   const [busy, setBusy] = useState(false);
   const selectedLibraryIdRef = useRef<string | undefined>(undefined);
+  const selectedRevisionRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     selectedLibraryIdRef.current = selected?.libraryId;
+    selectedRevisionRef.current = selected?.revision;
   }, [selected?.libraryId]);
 
   const adoptSelectedDetail = (detail: ThemeDetail) => {
     selectedLibraryIdRef.current = detail.libraryId;
+    selectedRevisionRef.current = detail.revision;
     setSelected((current) => {
       if (
         current?.libraryId === detail.libraryId &&
@@ -147,7 +217,10 @@ export function App() {
     return bridge.onStateChanged((next) => {
       setSnapshot(next);
       const libraryId = selectedLibraryIdRef.current;
-      if (libraryId)
+      const summary = next.themes.find(
+        (theme) => theme.libraryId === libraryId,
+      );
+      if (libraryId && summary?.revision !== selectedRevisionRef.current)
         void bridge.getTheme({ libraryId }).then((result) => {
           if (result.ok) {
             adoptSelectedDetail(result.data);
@@ -182,27 +255,82 @@ export function App() {
   );
   const readyCount =
     snapshot?.themes.filter((theme) => theme.status === "ready").length ?? 0;
-  const availableUpdate =
-    snapshot?.update.status === "available" &&
-    snapshot.update.latestVersion !== dismissedUpdateVersion
-      ? snapshot.update
-      : undefined;
-  const updateButtonLabel = availableUpdate?.latestVersion
-    ? `发现新版本 v${availableUpdate.latestVersion}`
-    : "检查更新";
+  const update = snapshot?.update;
+  const updateInProgress =
+    update?.status === "checking" ||
+    update?.status === "downloading" ||
+    update?.status === "installing";
+  const updateHasBadge =
+    update?.status === "downloaded" || update?.status === "scheduled";
+  const showUpdateCard = Boolean(
+    update &&
+      [
+        "checking",
+        "available",
+        "downloading",
+        "downloaded",
+        "scheduled",
+        "installing",
+        "error",
+      ].includes(update.status) &&
+      !(
+        update.status === "downloaded" &&
+        update.latestVersion === dismissedUpdateVersion
+      ),
+  );
+  const updateButtonLabel = updateButtonText(update);
 
-  const checkForUpdates = () =>
-    run(
-      () => bridge.requestUpdate(),
-      (update) => {
-        if (update.status === "available") {
-          setDismissedUpdateVersion(undefined);
-          report(`发现新版本 v${update.latestVersion}。`);
-        } else {
-          report(`当前已是最新版 v${update.currentVersion}。`);
-        }
-      },
-    );
+  const checkForUpdates = async () => {
+    if (update?.status === "unsupported") {
+      const opened = unwrap(await bridge.openUpdatePage(), report);
+      if (opened) report("已打开 GitHub Release 手动下载页面。");
+      return;
+    }
+    if (update?.status === "downloaded" || update?.status === "scheduled") {
+      setDismissedUpdateVersion(undefined);
+      return;
+    }
+    try {
+      const next = unwrap(await bridge.requestUpdate(), report);
+      if (!next) return;
+      setSnapshot((current) =>
+        current ? { ...current, update: next } : current,
+      );
+      if (next.status === "current")
+        report(`当前已是最新版 v${next.currentVersion}。`);
+      if (next.status === "downloaded") {
+        setDismissedUpdateVersion(undefined);
+        report(`v${next.latestVersion} 已下载并通过完整性校验。`);
+      }
+    } catch {
+      report(messageForError("update.checkFailed"));
+    }
+  };
+
+  const cancelUpdate = async () => {
+    const next = unwrap(await bridge.cancelUpdate(), report);
+    if (next) {
+      setSnapshot((current) =>
+        current ? { ...current, update: next } : current,
+      );
+      report(
+        next.status === "downloaded"
+          ? "已取消退出时安装。"
+          : "更新下载已取消。",
+      );
+    }
+  };
+
+  const installUpdate = async (mode: "now" | "on-quit") => {
+    const next = unwrap(await bridge.installUpdate({ mode }), report);
+    if (next) {
+      setSnapshot((current) =>
+        current ? { ...current, update: next } : current,
+      );
+      if (next.status === "scheduled")
+        report("已安排在你从托盘退出 CodexStyle 时安装。");
+    }
+  };
 
   const openUpdatePage = (update: UpdateSnapshot) =>
     run(
@@ -264,10 +392,10 @@ export function App() {
           {sessionLabels[snapshot?.session.state ?? "NO_SESSION"]}
         </div>
         <button
-          className={`icon-button update-button ${availableUpdate ? "has-update" : ""}`}
+          className={`icon-button update-button ${updateHasBadge ? "has-update" : ""} ${updateInProgress ? "is-busy" : ""}`}
           title={updateButtonLabel}
           aria-label={updateButtonLabel}
-          disabled={busy}
+          disabled={busy || updateInProgress}
           onClick={() => void checkForUpdates()}
         >
           ↻
@@ -385,36 +513,132 @@ export function App() {
               {notice}
             </div>
           )}
-          {availableUpdate && (
-            <section className="update-card" aria-label="可用更新">
+          {showUpdateCard && update && (
+            <section
+              className={`update-card state-${update.status}`}
+              aria-label="CodexStyle 更新"
+              aria-live="polite"
+            >
               <div className="update-card-mark" aria-hidden="true">
-                ↗
+                {update.status === "downloaded" || update.status === "scheduled"
+                  ? "✓"
+                  : update.status === "error"
+                    ? "!"
+                    : "↻"}
               </div>
               <div className="update-card-copy">
                 <span>CODEXSTYLE UPDATE</span>
-                <strong>新版本 v{availableUpdate.latestVersion} 已发布</strong>
-                <p>
-                  当前版本 v{availableUpdate.currentVersion}。确认后将打开固定的
-                  GitHub Release 页面，由你手动下载安装。
-                </p>
+                <strong>{updateCardTitle(update)}</strong>
+                <p>{updateCardDescription(update)}</p>
+                {update.status === "downloading" && update.progress && (
+                  <div className="update-progress-wrap">
+                    <div
+                      className="update-progress"
+                      role="progressbar"
+                      aria-label="更新下载进度"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={update.progress.percent}
+                    >
+                      <span
+                        style={
+                          {
+                            "--update-progress": `${update.progress.percent / 100}`,
+                          } as CSSProperties
+                        }
+                      />
+                    </div>
+                    <span className="update-progress-copy">
+                      {update.progress.percent}% ·{" "}
+                      {formatBytes(update.progress.transferredBytes)}
+                      {update.progress.totalBytes > 0
+                        ? ` / ${formatBytes(update.progress.totalBytes)}`
+                        : ""}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="update-card-actions">
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() =>
-                    setDismissedUpdateVersion(availableUpdate.latestVersion)
-                  }
-                >
-                  稍后
-                </button>
-                <button
-                  className="primary-button"
-                  disabled={busy}
-                  onClick={() => void openUpdatePage(availableUpdate)}
-                >
-                  打开下载页面
-                </button>
+                {update.status === "available" && (
+                  <button
+                    className="primary-button"
+                    onClick={() => void checkForUpdates()}
+                  >
+                    继续下载
+                  </button>
+                )}
+                {update.status === "downloading" && (
+                  <button
+                    className="secondary-button"
+                    onClick={() => void cancelUpdate()}
+                  >
+                    取消下载
+                  </button>
+                )}
+                {update.status === "downloaded" && (
+                  <>
+                    <button
+                      className="text-button"
+                      onClick={() =>
+                        setDismissedUpdateVersion(update.latestVersion)
+                      }
+                    >
+                      稍后
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() => void installUpdate("on-quit")}
+                    >
+                      退出时安装
+                    </button>
+                    <button
+                      className="primary-button"
+                      onClick={() => void installUpdate("now")}
+                    >
+                      重启并安装
+                    </button>
+                  </>
+                )}
+                {update.status === "scheduled" && (
+                  <>
+                    <button
+                      className="secondary-button"
+                      onClick={() => void cancelUpdate()}
+                    >
+                      取消安排
+                    </button>
+                    <button
+                      className="primary-button"
+                      onClick={() => void installUpdate("now")}
+                    >
+                      立即安装
+                    </button>
+                  </>
+                )}
+                {update.status === "error" && (
+                  <>
+                    <button
+                      className="secondary-button"
+                      onClick={() => void openUpdatePage(update)}
+                    >
+                      手动下载
+                    </button>
+                    <button
+                      className="primary-button"
+                      onClick={() =>
+                        void (update.errorPhase === "install"
+                          ? installUpdate("now")
+                          : checkForUpdates())
+                      }
+                    >
+                      {update.errorPhase === "install"
+                        ? "重试安装"
+                        : update.errorPhase === "download"
+                          ? "重新下载"
+                          : "重新检查"}
+                    </button>
+                  </>
+                )}
               </div>
             </section>
           )}
@@ -1492,10 +1716,20 @@ function messageForState(
   state: SessionState,
   messageKey: string | undefined,
 ): string {
+  if (state === "VERIFYING_CDP")
+    return "Codex 已启动，正在等待它打开仅限本机的 127.0.0.1 调试端口并完成身份核验。";
   if (state === "EXTERNAL_BLOCKED")
     return "已有外部启动的 Codex。请在系统中自行关闭后再试，CodexStyle 不会触碰它。";
   if (state === "INCOMPATIBLE" && messageKey === "session.launchFailed")
     return "Windows 启动调用失败，未创建受管会话，也未注入任何主题。";
+  if (state === "INCOMPATIBLE" && messageKey === "session.cdpUnavailable")
+    return "Codex 已启动，但未在等待时间内打开可验证的 127.0.0.1 CDP 端口。请关闭刚打开的 Codex 后重试；若持续出现，可能是当前 Store 版本未透传调试参数。";
+  if (state === "INCOMPATIBLE" && messageKey === "session.identityMismatch")
+    return "检测到了端口或进程，但 PID、用户身份、启动参数或 Browser ID 不匹配。为安全起见未连接，请关闭刚打开的 Codex 后重试。";
+  if (state === "INCOMPATIBLE" && messageKey === "session.targetIncompatible")
+    return "本地 CDP 已验证，但当前 Codex 页面结构与主题选择器不兼容，需要更新 CodexStyle 的兼容配置。";
+  if (state === "INCOMPATIBLE" && messageKey === "session.injectionFailed")
+    return "会话身份与页面兼容性已通过，但主题注入没有完整成功，Codex 已保持原样。";
   if (state === "INCOMPATIBLE")
     return "当前 Store 版本未提供可验证的 CDP 或选择器，工具不会绕过安全边界。";
   if (state === "ORPHANED")

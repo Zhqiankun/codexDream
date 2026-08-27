@@ -40,7 +40,10 @@ export type ErrorCode =
   | "INJECTION_FAILED"
   | "CLEANUP_FAILED"
   | "STORE_TAMPERED"
+  | "UPDATE_UNSUPPORTED"
   | "UPDATE_CHECK_FAILED"
+  | "UPDATE_DOWNLOAD_FAILED"
+  | "UPDATE_INSTALL_FAILED"
   | "UPDATE_OPEN_FAILED"
   | "CANCELLED"
   | "UNKNOWN";
@@ -122,12 +125,32 @@ export interface SessionSnapshot {
 }
 
 export interface UpdateSnapshot {
-  configured: true;
-  status: "idle" | "current" | "available" | "error";
+  configured: boolean;
+  status:
+    | "unsupported"
+    | "idle"
+    | "checking"
+    | "current"
+    | "available"
+    | "downloading"
+    | "downloaded"
+    | "scheduled"
+    | "installing"
+    | "error";
   currentVersion: string;
   latestVersion?: string;
   releaseUrl?: string;
   checkedAt?: string;
+  progress?: UpdateProgress;
+  installOnQuit?: boolean;
+  errorPhase?: "check" | "download" | "install";
+}
+
+export interface UpdateProgress {
+  percent: number;
+  transferredBytes: number;
+  totalBytes: number;
+  bytesPerSecond: number;
 }
 
 export interface ThemePatch {
@@ -225,6 +248,9 @@ const ThemeStyleConfigSchema = z
   );
 
 export const EmptyRequestSchema = z.object(VersionField).strict();
+export const InstallUpdateSchema = z
+  .object({ ...VersionField, mode: z.enum(["now", "on-quit"]) })
+  .strict();
 export const LibraryIdSchema = z
   .object({ ...VersionField, libraryId: z.string().uuid() })
   .strict();
@@ -331,6 +357,10 @@ export interface CodexStyleApi {
   endOwnedSession(): Promise<Result<ThemeSnapshot>>;
   getUpdateStatus(): Promise<Result<UpdateSnapshot>>;
   requestUpdate(): Promise<Result<UpdateSnapshot>>;
+  cancelUpdate(): Promise<Result<UpdateSnapshot>>;
+  installUpdate(
+    request: Omit<z.infer<typeof InstallUpdateSchema>, "v">,
+  ): Promise<Result<UpdateSnapshot>>;
   openUpdatePage(): Promise<Result<UpdateSnapshot>>;
   onStateChanged(listener: (snapshot: ThemeSnapshot) => void): () => void;
 }

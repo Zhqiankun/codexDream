@@ -46,6 +46,7 @@ describe("preload public boundary", () => {
     await expect(api.getSnapshot()).resolves.toEqual(snapshot);
 
     expect(Object.keys(api).sort()).toEqual([
+      "cancelUpdate",
       "chooseBackground",
       "chooseSendIcon",
       "clearSelection",
@@ -58,6 +59,7 @@ describe("preload public boundary", () => {
       "getTheme",
       "getUpdateStatus",
       "importZip",
+      "installUpdate",
       "launchSession",
       "onStateChanged",
       "openUpdatePage",
@@ -71,6 +73,14 @@ describe("preload public boundary", () => {
     expect(api).not.toHaveProperty("invoke");
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
       v: 1,
+    });
+
+    await api.cancelUpdate();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 1 });
+    await api.installUpdate({ mode: "now" });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.install", {
+      v: 1,
+      mode: "now",
     });
   });
 });

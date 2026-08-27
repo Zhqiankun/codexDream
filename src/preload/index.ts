@@ -39,6 +39,9 @@ const api: CodexStyleApi = {
   endOwnedSession: () => invoke("session.endOwned", { v: PROTOCOL_VERSION }),
   getUpdateStatus: () => invoke("update.getStatus", { v: PROTOCOL_VERSION }),
   requestUpdate: () => invoke("update.request", { v: PROTOCOL_VERSION }),
+  cancelUpdate: () => invoke("update.cancel", { v: PROTOCOL_VERSION }),
+  installUpdate: (request) =>
+    invoke("update.install", { v: PROTOCOL_VERSION, ...request }),
   openUpdatePage: () => invoke("update.openRelease", { v: PROTOCOL_VERSION }),
   onStateChanged: (listener: (snapshot: ThemeSnapshot) => void) => {
     const callback = (

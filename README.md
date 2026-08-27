@@ -53,17 +53,19 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 - A dedicated Windows app icon, tray icon, and packaged application identity.
 - Managed Codex launch with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
 - Local-first storage with a native Windows x64 secure-store component.
-- User-initiated update checks against this repository's latest stable GitHub Release, with no background polling or silent installation.
+- User-initiated in-app update checks and verified downloads for the installed Windows build, with progress, cancellation, restart-to-install, and install-on-exit choices. There is no background polling or silent installation.
 
 ## Download
 
-Download `v1.0.1` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.1.0` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.0.1-x64.exe` — guided Windows installer.
-- `CodexStyle-1.0.1-x64.zip` — portable archive.
-- `SHA256SUMS.txt` — SHA-256 checksums for both binaries.
+- `CodexStyle-1.1.0-x64.exe` — guided Windows installer.
+- `CodexStyle-1.1.0-x64.zip` — portable archive.
+- `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
+
+`v1.1.0` is the first updater-enabled release. Users on `v1.0.1` or earlier must install `v1.1.0` manually once; installed builds can then update internally. The portable ZIP remains manual-update only.
 
 ## Requirements
 
@@ -92,7 +94,7 @@ CodexStyle is deliberately narrow in scope:
 - It does not take over, close, restart, or inject into Codex sessions launched outside CodexStyle.
 - It applies themes at runtime only to an owned and verified session.
 - It validates imported ZIP files, images, icons, and Safe CSS before storing or applying them.
-- It performs no background update checks and includes no silent auto-installer or remote analytics service. GitHub is contacted only when the user chooses **Check for updates**.
+- It performs no background update checks and includes no silent auto-installer or remote analytics service. GitHub is contacted only when the user chooses **Check and update**. Only an NSIS-installed build may download an update, and installation still requires an explicit user choice after SHA-512 verification.
 - Managed data stays under `%LOCALAPPDATA%\CodexStyle` for the current Windows user.
 
 See [REQUIREMENTS.md](REQUIREMENTS.md) for the complete product and security contract.
@@ -140,7 +142,7 @@ npm run verify:package
 
 Artifacts are written to `release/`. Packaging verifies the renderer and main-process resources, icons, Windows x64 executable, native addon architecture, and native addon loading.
 
-Official binaries are built by the [Release workflow](.github/workflows/release.yml), not on a maintainer workstation. A stable `v*` tag runs the full verification suite on GitHub's Windows runner, builds the installer and portable ZIP, regenerates `SHA256SUMS.txt`, preserves the workflow artifact, and publishes the matching GitHub Release. The manual workflow input exists only to rebuild an already-created tag, such as the initial `v1.0.0` tag.
+Official binaries are built by the [Release workflow](.github/workflows/release.yml), not on a maintainer workstation. A stable `v*` tag runs the full verification suite on GitHub's Windows runner, builds the installer and portable ZIP, validates and publishes `latest.yml` plus the NSIS blockmap, regenerates `SHA256SUMS.txt`, preserves the workflow artifact, and publishes the matching GitHub Release. The channel manifest is uploaded last, and an already-public version is never overwritten.
 
 ## Project layout
 

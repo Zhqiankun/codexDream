@@ -293,11 +293,21 @@ export class CodexSessionService {
     const deadline = Date.now() + CODEX_STARTUP_VERIFY_TIMEOUT_MS;
     const currentSid = await this.platform.currentUserSid();
     if (!currentSid) throw new Error("TARGET_IDENTITY_MISMATCH:current-sid");
-    let sawTarget = false;
+    let sawOwnedProcess = false;
+    let sawCdpEndpoint = false;
+    let incompleteIdentityReason: string | undefined;
     while (Date.now() < deadline) {
-      const processes = await this.platform.listCodexProcesses(
-        packageInfo.executablePath,
-      );
+      let processes: ProcessIdentity[];
+      try {
+        processes = await this.platform.listCodexProcesses(
+          packageInfo.executablePath,
+        );
+      } catch {
+        // WMI/CIM can be briefly unavailable while a Store process is being
+        // materialized. No identity is accepted here; retry the full query.
+        await delay(CODEX_STARTUP_POLL_INTERVAL_MS);
+        continue;
+      }
       const fresh = processes.filter(
         (process) =>
           process.pid === activatedProcessId &&
@@ -307,19 +317,38 @@ export class CodexSessionService {
       if (fresh.length > 1)
         throw new Error("TARGET_IDENTITY_MISMATCH:multiple-owned-processes");
       if (fresh.length === 1) {
+        sawOwnedProcess = true;
         const process = fresh[0];
-        if (!process.startedAt)
-          throw new Error("TARGET_IDENTITY_MISMATCH:missing-start-time");
+        if (!process.startedAt) {
+          incompleteIdentityReason =
+            "TARGET_IDENTITY_MISMATCH:missing-start-time";
+          await delay(CODEX_STARTUP_POLL_INTERVAL_MS);
+          continue;
+        }
         const ownerSid = await this.platform.processOwnerSid(process.pid);
+        if (!ownerSid) {
+          incompleteIdentityReason =
+            "TARGET_IDENTITY_MISMATCH:owner-unavailable";
+          await delay(CODEX_STARTUP_POLL_INTERVAL_MS);
+          continue;
+        }
         if (ownerSid !== currentSid)
           throw new Error("TARGET_IDENTITY_MISMATCH:owner-sid");
+        incompleteIdentityReason = undefined;
         const listening = await this.platform.listeningPids(port);
+        // The Store process is observable before Chromium opens its CDP
+        // listener on cold starts. An empty result is "not ready"; any
+        // non-empty result that is not exactly the owned PID is a hard fail.
+        if (listening.length === 0) {
+          await delay(CODEX_STARTUP_POLL_INTERVAL_MS);
+          continue;
+        }
         if (listening.length !== 1 || listening[0] !== process.pid)
           throw new Error("TARGET_IDENTITY_MISMATCH:listener");
         try {
           const version = await getCdpVersion(port);
+          sawCdpEndpoint = true;
           const target = await this.findCompatibleTarget(port);
-          sawTarget = true;
           return {
             packageInfo,
             pid: process.pid,
@@ -335,12 +364,15 @@ export class CodexSessionService {
           };
         } catch (error) {
           if (isIdentityError(error)) throw error;
-          sawTarget = true;
         }
+      } else if (sawOwnedProcess) {
+        incompleteIdentityReason =
+          "TARGET_IDENTITY_MISMATCH:owned-process-disappeared";
       }
       await delay(CODEX_STARTUP_POLL_INTERVAL_MS);
     }
-    throw new Error(sawTarget ? "TARGET_INCOMPATIBLE" : "CDP_UNAVAILABLE");
+    if (incompleteIdentityReason) throw new Error(incompleteIdentityReason);
+    throw new Error(sawCdpEndpoint ? "TARGET_INCOMPATIBLE" : "CDP_UNAVAILABLE");
   }
 
   private async findCompatibleTarget(

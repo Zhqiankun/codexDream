@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: release-stable-channel
   cancel-in-progress: false
 
 jobs:
@@ -94,7 +94,9 @@ jobs:
           name: CodexStyle-${{ steps.release.outputs.tag }}-windows-x64
           path: |
             release/CodexStyle-*-x64.exe
+            release/CodexStyle-*-x64.exe.blockmap
             release/CodexStyle-*-x64.zip
+            release/latest.yml
             release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
@@ -121,21 +123,39 @@ jobs:
         run: |
           $version = $env:RELEASE_TAG.Substring(1)
           $installer = "release/CodexStyle-$version-x64.exe"
+          $blockmap = "$installer.blockmap"
           $portable = "release/CodexStyle-$version-x64.zip"
 
-          gh release view $env:RELEASE_TAG *> $null
+          $latestTag = gh release view --json tagName --jq .tagName 2>$null
+          if ($LASTEXITCODE -eq 0 -and $latestTag -match '^v\d+\.\d+\.\d+$') {
+            $latestVersion = [version]$latestTag.Substring(1)
+            if ([version]$version -le $latestVersion) {
+              throw "Release $env:RELEASE_TAG must be newer than the current stable $latestTag"
+            }
+          }
+
+          $isDraft = gh release view $env:RELEASE_TAG --json isDraft --jq .isDraft 2>$null
           if ($LASTEXITCODE -ne 0) {
             gh release create $env:RELEASE_TAG `
               --draft `
               --verify-tag `
               --title "CodexStyle $env:RELEASE_TAG" `
               --notes-file release/RELEASE_NOTES.md
+          } elseif ($isDraft -ne "true") {
+            throw "Release $env:RELEASE_TAG is already public and immutable; publish a new version instead"
           }
 
           gh release upload $env:RELEASE_TAG `
             $installer `
+            $blockmap `
             $portable `
             release/SHA256SUMS.txt `
+            --clobber
+
+          # Publish the channel manifest last so clients never observe a
+          # version whose installer or blockmap is not available yet.
+          gh release upload $env:RELEASE_TAG `
+            release/latest.yml `
             --clobber
 
           gh release edit $env:RELEASE_TAG --draft=false --latest

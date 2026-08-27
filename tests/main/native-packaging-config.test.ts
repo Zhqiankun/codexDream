@@ -10,6 +10,7 @@ describe("native secure-store packaging", () => {
       await readFile(resolve(root, "package.json"), "utf8"),
     ) as {
       scripts: Record<string, string | undefined>;
+      dependencies: Record<string, string | undefined>;
       devDependencies: Record<string, string | undefined>;
     };
     const builderConfig = await readFile(
@@ -18,6 +19,7 @@ describe("native secure-store packaging", () => {
     );
 
     expect(packageJson.devDependencies["node-gyp"]).toBe("12.4.0");
+    expect(packageJson.dependencies["electron-updater"]).toBe("6.8.9");
     expect(packageJson.scripts["build:native"]).toBe(
       "node scripts/build-native.mjs",
     );
@@ -26,6 +28,13 @@ describe("native secure-store packaging", () => {
     );
     expect(packageJson.scripts["package:win"]).toContain(
       "npm run release:checksums",
+    );
+    expect(packageJson.scripts["package:win"]).toContain("--publish never");
+    expect(packageJson.scripts["package:win"]).toContain(
+      "npm run release:update-manifest",
+    );
+    expect(packageJson.scripts["release:update-manifest"]).toBe(
+      "node scripts/finalize-update-manifest.mjs",
     );
     expect(builderConfig).toMatch(
       /extraResources:\s*[\s\S]*from: native\/secure-store\/build\/Release\/secure_store\.node\s*[\s\S]*to: native\/secure_store\.node/u,
@@ -37,9 +46,46 @@ describe("native secure-store packaging", () => {
       /from: resources\/tray-icon\.png\s*[\s\S]*to: tray-icon\.png/u,
     );
     expect(builderConfig).toMatch(/target: nsis[\s\S]*target: zip/u);
+    expect(builderConfig).toContain("include: resources/installer.nsh");
+    expect(builderConfig).toContain("provider: generic");
+    expect(builderConfig).toContain(
+      "url: https://github.com/Zhqiankun/codexDream/releases/latest/download/",
+    );
     expect(packageJson.scripts["release:checksums"]).toBe(
       "node scripts/generate-checksums.mjs",
     );
+  });
+
+  it("packages an installation marker and immutable update metadata", async () => {
+    const installerInclude = await readFile(
+      resolve(root, "resources/installer.nsh"),
+      "utf8",
+    );
+    const verifyScript = await readFile(
+      resolve(root, "scripts/verify-package.mjs"),
+      "utf8",
+    );
+    const manifestScript = await readFile(
+      resolve(root, "scripts/finalize-update-manifest.mjs"),
+      "utf8",
+    );
+    const releaseWorkflow = await readFile(
+      resolve(root, ".github/workflows/release.yml"),
+      "utf8",
+    );
+
+    expect(installerInclude).toContain("$INSTDIR\\.codexstyle-installed");
+    expect(installerInclude).toContain("com.codexstyle.desktop/v1");
+    expect(verifyScript).toContain('"release/latest.yml"');
+    expect(verifyScript).toContain(".exe.blockmap");
+    expect(verifyScript).toContain('createHash("sha512")');
+    expect(manifestScript).toContain("releases/download/");
+    expect(manifestScript).toContain("v${metadata.version}/${installerName}");
+    expect(releaseWorkflow).toContain("release/latest.yml");
+    expect(releaseWorkflow).toContain("release/CodexStyle-*-x64.exe.blockmap");
+    expect(releaseWorkflow).toContain("already public and immutable");
+    expect(releaseWorkflow).toContain("must be newer than the current stable");
+    expect(releaseWorkflow).toContain("group: release-stable-channel");
   });
 
   it("closes the managed root during Electron shutdown", async () => {

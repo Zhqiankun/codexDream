@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppController } from "../../src/main/app/controller";
 import { MainOperationGate } from "../../src/main/app/operation-gate";
+import type { UpdateSnapshot } from "../../src/contracts";
 
 type RegisteredHandler = (event: unknown, payload: unknown) => Promise<unknown>;
 
@@ -82,14 +83,25 @@ describe("AppController operation gate", () => {
     const pause = fixture.controller.pause();
     const end = handlers.get("session.endOwned")!(trustedEvent(), { v: 1 });
     const quit = fixture.controller.requestQuit();
+    const install = fixture.controller.installUpdate("now");
 
-    await Promise.all([pause, end, quit]);
+    const [, , , installResult] = await Promise.all([
+      pause,
+      end,
+      quit,
+      install,
+    ]);
 
     expect(fixture.session.launch).toHaveBeenCalledOnce();
     expect(fixture.platform.launchStore).toHaveBeenCalledOnce();
     expect(fixture.session.pause).not.toHaveBeenCalled();
     expect(fixture.session.endOwned).not.toHaveBeenCalled();
     expect(appQuit).not.toHaveBeenCalled();
+    expect(installResult).toEqual({
+      ok: false,
+      error: { code: "OPERATION_BUSY", messageKey: "ipc.busy" },
+    });
+    expect(fixture.updateService.installNow).not.toHaveBeenCalled();
     expect(fixture.broadcast).not.toHaveBeenCalled();
 
     releaseLaunch();
@@ -154,10 +166,97 @@ describe("AppController operation gate", () => {
     });
     expect(fixture.themeService.delete).not.toHaveBeenCalled();
   });
+
+  it("ends an owned Codex session before starting an immediate update", async () => {
+    const fixture = controllerFixture({
+      canEnd: true,
+      state: "THEMED_SESSION",
+      updateStatus: "downloaded",
+    });
+    dialogs.mockResolvedValue({ response: 1 });
+    fixture.session.endOwned.mockImplementation(async () => {
+      fixture.state.state = "NO_SESSION";
+      fixture.state.canEnd = false;
+    });
+
+    const result = await fixture.controller.installUpdate("now");
+
+    expect(result).toMatchObject({ ok: true });
+    expect(fixture.session.endOwned).toHaveBeenCalledOnce();
+    expect(fixture.updateService.installNow).toHaveBeenCalledOnce();
+    expect(appQuit).not.toHaveBeenCalled();
+  });
+
+  it("does not install when owned-session cleanup fails", async () => {
+    const fixture = controllerFixture({
+      canEnd: true,
+      state: "THEMED_SESSION",
+      updateStatus: "downloaded",
+    });
+    dialogs.mockResolvedValue({ response: 1 });
+    fixture.session.endOwned.mockRejectedValue(new Error("CLEANUP_FAILED"));
+
+    const result = await fixture.controller.installUpdate("now");
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "CLEANUP_FAILED", messageKey: "session.cleanupFailed" },
+    });
+    expect(fixture.updateService.installNow).not.toHaveBeenCalled();
+  });
+
+  it("does not install when the native confirmation is cancelled", async () => {
+    const fixture = controllerFixture({ updateStatus: "downloaded" });
+    dialogs.mockResolvedValue({ response: 0 });
+
+    const result = await fixture.controller.installUpdate("now");
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "CANCELLED", messageKey: "update.installCancelled" },
+    });
+    expect(fixture.updateService.installNow).not.toHaveBeenCalled();
+  });
+
+  it("allows a confirmed retry when a verified installer previously failed to start", async () => {
+    const fixture = controllerFixture({ updateStatus: "error" });
+    dialogs.mockResolvedValue({ response: 1 });
+
+    const result = await fixture.controller.installUpdate("now");
+
+    expect(result).toMatchObject({ ok: true });
+    expect(fixture.updateService.installNow).toHaveBeenCalledOnce();
+  });
+
+  it("uses the normal owned-session cleanup path for install-on-exit", async () => {
+    const fixture = controllerFixture({
+      canEnd: true,
+      state: "THEMED_SESSION",
+      updateStatus: "scheduled",
+    });
+    dialogs.mockResolvedValue({ response: 1 });
+    fixture.session.endOwned.mockImplementation(async () => {
+      fixture.state.state = "NO_SESSION";
+      fixture.state.canEnd = false;
+    });
+
+    await fixture.controller.requestQuit();
+
+    expect(fixture.session.endOwned).toHaveBeenCalledOnce();
+    expect(fixture.updateService.installNow).toHaveBeenCalledOnce();
+    expect(fixture.session.endOwned.mock.invocationCallOrder[0]).toBeLessThan(
+      fixture.updateService.installNow.mock.invocationCallOrder[0],
+    );
+    expect(appQuit).not.toHaveBeenCalled();
+  });
 });
 
 function controllerFixture(
-  initial: Partial<{ state: string; canEnd: boolean }> = {},
+  initial: Partial<{
+    state: string;
+    canEnd: boolean;
+    updateStatus: "idle" | "downloaded" | "scheduled" | "error";
+  }> = {},
 ) {
   const state = {
     state: initial.state ?? "NO_SESSION",
@@ -173,15 +272,19 @@ function controllerFixture(
     endOwned: vi.fn(),
     snapshot: vi.fn(() => state),
   };
+  const updateState: UpdateSnapshot = {
+    configured: true,
+    status: initial.updateStatus ?? "idle",
+    currentVersion: "1.0.0",
+    latestVersion: initial.updateStatus === "idle" ? undefined : "1.1.0",
+    installOnQuit: initial.updateStatus === "scheduled" ? true : undefined,
+    errorPhase: initial.updateStatus === "error" ? "install" : undefined,
+  };
   const snapshot = vi.fn(() => ({
     themes: [],
     paused: false,
     session: { ...state },
-    update: {
-      configured: true as const,
-      status: "idle" as const,
-      currentVersion: "1.0.0",
-    },
+    update: { ...updateState },
   }));
   const broadcast = vi.fn();
   const themeService = {
@@ -189,6 +292,14 @@ function controllerFixture(
     setPaused: vi.fn().mockResolvedValue({ ok: true }),
   };
   const controller = Object.create(AppController.prototype) as AppController;
+  const updateService = {
+    snapshot: vi.fn(() => ({ ...updateState })),
+    shouldInstallOnQuit: vi.fn(() => updateState.status === "scheduled"),
+    installNow: vi.fn(() => {
+      updateState.status = "idle";
+      return { ...updateState, status: "installing" };
+    }),
+  };
   Object.assign(controller as object, {
     operationGate: new MainOperationGate(),
     mainWindow: {
@@ -199,11 +310,20 @@ function controllerFixture(
     session,
     store: { setPaused: vi.fn().mockResolvedValue(undefined) },
     themeService,
+    updateService,
     snapshot,
     broadcast,
     tray: { destroy: vi.fn() },
   });
-  return { controller, session, platform, state, broadcast, themeService };
+  return {
+    controller,
+    session,
+    platform,
+    state,
+    broadcast,
+    themeService,
+    updateService,
+  };
 }
 
 function trustedEvent() {
