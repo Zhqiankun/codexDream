@@ -275,7 +275,7 @@ export class AppController {
   exportTheme(
     libraryId: string,
     expectedRevision: number,
-    format: "simplified" | "formal",
+    format: "simplified" | "compatibility" | "formal",
   ): Promise<Result<ExportResult>> {
     return this.runSideEffect(() =>
       this.themeService.exportZip(libraryId, expectedRevision, format),
@@ -420,12 +420,12 @@ export class AppController {
         if (this.session.snapshot().canEnd) {
           const response = await dialog.showMessageBox({
             type: "warning",
-            buttons: ["取消", "退出并关闭已拥有会话"],
+            buttons: ["取消", "退出并关闭受管会话"],
             defaultId: 0,
             cancelId: 0,
             title: "退出 CodexStyle",
             message:
-              "CodexStyle 当前拥有一个已验证的 Codex 会话。退出将关闭该会话。",
+              "CodexStyle 当前管理一个已验证的 Codex 会话。退出将关闭该会话。",
           });
           if (response.response !== 1) return;
           const result = await this.endOwnedSession();
@@ -433,8 +433,7 @@ export class AppController {
             await dialog.showMessageBox({
               type: "error",
               title: "CodexStyle",
-              message:
-                "Unable to close the verified Codex session safely. CodexStyle will remain running.",
+              message: "无法安全结束受管 Codex 会话，CodexStyle 将继续运行。",
             });
             return;
           }

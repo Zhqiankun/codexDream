@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   ThemeAppearance,
   ThemeColors,
@@ -17,6 +17,7 @@ import {
 } from "./theme-presets";
 
 export type StudioTab = "design" | "css" | "theme-json";
+export type PreviewColorTarget = keyof ThemeColors;
 
 interface StudioControlsProps {
   draft: ThemeDetail;
@@ -34,29 +35,87 @@ interface StudioControlsProps {
   onThemeJsonChange: (source: string) => void;
   onApplyThemeJson: () => void;
   onResetThemeJson: () => void;
+  onPreviewColorTargetChange: (target?: PreviewColorTarget) => void;
 }
 
-const colorFields: ReadonlyArray<{
+interface ColorField {
   key: keyof ThemeColors;
   label: string;
   hint: string;
+}
+
+const colorGroups: ReadonlyArray<{
+  title: string;
+  hint: string;
+  fields: ReadonlyArray<ColorField>;
 }> = [
-  { key: "background", label: "背景", hint: "主内容底色" },
-  { key: "panel", label: "面板", hint: "侧栏与浮层" },
-  { key: "sidebarText", label: "侧栏文字", hint: "左侧导航与项目文字" },
-  { key: "panelAlt", label: "次级面板", hint: "用户气泡与输入框" },
   {
-    key: "assistantPanel",
-    label: "助手面板",
-    hint: "助手回复卡片背景",
+    title: "页面与窗口",
+    hint: "画布、导航与顶部区域",
+    fields: [
+      { key: "background", label: "页面背景", hint: "主内容区底色" },
+      { key: "panel", label: "左侧面板与弹窗", hint: "导航区和确认浮层" },
+      { key: "sidebarText", label: "左侧面板文字", hint: "导航与项目名称" },
+      {
+        key: "topBarBackground",
+        label: "顶部栏背景",
+        hint: "菜单栏与会话标题栏",
+      },
+      {
+        key: "topBarText",
+        label: "顶部栏文字",
+        hint: "菜单、会话标题与操作",
+      },
+    ],
   },
-  { key: "accent", label: "强调", hint: "主要操作" },
-  { key: "accentAlt", label: "次强调", hint: "悬停与焦点" },
-  { key: "secondary", label: "辅助", hint: "弱操作" },
-  { key: "highlight", label: "高亮", hint: "选中内容" },
-  { key: "text", label: "正文", hint: "主要文字" },
-  { key: "muted", label: "弱文字", hint: "说明文字" },
-  { key: "line", label: "描边", hint: "边界与分隔" },
+  {
+    title: "对话与输入",
+    hint: "消息气泡和编辑区域",
+    fields: [
+      {
+        key: "panelAlt",
+        label: "输入框与我的消息",
+        hint: "输入框和用户气泡背景",
+      },
+      {
+        key: "userMessageText",
+        label: "我的消息文字",
+        hint: "发送后的气泡正文",
+      },
+      {
+        key: "assistantPanel",
+        label: "助手回复背景",
+        hint: "助手消息卡片",
+      },
+    ],
+  },
+  {
+    title: "操作与状态",
+    hint: "按钮、焦点与选择反馈",
+    fields: [
+      { key: "accent", label: "发送按钮", hint: "主要操作" },
+      {
+        key: "accentAlt",
+        label: "输入框焦点边框",
+        hint: "输入框聚焦状态",
+      },
+      {
+        key: "secondary",
+        label: "输入框工具栏",
+        hint: "加号、模型与麦克风",
+      },
+      { key: "highlight", label: "选中文字背景", hint: "文本选区" },
+    ],
+  },
+  {
+    title: "文字与边界",
+    hint: "主要内容和结构线",
+    fields: [
+      { key: "text", label: "正文文字", hint: "助手回复与主要内容" },
+      { key: "muted", label: "说明文字", hint: "时间、占位与辅助信息" },
+      { key: "line", label: "边框与分隔线", hint: "卡片边界和分隔" },
+    ],
+  },
 ];
 
 const recipeFields = [
@@ -93,6 +152,7 @@ export function StudioControls({
   onThemeJsonChange,
   onApplyThemeJson,
   onResetThemeJson,
+  onPreviewColorTargetChange,
 }: StudioControlsProps) {
   return (
     <div className="form-column panel-card studio-controls">
@@ -127,6 +187,7 @@ export function StudioControls({
           backgroundKey={backgroundKey}
           onDraftChange={onDraftChange}
           onChooseBackground={onChooseBackground}
+          onPreviewColorTargetChange={onPreviewColorTargetChange}
         />
       )}
       {tab === "css" && (
@@ -159,11 +220,31 @@ function DesignPanel({
   backgroundKey,
   onDraftChange,
   onChooseBackground,
+  onPreviewColorTargetChange,
 }: Pick<
   StudioControlsProps,
-  "draft" | "busy" | "backgroundKey" | "onDraftChange" | "onChooseBackground"
+  | "draft"
+  | "busy"
+  | "backgroundKey"
+  | "onDraftChange"
+  | "onChooseBackground"
+  | "onPreviewColorTargetChange"
 >) {
   const [section, setSection] = useState<"base" | "canvas" | "colors">("base");
+  const [colorDisplay, setColorDisplay] = useState<"simple" | "advanced">(
+    "simple",
+  );
+  const [hoveredColorTarget, setHoveredColorTarget] =
+    useState<PreviewColorTarget>();
+  const [focusedColorTarget, setFocusedColorTarget] =
+    useState<PreviewColorTarget>();
+  useEffect(() => {
+    onPreviewColorTargetChange(hoveredColorTarget ?? focusedColorTarget);
+  }, [focusedColorTarget, hoveredColorTarget, onPreviewColorTargetChange]);
+  useEffect(
+    () => () => onPreviewColorTargetChange(undefined),
+    [onPreviewColorTargetChange],
+  );
   const update = (patch: Partial<ThemeDetail>) =>
     onDraftChange({ ...draft, ...patch });
   return (
@@ -389,83 +470,152 @@ function DesignPanel({
         )}
 
         {section === "colors" && (
-          <StudioSection title="主题颜色" meta="12 个变量 · 均支持透明度">
-            <div className="color-config-grid">
-              {colorFields.map(({ key, label, hint }) => {
-                const opacity = toColorOpacity(draft.colors[key]);
+          <StudioSection title="主题颜色" meta="15 项 · 均支持透明度">
+            <div className="color-panel-toolbar">
+              <p>
+                将鼠标移到设置上，或用键盘聚焦控件，右侧会标出受影响的位置。
+              </p>
+              <div
+                className="color-display-switch"
+                role="group"
+                aria-label="颜色字段显示方式"
+              >
+                <button
+                  type="button"
+                  className={colorDisplay === "simple" ? "active" : ""}
+                  aria-pressed={colorDisplay === "simple"}
+                  onClick={() => setColorDisplay("simple")}
+                >
+                  常用
+                </button>
+                <button
+                  type="button"
+                  className={colorDisplay === "advanced" ? "active" : ""}
+                  aria-pressed={colorDisplay === "advanced"}
+                  onClick={() => setColorDisplay("advanced")}
+                >
+                  高级
+                </button>
+              </div>
+            </div>
+            <div className="color-groups">
+              {colorGroups.map((group) => {
+                const headingId = `color-group-${group.fields[0].key}`;
                 return (
-                  <div className="color-config" key={key}>
-                    <span className="color-copy">
-                      <strong>{label}</strong>
-                      <small>{hint}</small>
-                    </span>
-                    <span className="color-value">
-                      <span className="color-picker-shell">
-                        <span
-                          className="color-swatch"
-                          style={{ background: draft.colors[key] }}
-                          aria-hidden="true"
-                        />
-                        <input
-                          className="native-color-picker"
-                          type="color"
-                          value={toPickerHex(draft.colors[key])}
-                          aria-label={`选择${label}颜色`}
-                          title={`打开${label}颜色选择器`}
-                          onChange={(event) =>
-                            update({
-                              colors: {
-                                ...draft.colors,
-                                [key]: withColorOpacity(
-                                  event.target.value,
-                                  opacity,
-                                ),
-                              },
-                            })
-                          }
-                        />
-                        <span className="picker-caret" aria-hidden="true">
-                          ◢
-                        </span>
-                      </span>
-                      <input
-                        value={draft.colors[key]}
-                        aria-label={`${label}颜色`}
-                        onChange={(event) =>
-                          update({
-                            colors: {
-                              ...draft.colors,
-                              [key]: event.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </span>
-                    <label className="color-opacity-control">
-                      <span>透明度</span>
-                      <input
-                        className="opacity-range color-opacity-range"
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={opacity}
-                        aria-label={`${label}透明度`}
-                        onChange={(event) =>
-                          update({
-                            colors: {
-                              ...draft.colors,
-                              [key]: withColorOpacity(
-                                draft.colors[key],
-                                Number(event.target.value),
-                              ),
-                            },
-                          })
-                        }
-                      />
-                      <span className="color-opacity-value">{opacity}%</span>
-                    </label>
-                  </div>
+                  <section
+                    className="color-group"
+                    key={group.title}
+                    aria-labelledby={headingId}
+                  >
+                    <div className="color-group-heading">
+                      <h3 id={headingId}>{group.title}</h3>
+                      <span>{group.hint}</span>
+                    </div>
+                    <div className="color-config-grid">
+                      {group.fields.map(({ key, label, hint }) => {
+                        const opacity = toColorOpacity(draft.colors[key]);
+                        return (
+                          <div
+                            className="color-config"
+                            key={key}
+                            data-color-key={key}
+                            onMouseEnter={() => setHoveredColorTarget(key)}
+                            onMouseLeave={() =>
+                              setHoveredColorTarget(undefined)
+                            }
+                            onFocusCapture={() => setFocusedColorTarget(key)}
+                            onBlurCapture={(event) => {
+                              const next = event.relatedTarget;
+                              if (
+                                !(next instanceof Node) ||
+                                !event.currentTarget.contains(next)
+                              )
+                                setFocusedColorTarget(undefined);
+                            }}
+                          >
+                            <span className="color-copy">
+                              <strong>{label}</strong>
+                              <small>{hint}</small>
+                              {colorDisplay === "advanced" && (
+                                <code translate="no">{key}</code>
+                              )}
+                            </span>
+                            <span className="color-value">
+                              <span className="color-picker-shell">
+                                <span
+                                  className="color-swatch"
+                                  style={{ background: draft.colors[key] }}
+                                  aria-hidden="true"
+                                />
+                                <input
+                                  className="native-color-picker"
+                                  type="color"
+                                  value={toPickerHex(draft.colors[key])}
+                                  aria-label={`选择${label}颜色`}
+                                  title={`打开${label}颜色选择器`}
+                                  onChange={(event) =>
+                                    update({
+                                      colors: {
+                                        ...draft.colors,
+                                        [key]: withColorOpacity(
+                                          event.target.value,
+                                          opacity,
+                                        ),
+                                      },
+                                    })
+                                  }
+                                />
+                                <span
+                                  className="picker-caret"
+                                  aria-hidden="true"
+                                >
+                                  ◢
+                                </span>
+                              </span>
+                              <input
+                                value={draft.colors[key]}
+                                aria-label={`${label}颜色`}
+                                onChange={(event) =>
+                                  update({
+                                    colors: {
+                                      ...draft.colors,
+                                      [key]: event.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                            </span>
+                            <label className="color-opacity-control">
+                              <span>透明度</span>
+                              <input
+                                className="opacity-range color-opacity-range"
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value={opacity}
+                                aria-label={`${label}透明度`}
+                                onChange={(event) =>
+                                  update({
+                                    colors: {
+                                      ...draft.colors,
+                                      [key]: withColorOpacity(
+                                        draft.colors[key],
+                                        Number(event.target.value),
+                                      ),
+                                    },
+                                  })
+                                }
+                              />
+                              <span className="color-opacity-value">
+                                {opacity}%
+                              </span>
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
                 );
               })}
             </div>

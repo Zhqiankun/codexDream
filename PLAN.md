@@ -41,9 +41,9 @@ native/secure-store/                   Windows x64 N-API 源码、预定义路�
 
 主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。现有 IPC 方法和 `v:1` 不变，`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏遮罩使用固定 `rgb(15 23 42)`，由注入 bridge 以受控样式覆盖主题侧栏背景，防止 Safe CSS 顺序造成预览与真实结果偏差。
 
-结构化主题配置同样归属 theme domain：`appearance`、`art`、十色 `colors` 和 `style` 由 `theme.json` 持久化。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色处理、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是 CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
+结构化主题配置同样归属 theme domain：`appearance`、`art`、十五色 `colors` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/userMessageText/topBarBackground/topBarText` 为可选兼容扩展；规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整十五色。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色处理、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是 CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
 
-现有 `theme.patchDraft` 在 `v:1` 下扩展结构化字段及有界 `themeJson` 源码，不新增调用。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/styleConfig 与高级 CSS；`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值。
+现有 `theme.patchDraft` 在 `v:1` 下扩展结构化字段及有界 `themeJson` 源码，不新增调用。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/styleConfig 与高级 CSS；`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值。`theme.exportZip` 保持同一调用并区分完整 `simplified`、显式降级的 `compatibility` 与未编辑正式包 `formal`；兼容导出以 v1.0.x 的 Safe CSS/十二色能力为冻结策略，不得携带三个新颜色字段或引用旧策略不认识的选择器、状态及 token。
 
 ## Native secure-store 架构契约
 
@@ -123,9 +123,11 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 9. 多页面 LIVE PREVIEW：预览根继续由 Studio 草稿唯一驱动，页面状态仅保留在 renderer 内；首页与对话共享背景、侧栏、结构化变量和 Safe CSS 注入，不扩展 IPC、主题数据或持久化边界。
 
-10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、十二色和透明磨砂表面提供实际消费者。
+10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、十五色和透明磨砂表面提供实际消费者。
 
-11. 正式安装版自更新：以 `UpdateService` 持有检查、下载、进度、取消、已下载、延后安装和安装失败状态；infra adapter 独占 `electron-updater`，固定 generic GitHub Release 源并显式关闭隐式下载/退出安装。NSIS 写入安装标记，开发版与 ZIP fail closed。renderer 只接收无路径的进度快照；立即安装或退出时安装都必须先经 controller operation gate 清理本工具拥有的 Codex 会话。Actions 发布并验证同构建的安装包、blockmap、`latest.yml` 和校验和。
+11. 颜色语义与预览定位：颜色面板按可见区域分组并以页面位置命名，默认隐藏内部 token 字段名，高级显示只作为排障入口；悬停与键盘聚焦通过 renderer 本地状态标记预览目标，不进入主题契约、IPC 或持久化。用户消息文字、顶部栏背景和顶部栏文字由新增颜色 token 驱动；顶部栏背景默认完全透明。真实注入继续只作用于版本化 selector profile 已登记的顶部栏和用户消息节点，不扩大任意 DOM 选择范围。
+
+12. 正式安装版自更新：以 `UpdateService` 持有检查、下载、进度、取消、已下载、延后安装和安装失败状态；infra adapter 独占 `electron-updater`，固定 generic GitHub Release 源并显式关闭隐式下载/退出安装。NSIS 写入安装标记，开发版与 ZIP fail closed。renderer 只接收无路径的进度快照；立即安装或退出时安装都必须先经 controller operation gate 清理本工具拥有的 Codex 会话。Actions 发布并验证同构建的安装包、blockmap、`latest.yml` 和校验和。
 
 ## 验证命令
 
@@ -145,7 +147,7 @@ npm run verify:package
 
 native 阶段还必须在 Visual Studio x64 开发环境中实际编译 addon，并覆盖：根及每一层 junction/symlink/reparse、非法 managed path、句柄关闭/替换、并发锁、写入/flush/rename 崩溃点、journal/backup 恢复、Node `fs` fallback 静态禁用、`.node` 缺失/错架构、ASAR-unpacked 布局，以及外部导出 ZIP 不受 managed root 限制但不能反向访问保护域。
 
-兼容测试使用临时目录调用 `../old/windows/assets/theme-package-validator.mjs`，证明新导出的简化 ZIP 可被旧契约接受；不得修改旧文件。实机 smoke 的实际版本、命令、截图/日志和未验证项必须记录。
+兼容测试使用临时目录调用 `../old/windows/assets/theme-package-validator.mjs`，证明显式“旧版兼容 ZIP”可被旧契约接受；完整主题 ZIP 负责当前十五色无损往返，不宣称可由旧版读取。不得修改旧文件。实机 smoke 的实际版本、命令、截图/日志和未验证项必须记录。
 
 ## 风险与完成门槛
 

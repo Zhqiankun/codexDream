@@ -23,6 +23,9 @@ export interface ThemeColors {
   sidebarText: string;
   panelAlt: string;
   assistantPanel: string;
+  userMessageText: string;
+  topBarBackground: string;
+  topBarText: string;
   accent: string;
   accentAlt: string;
   secondary: string;
@@ -63,6 +66,9 @@ export const THEME_COLOR_KEYS = [
   "sidebarText",
   "panelAlt",
   "assistantPanel",
+  "userMessageText",
+  "topBarBackground",
+  "topBarText",
   "accent",
   "accentAlt",
   "secondary",
@@ -72,8 +78,16 @@ export const THEME_COLOR_KEYS = [
   "line",
 ] as const satisfies ReadonlyArray<keyof ThemeColors>;
 
+const OPTIONAL_THEME_COLOR_KEYS = new Set<keyof ThemeColors>([
+  "sidebarText",
+  "assistantPanel",
+  "userMessageText",
+  "topBarBackground",
+  "topBarText",
+]);
+
 const LEGACY_THEME_COLOR_KEYS = THEME_COLOR_KEYS.filter(
-  (key) => key !== "sidebarText" && key !== "assistantPanel",
+  (key) => !OPTIONAL_THEME_COLOR_KEYS.has(key),
 );
 
 export const DEFAULT_THEME_ART: ThemeArt = {
@@ -89,6 +103,9 @@ export const DEFAULT_THEME_COLORS: ThemeColors = {
   sidebarText: "#ffffff",
   panelAlt: "#2d2d2d",
   assistantPanel: "#2d2d2d",
+  userMessageText: "#ffffff",
+  topBarBackground: "rgba(0, 0, 0, 0)",
+  topBarText: "rgba(255, 255, 255, .498)",
   accent: "#ffffff",
   accentAlt: "#d9d9d9",
   secondary: "#808080",
@@ -181,6 +198,12 @@ export function normalizeThemeColors(
   }
   if (!isThemeColor(source.assistantPanel) && isThemeColor(source.panelAlt)) {
     result.assistantPanel = source.panelAlt;
+  }
+  if (!isThemeColor(source.userMessageText) && isThemeColor(source.text)) {
+    result.userMessageText = source.text;
+  }
+  if (!isThemeColor(source.topBarText) && isThemeColor(source.muted)) {
+    result.topBarText = source.muted;
   }
   if (!isRecord(value) && isThemeColor(legacyAccent))
     result.accent = legacyAccent;
@@ -283,8 +306,9 @@ export function isCompatibleThemeColors(value: unknown): boolean {
       (THEME_COLOR_KEYS as readonly string[]).includes(key),
     ) &&
     LEGACY_THEME_COLOR_KEYS.every((key) => isThemeColor(value[key])) &&
-    (value.sidebarText === undefined || isThemeColor(value.sidebarText)) &&
-    (value.assistantPanel === undefined || isThemeColor(value.assistantPanel))
+    [...OPTIONAL_THEME_COLOR_KEYS].every(
+      (key) => value[key] === undefined || isThemeColor(value[key]),
+    )
   );
 }
 

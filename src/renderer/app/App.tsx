@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   type ImportResult,
   type Result,
@@ -10,6 +16,7 @@ import {
 import { bridge } from "../api/bridge";
 import {
   StudioControls,
+  type PreviewColorTarget,
   type StudioTab,
 } from "../features/studio/StudioControls";
 import { SendIconGlyph } from "../features/studio/SendIconGlyph";
@@ -20,6 +27,12 @@ const PREVIEW_COLOR_PATTERN =
 type View = "library" | "session";
 type PreviewPage = "home" | "conversation";
 
+const CONVERSATION_COLOR_TARGETS = new Set<PreviewColorTarget>([
+  "assistantPanel",
+  "highlight",
+  "userMessageText",
+]);
+
 const sessionLabels: Record<SessionState, string> = {
   NO_SESSION: "未启动",
   EXTERNAL_BLOCKED: "外部会话阻断",
@@ -29,7 +42,7 @@ const sessionLabels: Record<SessionState, string> = {
   THEMED_SESSION: "主题会话",
   PAUSED_FUTURE: "已暂停后续注入",
   INCOMPATIBLE: "不兼容",
-  ORPHANED: "孤儿会话",
+  ORPHANED: "上次会话待确认",
 };
 
 function unwrap<T>(
@@ -59,7 +72,7 @@ const errorMessages: Record<string, string> = {
   "session.identityMismatch": "Codex 会话身份验证失败，未执行注入。",
   "session.targetIncompatible": "当前 Codex 页面与安全选择器不兼容。",
   "session.injectionFailed": "主题注入失败，Codex 保持原样。",
-  "session.cleanupFailed": "无法安全结束已拥有会话。",
+  "session.cleanupFailed": "无法安全结束受管会话。",
   "session.paused": "后续注入已暂停，请先恢复。",
   "session.themeNotReady": "请先保存并选择一个完整主题。",
   "session.themeUnsafe": "所选主题未通过安全校验。",
@@ -69,6 +82,8 @@ const errorMessages: Record<string, string> = {
   "theme.inUse": "该主题正在用于下次启动或当前受管会话，请先切换并结束会话。",
   "theme.imageMissing": "请先为主题选择有效背景图。",
   "theme.formalExportUnavailable": "此主题已编辑，无法原样导出正式包。",
+  "theme.legacyExportUnsupported":
+    "当前高级 CSS 使用了旧版不支持的能力，请改用“导出主题 ZIP”。",
   "import.transactionNotFound": "导入事务已失效，请重新选择 ZIP。",
   "import.replaceArguments": "替换参数无效，请重新导入。",
   "window.unavailable": "主题工作台窗口当前不可用。",
@@ -468,7 +483,7 @@ export function App() {
                   <strong>{theme.name}</strong>
                   <small>
                     {theme.status === "ready" ? "已保存" : "草稿"} ·{" "}
-                    {theme.packageFormat === "formal" ? "正式包" : "兼容包"}
+                    {theme.packageFormat === "formal" ? "正式包" : "主题包"}
                   </small>
                 </span>
                 {theme.selectedForNextLaunch && (
@@ -757,6 +772,16 @@ function StudioView({
   const [draft, setDraft] = useState(detail);
   const [studioTab, setStudioTab] = useState<StudioTab>("design");
   const [previewPage, setPreviewPage] = useState<PreviewPage>("conversation");
+  const [previewColorTarget, setPreviewColorTarget] =
+    useState<PreviewColorTarget>();
+  const handlePreviewColorTargetChange = useCallback(
+    (target?: PreviewColorTarget) => {
+      setPreviewColorTarget(target);
+      if (target && CONVERSATION_COLOR_TARGETS.has(target))
+        setPreviewPage("conversation");
+    },
+    [],
+  );
   const [themeJsonSource, setThemeJsonSource] = useState(() =>
     serializeThemeJson(detail),
   );
@@ -930,6 +955,9 @@ function StudioView({
     "--preview-sidebar-text": draft.colors.sidebarText,
     "--preview-panel-alt": draft.colors.panelAlt,
     "--preview-assistant-panel": draft.colors.assistantPanel,
+    "--preview-user-message-text": draft.colors.userMessageText,
+    "--preview-top-bar-background": draft.colors.topBarBackground,
+    "--preview-top-bar-text": draft.colors.topBarText,
     "--preview-accent": draft.colors.accent,
     "--preview-accent-alt": draft.colors.accentAlt,
     "--preview-secondary": draft.colors.secondary,
@@ -945,6 +973,9 @@ function StudioView({
     "--ds-theme-color-sidebar-text": draft.colors.sidebarText,
     "--ds-theme-color-panel-alt": draft.colors.panelAlt,
     "--ds-theme-color-assistant-panel": draft.colors.assistantPanel,
+    "--ds-theme-color-user-message-text": draft.colors.userMessageText,
+    "--ds-theme-color-top-bar-background": draft.colors.topBarBackground,
+    "--ds-theme-color-top-bar-text": draft.colors.topBarText,
     "--ds-theme-color-accent": draft.colors.accent,
     "--ds-theme-color-accent-alt": draft.colors.accentAlt,
     "--ds-theme-color-secondary": draft.colors.secondary,
@@ -983,19 +1014,39 @@ function StudioView({
                 bridge.exportZip({
                   libraryId: current.libraryId,
                   expectedRevision: current.revision,
-                  // The default export remains importable by the legacy
-                  // three-file contract.
+                  // The current package preserves every structured color.
                   format: "simplified",
                 }),
               )
             }
           >
-            导出兼容 ZIP
+            导出主题 ZIP
+          </button>
+          <button
+            className="secondary-button"
+            disabled={busy || themeJsonDirty}
+            title="适用于 v1.0.x 与 v1.1.x；会移除三个新颜色字段，并拒绝旧版不支持的高级 CSS"
+            onClick={() =>
+              void persistAnd((current) =>
+                bridge.exportZip({
+                  libraryId: current.libraryId,
+                  expectedRevision: current.revision,
+                  format: "compatibility",
+                }),
+              )
+            }
+          >
+            导出旧版兼容 ZIP
           </button>
           {detail.packageFormat === "formal" && (
             <button
               className="secondary-button"
               disabled={busy || changed || themeJsonDirty}
+              title={
+                changed
+                  ? "主题已经编辑，不能再原样重建导入时的正式包"
+                  : "导出导入时的原始正式包"
+              }
               onClick={() =>
                 void run(() =>
                   bridge.exportZip({
@@ -1006,7 +1057,7 @@ function StudioView({
                 )
               }
             >
-              导出原始正式 ZIP
+              {changed ? "已编辑，不能原样导出" : "导出原始正式 ZIP"}
             </button>
           )}
           <button
@@ -1067,6 +1118,7 @@ function StudioView({
             setThemeJsonDirty(false);
             setThemeJsonError(undefined);
           }}
+          onPreviewColorTargetChange={handlePreviewColorTargetChange}
         />
         <div className="preview-column">
           <div className="preview-head">
@@ -1107,6 +1159,7 @@ function StudioView({
               data-ds-part="root"
               data-style-mode={draft.styleConfig.mode}
               data-theme-appearance={draft.appearance}
+              data-background-scope={draft.backgroundScope}
               data-safe-area={draft.art.safeArea}
               data-task-mode={draft.art.taskMode}
               data-recipe-sidebar={String(draft.styleConfig.recipes.sidebar)}
@@ -1115,6 +1168,7 @@ function StudioView({
               data-recipe-dialog={String(draft.styleConfig.recipes.dialog)}
               data-preview-shadow={draft.styleConfig.shadow}
               data-preview-page={previewPage}
+              data-preview-color-target={previewColorTarget}
               style={previewStyle}
             >
               {draft.backgroundUrl && draft.backgroundScope === "window" && (
@@ -1133,7 +1187,11 @@ function StudioView({
                 <div className="mock-safe-area" aria-hidden="true" />
               )}
               <style ref={previewStyleRef} />
-              <div className="mock-titlebar" aria-hidden="true">
+              <div
+                className="mock-titlebar"
+                data-ds-part="titlebar"
+                aria-hidden="true"
+              >
                 <div className="mock-titlebar-menu">
                   <span className="mock-app-glyph">◫</span>
                   <span>←</span>
@@ -1276,7 +1334,10 @@ function StudioView({
                           <span className="mock-composer-placeholder">
                             随心输入
                           </span>
-                          <div className="mock-composer-toolbar">
+                          <div
+                            className="mock-composer-toolbar"
+                            data-ds-part="composer-toolbar"
+                          >
                             <span>
                               ＋　<em>◉ 完全访问</em>
                             </span>
@@ -1304,13 +1365,21 @@ function StudioView({
                         <div
                           className="mock-user-message"
                           data-ds-part="message"
+                          data-user-message-bubble="true"
                         >
                           先看看主题预览吧
                         </div>
                         <div className="mock-turn-meta">用时 5 秒　›</div>
-                        <div className="mock-message" data-ds-part="message">
+                        <div
+                          className="mock-message"
+                          data-ds-part="message"
+                          data-markdown-text-style="assistant-message"
+                        >
                           <span>
-                            主题已加载。助手卡片使用与用户气泡一致的舒展内边距。
+                            <span className="mock-selection-sample">
+                              主题已加载
+                            </span>
+                            。助手卡片使用与用户气泡一致的舒展内边距。
                           </span>
                         </div>
                         <div className="mock-code">
@@ -1331,7 +1400,10 @@ function StudioView({
                           <span className="mock-composer-placeholder">
                             随心输入
                           </span>
-                          <div className="mock-composer-toolbar">
+                          <div
+                            className="mock-composer-toolbar"
+                            data-ds-part="composer-toolbar"
+                          >
                             <span>
                               ＋　<em>◉ 完全访问</em>
                             </span>
@@ -1597,7 +1669,7 @@ function SessionView({
                 disabled={busy}
                 onClick={() => void run(() => bridge.endOwnedSession())}
               >
-                结束已拥有会话
+                结束受管会话
               </button>
             )}
           </div>
@@ -1716,8 +1788,12 @@ function messageForState(
   state: SessionState,
   messageKey: string | undefined,
 ): string {
+  if (state === "LAUNCHING")
+    return "正在通过 Microsoft Store 注册入口启动 Codex，尚未连接或注入主题。";
   if (state === "VERIFYING_CDP")
     return "Codex 已启动，正在等待它打开仅限本机的 127.0.0.1 调试端口并完成身份核验。";
+  if (state === "INJECTING")
+    return "会话身份与页面兼容性已通过，正在安全应用所选主题。";
   if (state === "EXTERNAL_BLOCKED")
     return "已有外部启动的 Codex。请在系统中自行关闭后再试，CodexStyle 不会触碰它。";
   if (state === "INCOMPATIBLE" && messageKey === "session.launchFailed")
@@ -1733,7 +1809,7 @@ function messageForState(
   if (state === "INCOMPATIBLE")
     return "当前 Store 版本未提供可验证的 CDP 或选择器，工具不会绕过安全边界。";
   if (state === "ORPHANED")
-    return "上次工具会话身份已失效。请重新启动，不会自动附着孤儿进程。";
+    return "检测到上次由 CodexStyle 启动的会话记录，但当前无法安全确认它仍受控。请先确认并关闭相关 Codex 窗口，再重新启动；CodexStyle 不会自动连接或关闭它。";
   if (state === "THEMED_SESSION")
     return "主题已经注入到本工具启动的 Codex 会话。";
   if (state === "PAUSED_FUTURE")

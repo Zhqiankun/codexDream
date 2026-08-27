@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CODEX_SELECTOR_PROFILE,
+  SELECTOR_PARTS,
   isCompatibleSelectorProbe,
   selectorProbeExpression,
 } from "../../src/main/session/selector-profile";
@@ -12,7 +13,7 @@ import { CODEX_STARTUP_VERIFY_TIMEOUT_MS } from "../../src/main/session/session-
 describe("versioned selector profile", () => {
   it("accepts the stable shell before optional composer controls mount", () => {
     document.body.innerHTML =
-      '<aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface></main>';
+      '<div class="_ApplicationMenuTopBar_fixture"></div><aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface><header class="app-header-tint"></header></main>';
 
     const result = window.eval(selectorProbeExpression());
 
@@ -22,6 +23,25 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/6");
+    expect(SELECTOR_PARTS).toContainEqual([
+      "titlebar",
+      'div[class*="_ApplicationMenuTopBar_"]',
+    ]);
+  });
+
+  it("rejects a shell when either managed top bar anchor is missing", () => {
+    document.body.innerHTML =
+      '<aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface><header class="app-header-tint"></header></main>';
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: false,
+    });
+
+    document.body.innerHTML =
+      '<div class="_ApplicationMenuTopBar_fixture"></div><aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface></main>';
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: false,
+    });
   });
 
   it("keeps a cold Store launch open long enough for the shell to mount", () => {

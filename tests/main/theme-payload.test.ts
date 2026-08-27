@@ -10,6 +10,7 @@ const defaultConfiguration = readThemeConfiguration({});
 describe("theme payload", () => {
   it("maps the selector profile without invoking page-owned cleanup", () => {
     resetDocument();
+    expect(defaultConfiguration.styleConfig.mode).toBe("advanced");
     let cleanupCalls = 0;
     const mutationObserver = Object.getOwnPropertyDescriptor(
       window,
@@ -36,6 +37,10 @@ describe("theme payload", () => {
       const root = document.documentElement;
       const canvas = document.body;
       const sidebar = document.querySelector("aside");
+      const titlebar = document.querySelector(
+        '[class*="_ApplicationMenuTopBar_"]',
+      );
+      const header = document.querySelector("header");
       const composer = document.querySelector(
         "[data-composer-surface-variant]",
       );
@@ -67,6 +72,8 @@ describe("theme payload", () => {
       expect(root.getAttribute("data-ds-part")).toBe("root");
       expect(canvas.getAttribute("data-ds-part")).toBe("canvas");
       expect(sidebar?.getAttribute("data-ds-part")).toBe("sidebar");
+      expect(titlebar?.getAttribute("data-ds-part")).toBe("titlebar");
+      expect(header?.getAttribute("data-ds-part")).toBe("header");
       expect(composer?.getAttribute("data-ds-part")).toBe("composer");
       expect(composerToolbar?.getAttribute("data-ds-part")).toBe(
         "composer-toolbar",
@@ -93,6 +100,12 @@ describe("theme payload", () => {
       );
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-sidebar-text) !important",
+      );
+      expect(style?.textContent).toContain(
+        "background-color: var(--ds-theme-color-top-bar-background) !important",
+      );
+      expect(style?.textContent).toContain(
+        "color: var(--ds-theme-color-user-message-text) !important",
       );
     } finally {
       if (mutationObserver)
@@ -268,6 +281,59 @@ describe("theme payload", () => {
       "background-color: color-mix(in srgb, var(--ds-theme-color-assistant-panel) 92%, transparent) !important",
     );
     expect(style?.textContent).toContain("padding: 12px 16px");
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-top-bar-background) !important",
+    );
+    expect(style?.textContent).toContain(
+      "color: var(--ds-theme-color-top-bar-text) !important",
+    );
+    expect(style?.textContent).toContain(
+      "color: var(--ds-theme-color-user-message-text) !important",
+    );
+    expect(style?.textContent).toContain(
+      "--ds-theme-color-top-bar-background: rgba(0, 0, 0, 0)",
+    );
+  });
+
+  it("keeps top bar and user message text controls active when message surfaces are disabled", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+          styleConfig: {
+            ...defaultConfiguration.styleConfig,
+            mode: "configured",
+            recipes: {
+              ...defaultConfiguration.styleConfig.recipes,
+              message: false,
+            },
+          },
+        },
+      ),
+    );
+
+    const style = document.querySelector(
+      `style[data-codexstyle-owner="${marker}"]`,
+    );
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-top-bar-background) !important",
+    );
+    expect(style?.textContent).toContain(
+      "color: var(--ds-theme-color-user-message-text) !important",
+    );
+    expect(style?.textContent).not.toContain(
+      "background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 92%, transparent) !important",
+    );
+    expect(style?.textContent).not.toContain(
+      'data-markdown-text-style="assistant-message"',
+    );
   });
 
   it("replaces only the send-state glyph for a built-in icon", () => {
@@ -313,7 +379,7 @@ describe("theme payload", () => {
       "background-color: var(--ds-theme-color-highlight)",
     );
     expect(style?.textContent).toContain(
-      "color: var(--ds-theme-color-muted) !important",
+      "color: var(--ds-theme-color-top-bar-text) !important",
     );
   });
 
@@ -421,7 +487,7 @@ describe("theme payload", () => {
 });
 
 function resetDocument(
-  body = '<aside class="app-shell-left-panel"></aside><main class="main-surface"><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
+  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface"><header class="app-header-tint"><span>主题会话</span></header><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
 ) {
   document.head.innerHTML = "";
   document.body.innerHTML = body;

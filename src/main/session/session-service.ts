@@ -65,13 +65,15 @@ type PersistedSelectorProfile =
   | "openai-codex-shell/1"
   | "openai-codex-shell/2"
   | "openai-codex-shell/3"
-  | "openai-codex-shell/4";
+  | "openai-codex-shell/4"
+  | "openai-codex-shell/5";
 
 const PERSISTED_SELECTOR_PROFILES = new Set<PersistedSelectorProfile>([
   "openai-codex-shell/1",
   "openai-codex-shell/2",
   "openai-codex-shell/3",
   "openai-codex-shell/4",
+  "openai-codex-shell/5",
   CODEX_SELECTOR_PROFILE,
 ]);
 

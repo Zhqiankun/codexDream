@@ -249,6 +249,45 @@ describe("local theme store", () => {
     ).toBe(true);
   });
 
+  it("loads existing themes that predate the latest color extensions", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const indexBytes = store.managedStore.readFile(MANAGED_FILES.index)!;
+    const index = JSON.parse(indexBytes.toString("utf8")) as {
+      themes: Array<Record<string, unknown>>;
+    };
+    const expected = new Map<string, { text: string; muted: string }>();
+
+    for (const theme of index.themes) {
+      const json = theme.json as Record<string, unknown>;
+      const colors = json.colors as Record<string, string>;
+      expected.set(theme.libraryId as string, {
+        text: colors.text,
+        muted: colors.muted,
+      });
+      delete colors.userMessageText;
+      delete colors.topBarBackground;
+      delete colors.topBarText;
+      theme.fingerprint = themeFingerprint(theme as never);
+    }
+    store.managedStore.writeFileAtomic(
+      MANAGED_FILES.index,
+      Buffer.from(JSON.stringify(index), "utf8"),
+    );
+
+    const reloaded = new LocalThemeStore(managed.root);
+    await reloaded.init();
+    for (const theme of reloaded.listRecords()) {
+      const detail = reloaded.getDetail(theme.libraryId, "app://theme-asset")!;
+      const fallback = expected.get(theme.libraryId)!;
+      expect(detail.colors.userMessageText).toBe(fallback.text);
+      expect(detail.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
+      expect(detail.colors.topBarText).toBe(fallback.muted);
+    }
+  });
+
   it("revalidates the on-disk image before injection", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);

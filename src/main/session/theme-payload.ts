@@ -159,9 +159,14 @@ export function buildThemePayload(
       const sidebarTextSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
       const sidebarTextBridge = '\\n' + sidebarTextSelector + ' { color: var(--ds-theme-color-sidebar-text) !important; }' +
         '\\n' + sidebarTextSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [role="treeitem"], [class*="text-"]) { color: var(--ds-theme-color-sidebar-text) !important; }';
+      const topBarSelector = ':is([data-ds-part="titlebar"], [data-ds-part="header"])[data-codexstyle-owner="' + config.marker + '"]';
+      const topBarBridge = '\\n' + topBarSelector + ' { background-color: var(--ds-theme-color-top-bar-background) !important; color: var(--ds-theme-color-top-bar-text) !important; }' +
+        '\\n' + topBarSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-top-bar-text) !important; }';
+      const userMessageSelector = '[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="' + config.marker + '"]';
+      const userMessageTextBridge = '\\n' + userMessageSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
+        '\\n' + userMessageSelector + ' :where(a, code, em, p, span, strong) { color: var(--ds-theme-color-user-message-text) !important; }';
       const configuredSurfaceBridge = config.configuredRecipes
         ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-background); }' +
-          '\\n[data-ds-part="header"][data-codexstyle-owner="' + config.marker + '"] :where(button, span) { color: var(--ds-theme-color-muted) !important; }' +
           (config.configuredRecipes.sidebar && config.backgroundScope === "content"
             ? '\\n' + sidebarTextSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel) 88%, transparent) !important; }'
             : '') +
@@ -172,7 +177,7 @@ export function buildThemePayload(
               '\\n[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-background) !important; }'
             : '') +
           (config.configuredRecipes.message
-            ? '\\n[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 92%, transparent) !important; }'
+            ? '\\n' + userMessageSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 92%, transparent) !important; }'
             : '') +
           (config.configuredRecipes.dialog
             ? '\\n[data-ds-part="dialog"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-panel) 88%, transparent) !important; }'
@@ -190,7 +195,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-background); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + userMessageTextBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

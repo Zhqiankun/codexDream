@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/5" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/6" as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -6,6 +6,7 @@ export const SELECTOR_PARTS = [
     "main",
     'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
   ],
+  ["titlebar", 'div[class*="_ApplicationMenuTopBar_"]'],
   [
     "header",
     'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"])',
@@ -43,10 +44,12 @@ export function selectorProbeExpression(): string {
   return `(() => {
     const shell = document.querySelector('main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])');
     const sidebar = document.querySelector('aside.app-shell-left-panel');
+    const titlebar = document.querySelector('div[class*="_ApplicationMenuTopBar_"]');
+    const header = document.querySelector('header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"])');
     return {
       protocol: location.protocol,
       profile: ${JSON.stringify(CODEX_SELECTOR_PROFILE)},
-      compatible: Boolean(shell && sidebar),
+      compatible: Boolean(shell && sidebar && titlebar && header),
     };
   })()`;
 }

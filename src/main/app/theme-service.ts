@@ -309,7 +309,7 @@ export class ThemeService {
   async exportZip(
     libraryId: string,
     expectedRevision: number,
-    format: "simplified" | "formal",
+    format: "simplified" | "compatibility" | "formal",
   ): Promise<Result<ExportResult>> {
     const window = this.mainWindow();
     const record = this.store.get(libraryId);
@@ -320,7 +320,7 @@ export class ThemeService {
     if (!image) return this.error("INCOMPLETE_THEME", "theme.imageMissing");
     if (!window) return this.error("UNKNOWN", "window.unavailable");
     const selected = await dialog.showSaveDialog(window, {
-      defaultPath: `${record.name.replace(/[^a-z0-9 _-]/giu, "_")}.zip`,
+      defaultPath: `${record.name.replace(/[^a-z0-9 _-]/giu, "_")}${format === "compatibility" ? "-legacy" : ""}.zip`,
       filters: [{ name: "ZIP", extensions: ["zip"] }],
     });
     if (selected.canceled || !selected.filePath)
@@ -333,7 +333,10 @@ export class ThemeService {
     try {
       if (format === "formal")
         await writeFormalZip(selected.filePath, record, image);
-      else await writeSimplifiedZip(selected.filePath, record, image);
+      else
+        await writeSimplifiedZip(selected.filePath, record, image, {
+          legacyColorContract: format === "compatibility",
+        });
       return { ok: true, data: { cancelled: false, format } };
     } catch (error) {
       return this.fromError(error);
@@ -372,6 +375,8 @@ export class ThemeService {
 
   private fromError(error: unknown): Result<never> {
     const raw = error instanceof Error ? error.message : String(error);
+    if (raw === "UNSAFE_CSS:legacy-export-unsupported")
+      return this.error("UNSAFE_CSS", "theme.legacyExportUnsupported");
     const [code, detail] = raw.split(":", 2);
     const allowed = new Set([
       "IPC_INVALID",

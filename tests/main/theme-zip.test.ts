@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, afterEach } from "vitest";
 import sharp from "sharp";
+import yauzl from "yauzl";
 import yazl from "yazl";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
 import {
@@ -14,6 +15,7 @@ import {
 } from "../../src/main/infra/theme-zip";
 import { createManagedRoot } from "../fixtures/managed-root";
 import {
+  DEFAULT_ADVANCED_STYLE,
   DEFAULT_CONFIGURED_STYLE,
   DEFAULT_THEME_ART,
   DEFAULT_THEME_COLORS,
@@ -59,7 +61,13 @@ describe("theme zip compatibility", () => {
     const theme = await store.patch(original.libraryId, original.revision, {
       appearance: "dark",
       art: { ...configuration.art, focusX: 0.31, safeArea: "left" },
-      colors: { ...configuration.colors, accent: "#336699" },
+      colors: {
+        ...configuration.colors,
+        accent: "#336699",
+        userMessageText: "rgba(12, 34, 56, 0.72)",
+        topBarBackground: "rgba(90, 80, 70, 0.35)",
+        topBarText: "#abcdef",
+      },
       styleConfig: {
         ...DEFAULT_CONFIGURED_STYLE,
         recipes: { ...DEFAULT_CONFIGURED_STYLE.recipes, dialog: false },
@@ -75,7 +83,12 @@ describe("theme zip compatibility", () => {
     expect(readThemeConfiguration(parsed.record.json)).toMatchObject({
       appearance: "dark",
       art: { focusX: 0.31, safeArea: "left" },
-      colors: { accent: "#336699" },
+      colors: {
+        accent: "#336699",
+        userMessageText: "rgba(12, 34, 56, 0.72)",
+        topBarBackground: "rgba(90, 80, 70, 0.35)",
+        topBarText: "#abcdef",
+      },
       styleConfig: {
         mode: "configured",
         blur: 27,
@@ -83,6 +96,92 @@ describe("theme zip compatibility", () => {
       },
     });
     expect(parsed.record.css).toBe(theme.css);
+  });
+
+  it("accepts a twelve-color theme from the previous v1 extension", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codexstyle-zip-"));
+    roots.push(root);
+    const image = await sharp({
+      create: { width: 2, height: 2, channels: 4, background: "#334455" },
+    })
+      .png()
+      .toBuffer();
+    const {
+      userMessageText: _userMessageText,
+      topBarBackground: _topBarBackground,
+      topBarText: _topBarText,
+      ...previousColors
+    } = DEFAULT_THEME_COLORS;
+    const zipPath = join(root, "previous-v1.zip");
+    await writeZip(zipPath, [
+      [
+        "theme.json",
+        Buffer.from(
+          JSON.stringify({
+            schemaVersion: 1,
+            id: "previous-v1",
+            name: "Previous v1",
+            image: "background.png",
+            appearance: "dark",
+            art: DEFAULT_THEME_ART,
+            colors: previousColors,
+            style: DEFAULT_ADVANCED_STYLE,
+          }),
+        ),
+      ],
+      ["theme.css", Buffer.from('[data-ds-part="root"] { color: #ffffff; }')],
+      ["background.png", image],
+    ]);
+
+    const parsed = await readThemeZip(zipPath);
+    const colors = readThemeConfiguration(parsed.record.json).colors;
+    expect(colors.userMessageText).toBe(previousColors.text);
+    expect(colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(colors.topBarText).toBe(previousColors.muted);
+  });
+
+  it("exports a separately labelled package for strict older clients", async () => {
+    const managed = await createManagedRoot();
+    managedCleanups.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const theme = store.listRecords()[0];
+    const image = store.getBackground(theme.libraryId)!;
+    const zipPath = join(managed.localAppData, "legacy-compatible.zip");
+
+    await writeSimplifiedZip(zipPath, theme, image, {
+      legacyColorContract: true,
+    });
+    const rawTheme = JSON.parse(
+      (await readZipEntry(zipPath, "theme.json")).toString("utf8"),
+    ) as { colors: Record<string, unknown> };
+    const rawColors = rawTheme.colors;
+    expect(rawColors).toHaveProperty("sidebarText");
+    expect(rawColors).toHaveProperty("assistantPanel");
+    expect(rawColors).not.toHaveProperty("userMessageText");
+    expect(rawColors).not.toHaveProperty("topBarBackground");
+    expect(rawColors).not.toHaveProperty("topBarText");
+  });
+
+  it("refuses a legacy export when advanced CSS uses current-only tokens", async () => {
+    const managed = await createManagedRoot();
+    managedCleanups.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const theme = store.listRecords()[0];
+    const image = store.getBackground(theme.libraryId)!;
+
+    await expect(
+      writeSimplifiedZip(
+        join(managed.localAppData, "legacy-incompatible.zip"),
+        {
+          ...theme,
+          css: '[data-ds-part="titlebar"] { color: var(--ds-theme-color-top-bar-text); }',
+        },
+        image,
+        { legacyColorContract: true },
+      ),
+    ).rejects.toThrow("UNSAFE_CSS:legacy-export-unsupported");
   });
 
   it("rejects an image whose bytes do not match its extension", async () => {
@@ -276,5 +375,38 @@ async function writeZip(
       .on("close", resolve)
       .on("error", reject);
     zip.end();
+  });
+}
+
+async function readZipEntry(path: string, name: string): Promise<Buffer> {
+  const archive = await new Promise<yauzl.ZipFile>((resolve, reject) => {
+    yauzl.open(path, { lazyEntries: true }, (error, value) => {
+      if (error || !value) reject(error ?? new Error("archive unavailable"));
+      else resolve(value);
+    });
+  });
+  return new Promise<Buffer>((resolve, reject) => {
+    archive.once("error", reject);
+    archive.once("end", () => reject(new Error(`missing entry: ${name}`)));
+    archive.on("entry", (entry) => {
+      if (entry.fileName !== name) {
+        archive.readEntry();
+        return;
+      }
+      archive.openReadStream(entry, (error, stream) => {
+        if (error || !stream) {
+          reject(error ?? new Error("entry stream unavailable"));
+          return;
+        }
+        const chunks: Buffer[] = [];
+        stream.once("error", reject);
+        stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+        stream.once("end", () => {
+          archive.close();
+          resolve(Buffer.concat(chunks));
+        });
+      });
+    });
+    archive.readEntry();
   });
 }

@@ -10,6 +10,7 @@ export const SAFE_CSS_PARTS = [
   "root",
   "sidebar",
   "main",
+  "titlebar",
   "header",
   "home",
   "home-hero",
@@ -34,6 +35,9 @@ const variables = new Set([
   "--ds-theme-color-sidebar-text",
   "--ds-theme-color-panel-alt",
   "--ds-theme-color-assistant-panel",
+  "--ds-theme-color-user-message-text",
+  "--ds-theme-color-top-bar-background",
+  "--ds-theme-color-top-bar-text",
   "--ds-theme-color-accent",
   "--ds-theme-color-accent-alt",
   "--ds-theme-color-secondary",
@@ -113,6 +117,8 @@ const properties = new Set([
 const selectorPattern =
   /^\[data-ds-part="([a-z]+(?:-[a-z]+)*)"\](?::([a-z-]+))?$/u;
 const propertyPattern = /^[a-z][a-z-]*$/u;
+const LEGACY_UNSUPPORTED_PATTERN =
+  /(?:\[data-ds-part="titlebar"\]|:focus-within|--ds-theme-color-(?:sidebar-text|user-message-text|top-bar-background|top-bar-text))/u;
 const controlPattern =
   /[\u0000-\u0008\u000b\u000e-\u001f\u007f-\u009f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/u;
 const numberPattern = /^(?:-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0?\.[0-9]+))$/u;
@@ -138,6 +144,20 @@ export function validateSafeCss(css: string): CssValidation {
       0,
     );
   }
+}
+
+/** Freezes the Safe CSS delta supported by published v1.0.x clients. */
+export function validateLegacySafeCss(css: string): CssValidation {
+  const result = validateSafeCss(css);
+  if (!result.valid || LEGACY_UNSUPPORTED_PATTERN.test(css))
+    return result.valid
+      ? invalid(
+          ["legacy-feature-not-supported"],
+          result.ruleCount,
+          result.declarationCount,
+        )
+      : result;
+  return result;
 }
 
 class SafeCssParser {

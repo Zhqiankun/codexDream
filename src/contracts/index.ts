@@ -62,6 +62,7 @@ export type Result<T> =
 
 export type ThemeStatus = "draft" | "ready";
 export type PackageFormat = "simplified" | "formal";
+export type ExportFormat = PackageFormat | "compatibility";
 
 export interface ThemeSummary {
   libraryId: string;
@@ -181,7 +182,7 @@ export interface ImportResult {
 
 export interface ExportResult {
   cancelled: boolean;
-  format: PackageFormat;
+  format: ExportFormat;
 }
 
 const VersionField = { v: z.literal(PROTOCOL_VERSION) };
@@ -213,6 +214,9 @@ const ThemeColorsSchema = z
     sidebarText: z.string().refine(isThemeColor),
     panelAlt: z.string().refine(isThemeColor),
     assistantPanel: z.string().refine(isThemeColor),
+    userMessageText: z.string().refine(isThemeColor),
+    topBarBackground: z.string().refine(isThemeColor),
+    topBarText: z.string().refine(isThemeColor),
     accent: z.string().refine(isThemeColor),
     accentAlt: z.string().refine(isThemeColor),
     secondary: z.string().refine(isThemeColor),
@@ -313,7 +317,7 @@ export const ExportSchema = z
     ...VersionField,
     libraryId: z.string().uuid(),
     expectedRevision: z.number().int().nonnegative(),
-    format: z.enum(["simplified", "formal"]),
+    format: z.enum(["simplified", "compatibility", "formal"]),
   })
   .strict();
 

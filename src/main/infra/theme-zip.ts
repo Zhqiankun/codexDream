@@ -18,7 +18,7 @@ import {
 } from "../../contracts";
 import { themeFingerprint, type ThemeRecord } from "../domain/theme";
 import { validateImage } from "./image";
-import { validateSafeCss } from "./safe-css";
+import { validateLegacySafeCss, validateSafeCss } from "./safe-css";
 
 export interface ParsedThemePackage {
   record: ThemeRecord;
@@ -117,7 +117,13 @@ const COLOR_KEYS = [
   "muted",
   "line",
 ];
-const OPTIONAL_COLOR_KEYS = ["sidebarText", "assistantPanel"];
+const OPTIONAL_COLOR_KEYS = [
+  "sidebarText",
+  "assistantPanel",
+  "userMessageText",
+  "topBarBackground",
+  "topBarText",
+];
 const THEME_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/u;
 const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
 const RFC3339_PATTERN =
@@ -235,31 +241,37 @@ export async function writeSimplifiedZip(
   filePath: string,
   record: ThemeRecord,
   image: Buffer,
+  options: { legacyColorContract?: boolean } = {},
 ): Promise<void> {
   const extension = await validateExportImage(record, image);
   const imageName = `background.${extension}`;
   const css = validateSafeCss(record.css);
   if (!css.valid || css.empty) throw new Error("UNSAFE_CSS:export-css");
   const configuration = readThemeConfiguration(record.json);
-  const themeJson = Buffer.from(
-    JSON.stringify(
-      writeThemeConfiguration(
-        {
-          ...record.json,
-          schemaVersion: 1,
-          id: record.themeId,
-          name: record.name,
-          image: imageName,
-          backgroundScope: record.backgroundScope,
-          sidebarOverlayOpacity: record.sidebarOverlayOpacity,
-        },
-        configuration,
-      ),
-      null,
-      2,
-    ),
-    "utf8",
+  const serialized = writeThemeConfiguration(
+    {
+      ...record.json,
+      schemaVersion: 1,
+      id: record.themeId,
+      name: record.name,
+      image: imageName,
+      backgroundScope: record.backgroundScope,
+      sidebarOverlayOpacity: record.sidebarOverlayOpacity,
+    },
+    configuration,
   );
+  if (options.legacyColorContract) {
+    if (!validateLegacySafeCss(record.css).valid)
+      throw new Error("UNSAFE_CSS:legacy-export-unsupported");
+    const {
+      userMessageText: _userMessageText,
+      topBarBackground: _topBarBackground,
+      topBarText: _topBarText,
+      ...legacyColors
+    } = configuration.colors;
+    serialized.colors = legacyColors;
+  }
+  const themeJson = Buffer.from(JSON.stringify(serialized, null, 2), "utf8");
   await writeZipAtomically(filePath, (zip) => {
     zip.addBuffer(themeJson, "theme.json");
     zip.addBuffer(Buffer.from(record.css, "utf8"), "theme.css");
@@ -613,16 +625,9 @@ function validateColors(value: unknown): void {
       controls: undefined,
     });
   }
-  if (value.sidebarText !== undefined) {
-    assertString(value.sidebarText, "theme-color-sidebarText", {
-      min: 1,
-      max: 64,
-      pattern: COLOR_PATTERN,
-      controls: undefined,
-    });
-  }
-  if (value.assistantPanel !== undefined) {
-    assertString(value.assistantPanel, "theme-color-assistantPanel", {
+  for (const key of OPTIONAL_COLOR_KEYS) {
+    if (value[key] === undefined) continue;
+    assertString(value[key], `theme-color-${key}`, {
       min: 1,
       max: 64,
       pattern: COLOR_PATTERN,

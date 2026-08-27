@@ -37,6 +37,9 @@ const theme: ThemeDetail = {
     sidebarText: "#ffffff",
     panelAlt: "#2d2d2d",
     assistantPanel: "#2d2d2d",
+    userMessageText: "#ffffff",
+    topBarBackground: "rgba(0, 0, 0, 0)",
+    topBarText: "rgba(255, 255, 255, .498)",
     accent: "#f59e0b",
     accentAlt: "#d9d9d9",
     secondary: "#808080",
@@ -348,9 +351,9 @@ describe("Studio renderer", () => {
     fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText("背景颜色")).toHaveValue("#071b22"),
+      expect(screen.getByLabelText("页面背景颜色")).toHaveValue("#071b22"),
     );
-    expect(screen.getByLabelText("强调颜色")).toHaveValue("#5eead4");
+    expect(screen.getByLabelText("发送按钮颜色")).toHaveValue("#5eead4");
     fireEvent.click(screen.getByRole("tab", { name: "基础" }));
     expect(screen.getByDisplayValue("Midnight Copper")).toBeInTheDocument();
     expect(
@@ -514,28 +517,44 @@ describe("Studio renderer", () => {
       target: { value: "80" },
     });
     fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
-    const accentPicker = screen.getByLabelText("选择强调颜色");
+    const accentPicker = screen.getByLabelText("选择发送按钮颜色");
     expect(accentPicker).toHaveValue("#f59e0b");
     fireEvent.change(accentPicker, {
       target: { value: "#336699" },
     });
-    expect(screen.getByRole("textbox", { name: "强调颜色" })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "发送按钮颜色" })).toHaveValue(
       "#336699",
     );
-    fireEvent.change(screen.getByRole("slider", { name: "强调透明度" }), {
+    fireEvent.change(screen.getByRole("slider", { name: "发送按钮透明度" }), {
       target: { value: "42" },
     });
-    expect(screen.getByRole("textbox", { name: "强调颜色" })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "发送按钮颜色" })).toHaveValue(
       "rgba(51, 102, 153, 0.42)",
     );
-    expect(screen.getByRole("textbox", { name: "侧栏文字颜色" })).toHaveValue(
-      "#ffffff",
+    expect(
+      screen.getByRole("textbox", { name: "左侧面板文字颜色" }),
+    ).toHaveValue("#ffffff");
+    fireEvent.change(
+      screen.getByRole("slider", { name: "助手回复背景透明度" }),
+      { target: { value: "36" } },
     );
-    fireEvent.change(screen.getByRole("slider", { name: "助手面板透明度" }), {
-      target: { value: "36" },
+    expect(
+      screen.getByRole("textbox", { name: "助手回复背景颜色" }),
+    ).toHaveValue("rgba(45, 45, 45, 0.36)");
+    fireEvent.change(screen.getByLabelText("选择我的消息文字颜色"), {
+      target: { value: "#102030" },
     });
-    expect(screen.getByRole("textbox", { name: "助手面板颜色" })).toHaveValue(
-      "rgba(45, 45, 45, 0.36)",
+    fireEvent.change(screen.getByRole("slider", { name: "顶部栏背景透明度" }), {
+      target: { value: "48" },
+    });
+    fireEvent.change(screen.getByLabelText("选择顶部栏背景颜色"), {
+      target: { value: "#123456" },
+    });
+    expect(screen.getByRole("textbox", { name: "顶部栏背景颜色" })).toHaveValue(
+      "rgba(18, 52, 86, 0.48)",
+    );
+    expect(screen.getByRole("textbox", { name: "顶部栏文字颜色" })).toHaveValue(
+      "rgba(255, 255, 255, .498)",
     );
 
     const background = document.querySelector(
@@ -552,6 +571,15 @@ describe("Studio renderer", () => {
     expect(preview.style.getPropertyValue("--preview-assistant-panel")).toBe(
       "rgba(45, 45, 45, 0.36)",
     );
+    expect(preview.style.getPropertyValue("--preview-user-message-text")).toBe(
+      "#102030",
+    );
+    expect(preview.style.getPropertyValue("--preview-top-bar-background")).toBe(
+      "rgba(18, 52, 86, 0.48)",
+    );
+    expect(preview.style.getPropertyValue("--preview-top-bar-text")).toBe(
+      "rgba(255, 255, 255, .498)",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
@@ -564,9 +592,64 @@ describe("Studio renderer", () => {
             accent: "rgba(51, 102, 153, 0.42)",
             sidebarText: "#ffffff",
             assistantPanel: "rgba(45, 45, 45, 0.36)",
+            userMessageText: "#102030",
+            topBarBackground: "rgba(18, 52, 86, 0.48)",
+            topBarText: "rgba(255, 255, 255, .498)",
           }),
         }),
       }),
+    );
+  });
+
+  it("groups color controls by visible area and locates them in the preview", async () => {
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
+
+    expect(screen.getByText("页面与窗口")).toBeInTheDocument();
+    expect(screen.getByText("对话与输入")).toBeInTheDocument();
+    expect(screen.getByText("操作与状态")).toBeInTheDocument();
+    expect(screen.getByText("文字与边界")).toBeInTheDocument();
+    expect(screen.queryByText("accentAlt")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "高级" }));
+    expect(screen.getByText("accentAlt")).toBeInTheDocument();
+    expect(screen.getByText("topBarBackground")).toBeInTheDocument();
+
+    const preview = document.querySelector(".mock-codex") as HTMLElement;
+    const userMessageText = screen.getByRole("textbox", {
+      name: "我的消息文字颜色",
+    });
+    const card = userMessageText.closest(".color-config");
+    expect(card).not.toBeNull();
+
+    fireEvent.mouseEnter(card!);
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "userMessageText",
+    );
+    fireEvent.mouseLeave(card!);
+    expect(preview).not.toHaveAttribute("data-preview-color-target");
+
+    fireEvent.click(screen.getByRole("button", { name: "首页" }));
+    expect(preview).toHaveAttribute("data-preview-page", "home");
+    fireEvent.focus(userMessageText);
+    expect(preview).toHaveAttribute("data-preview-page", "conversation");
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "userMessageText",
+    );
+    fireEvent.mouseEnter(card!);
+    fireEvent.mouseLeave(card!);
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "userMessageText",
+    );
+    fireEvent.blur(userMessageText, { relatedTarget: null });
+    expect(preview).not.toHaveAttribute("data-preview-color-target");
+    expect(document.querySelector(".mock-titlebar")).toHaveAttribute(
+      "data-ds-part",
+      "titlebar",
     );
   });
 
@@ -772,7 +855,7 @@ describe("Studio renderer", () => {
     );
   });
 
-  it("exports an edited formal import as a simplified compatibility package", async () => {
+  it("exports an edited formal import through the explicit legacy compatibility path", async () => {
     const formalTheme: ThemeDetail = {
       ...theme,
       packageFormat: "formal",
@@ -794,7 +877,10 @@ describe("Studio renderer", () => {
     render(<App />);
     const nameInput = await screen.findByDisplayValue("Signed Copper");
     fireEvent.change(nameInput, { target: { value: "Edited Copper" } });
-    fireEvent.click(screen.getByRole("button", { name: "导出兼容 ZIP" }));
+    expect(
+      screen.getByRole("button", { name: "已编辑，不能原样导出" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "导出旧版兼容 ZIP" }));
 
     await waitFor(() => expect(api.patchDraft).toHaveBeenCalledTimes(1));
     await waitFor(() =>
@@ -802,9 +888,26 @@ describe("Studio renderer", () => {
         expect.objectContaining({
           libraryId: formalTheme.libraryId,
           expectedRevision: 3,
-          format: "simplified",
+          format: "compatibility",
         }),
       ),
+    );
+  });
+
+  it("exports the complete current theme package without dropping colors", async () => {
+    const api = makeApi();
+    window.codexStyle = api;
+
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("button", { name: "导出主题 ZIP" }));
+
+    await waitFor(() =>
+      expect(api.exportZip).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: theme.revision,
+        format: "simplified",
+      }),
     );
   });
 
@@ -1027,6 +1130,67 @@ describe("Studio renderer", () => {
       (window.codexStyle as ReturnType<typeof makeApi>).launchSession,
     ).not.toHaveBeenCalled();
   });
+
+  it("describes recovered ownership state without exposing orphan terminology", async () => {
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: {
+        ...snapshot,
+        session: {
+          state: "ORPHANED",
+          messageKey: "session.orphaned",
+          canEnd: false,
+          launchedByTool: false,
+        },
+      },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    expect(await screen.findByText("上次会话待确认")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
+    expect(
+      await screen.findByText(/当前无法安全确认它仍受控/u),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/孤儿/u)).toBeNull();
+  });
+
+  it.each([
+    {
+      state: "LAUNCHING",
+      label: "启动中",
+      copy: /正在通过 Microsoft Store 注册入口启动 Codex/u,
+    },
+    {
+      state: "INJECTING",
+      label: "注入中",
+      copy: /正在安全应用所选主题/u,
+    },
+  ] as const)(
+    "shows matching copy while the session is $label",
+    async (item) => {
+      const api = makeApi();
+      api.getSnapshot.mockResolvedValue({
+        ok: true,
+        data: {
+          ...snapshot,
+          session: {
+            state: item.state,
+            messageKey: `session.${item.state.toLowerCase()}`,
+            canEnd: false,
+            launchedByTool: true,
+          },
+        },
+      });
+      window.codexStyle = api;
+
+      render(<App />);
+      expect(await screen.findByText(item.label)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
+      expect(await screen.findByText(item.copy)).toBeInTheDocument();
+    },
+  );
 
   it("allows a selected theme to launch only from the managed-session view", async () => {
     const api = makeApi();

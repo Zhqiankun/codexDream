@@ -7,27 +7,33 @@ import {
   DEFAULT_CONFIGURED_STYLE,
   type ThemeDetail,
 } from "../../src/contracts";
+import { LocalThemeStore } from "../../src/main/infra/local-store";
+import { createManagedRoot } from "../fixtures/managed-root";
 
-const { showOpenDialog } = vi.hoisted(() => ({
+const { showOpenDialog, showSaveDialog } = vi.hoisted(() => ({
   showOpenDialog: vi.fn(),
+  showSaveDialog: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
-  dialog: { showOpenDialog },
+  dialog: { showOpenDialog, showSaveDialog },
 }));
 
 import { ThemeService } from "../../src/main/app/theme-service";
 
-describe("ThemeService send icon selection", () => {
+describe("ThemeService", () => {
   const temporaryDirectories: string[] = [];
+  const managedCleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     showOpenDialog.mockReset();
+    showSaveDialog.mockReset();
     await Promise.all(
       temporaryDirectories
         .splice(0)
         .map((directory) => rm(directory, { recursive: true, force: true })),
     );
+    await Promise.all(managedCleanups.splice(0).map((cleanup) => cleanup()));
   });
 
   it("decodes a PNG and stores a bounded 64px transparent icon", async () => {
@@ -86,5 +92,34 @@ describe("ThemeService send icon selection", () => {
     expect(metadata.width).toBe(64);
     expect(metadata.height).toBe(64);
     expect(metadata.hasAlpha).toBe(true);
+  });
+
+  it("tells the user to use a full export when legacy CSS is unsupported", async () => {
+    const managed = await createManagedRoot();
+    managedCleanups.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const theme = store.listRecords()[0]!;
+    theme.css =
+      '[data-ds-part="titlebar"] { color: var(--ds-theme-color-top-bar-text); }';
+    showSaveDialog.mockResolvedValue({
+      canceled: false,
+      filePath: join(managed.localAppData, "legacy.zip"),
+    });
+    const service = new ThemeService(
+      store,
+      () => ({}) as never,
+      () => ({}) as never,
+    );
+
+    await expect(
+      service.exportZip(theme.libraryId, theme.revision, "compatibility"),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "UNSAFE_CSS",
+        messageKey: "theme.legacyExportUnsupported",
+      },
+    });
   });
 });

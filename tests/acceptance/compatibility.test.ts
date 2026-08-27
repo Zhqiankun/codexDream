@@ -39,7 +39,9 @@ describe("simplified package compatibility", () => {
       const source = join(root, "source");
       const stage = join(root, "stage");
 
-      await writeSimplifiedZip(zipPath, theme, image);
+      await writeSimplifiedZip(zipPath, theme, image, {
+        legacyColorContract: true,
+      });
       await Promise.all([mkdir(source), mkdir(stage)]);
       await unzip(zipPath, source);
 
