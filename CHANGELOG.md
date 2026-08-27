@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.0.1 — 2026-08-27
+
+### English
+
+- Made full-window theme backgrounds resilient across supported Codex DOM variations by applying the artwork to both the document root and canvas with fixed, covered positioning.
+- Extended configured-mode runtime styling to headers, composer controls, submit buttons, user and assistant message surfaces, dialogs, selection colors, and content-only sidebars.
+- Added confirmed local-theme deletion with revision checks, protected active/selected themes, managed background cleanup, and transactional rollback on storage failures.
+- Added double-click activation for saved themes, simplified ordinary editing to one save action, and consolidated launch checks into clearer user-facing results without weakening identity or compatibility validation.
+- Added tag-triggered GitHub Actions releases with full verification, Windows x64 packaging, retained workflow artifacts, and SHA-256 publication.
+- Added English and Simplified Chinese README screenshots showing themed home and conversation views.
+
+> The v1.0.1 binaries are not code-signed. Windows SmartScreen may display an unknown-publisher warning. Verify `SHA256SUMS.txt` before running a downloaded artifact.
+
+### 简体中文
+
+- 将全窗口背景同时应用到文档根节点和画布，并使用固定覆盖定位，提高主题背景对受支持 Codex DOM 变化的适应能力。
+- 扩展配置模式的真实运行时样式，覆盖顶部栏、输入区控件、发送按钮、用户与助手消息面板、对话框、选区颜色及仅内容区模式下的侧栏。
+- 新增带确认的本地主题删除，包含 revision 校验、使用中主题保护、受管背景清理和存储失败时的事务回滚。
+- 新增双击启用已保存主题，将普通编辑收敛为单一保存入口，并把启动检查整理为更清晰的用户结果，同时保留完整身份与兼容性验证。
+- 新增标签触发的 GitHub Actions 发布流程，执行完整验证、Windows x64 打包、工作流产物留档和 SHA-256 发布。
+- 在中英文 README 中新增主题首页和对话页面效果截图。
+
+> v1.0.1 构建产物尚未进行代码签名，Windows SmartScreen 可能显示“未知发布者”。运行下载文件前请核对 `SHA256SUMS.txt`。
+
 ## v1.0.0 — 2026-08-26
 
 ### English

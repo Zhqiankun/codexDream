@@ -57,10 +57,10 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.0.0` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.0.1` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.0.0-x64.exe` — guided Windows installer.
-- `CodexStyle-1.0.0-x64.zip` — portable archive.
+- `CodexStyle-1.0.1-x64.exe` — guided Windows installer.
+- `CodexStyle-1.0.1-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for both binaries.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
