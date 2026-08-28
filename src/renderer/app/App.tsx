@@ -59,7 +59,8 @@ function unwrap<T>(
 }
 
 const errorMessages: Record<string, string> = {
-  "update.checkFailed": "无法连接 GitHub 检查更新，请稍后重试。",
+  "update.checkFailed":
+    "更新检查未完成，请稍后重试，或打开 GitHub Release 手动下载。",
   "update.downloadFailed": "更新下载或完整性校验失败，请稍后重试。",
   "update.installFailed": "无法启动已下载的更新，请重试或手动安装。",
   "update.unsupported":

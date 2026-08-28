@@ -320,6 +320,28 @@ describe("Studio renderer", () => {
     );
   });
 
+  it("reports update-check failures without claiming a network cause", async () => {
+    const api = makeApi();
+    api.requestUpdate.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "UPDATE_CHECK_FAILED",
+        messageKey: "update.checkFailed",
+      },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查更新" }));
+
+    expect(
+      await screen.findByText(
+        "更新检查未完成，请稍后重试，或打开 GitHub Release 手动下载。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/无法连接 GitHub/u)).not.toBeInTheDocument();
+  });
+
   it("opens the manual release fallback for a portable build", async () => {
     const api = makeApi();
     const unsupported = {

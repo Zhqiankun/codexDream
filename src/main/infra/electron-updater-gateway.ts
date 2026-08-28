@@ -18,19 +18,24 @@ export const INSTALL_MARKER_CONTENT = "com.codexstyle.desktop/v1";
 export const UPDATE_BASE_URL =
   "https://github.com/Zhqiankun/codexDream/releases/latest/download/";
 
-type UpdaterModule = typeof import("electron-updater");
+type CancellationTokenConstructor = new () => CancellationToken;
+
+interface NormalizedUpdaterModule {
+  autoUpdater: AppUpdater;
+  CancellationToken: CancellationTokenConstructor;
+}
 
 interface ElectronUpdaterGatewayOptions {
   supported?: boolean;
-  loadUpdater?: () => Promise<UpdaterModule>;
+  loadUpdater?: () => Promise<unknown>;
 }
 
 export class ElectronUpdaterGateway implements UpdateGateway {
   readonly supported: boolean;
   readonly fallbackUrl =
     "https://github.com/Zhqiankun/codexDream/releases/latest";
-  private readonly loadUpdater: () => Promise<UpdaterModule>;
-  private updaterPromise?: Promise<UpdaterModule>;
+  private readonly loadUpdater: () => Promise<unknown>;
+  private updaterPromise?: Promise<NormalizedUpdaterModule>;
   private updater?: AppUpdater;
   private cancellationToken?: CancellationToken;
   private cancelPending = false;
@@ -96,11 +101,11 @@ export class ElectronUpdaterGateway implements UpdateGateway {
   }
 
   private async configuredUpdater(): Promise<{
-    module: UpdaterModule;
+    module: NormalizedUpdaterModule;
     updater: AppUpdater;
   }> {
     if (!this.supported) throw new Error("UPDATE_UNSUPPORTED");
-    this.updaterPromise ??= this.loadUpdater();
+    this.updaterPromise ??= this.loadUpdater().then(normalizeUpdaterModule);
     const module = await this.updaterPromise;
     const updater = module.autoUpdater;
     if (this.updater !== updater) {
@@ -120,6 +125,45 @@ export class ElectronUpdaterGateway implements UpdateGateway {
     }
     return { module, updater };
   }
+}
+
+function normalizeUpdaterModule(value: unknown): NormalizedUpdaterModule {
+  const namespace = isRecord(value) ? value : undefined;
+  const defaultExport =
+    namespace && isRecord(namespace.default) ? namespace.default : undefined;
+  const autoUpdater = namespace?.autoUpdater ?? defaultExport?.autoUpdater;
+  const CancellationToken =
+    namespace?.CancellationToken ?? defaultExport?.CancellationToken;
+  const cancellationTokenPrototype =
+    typeof CancellationToken === "function"
+      ? CancellationToken.prototype
+      : undefined;
+  if (
+    !isUpdater(autoUpdater) ||
+    !isRecord(cancellationTokenPrototype) ||
+    typeof cancellationTokenPrototype.cancel !== "function"
+  )
+    throw new Error("UPDATE_CHECK_FAILED:updater-module-exports");
+  return {
+    autoUpdater: autoUpdater as AppUpdater,
+    CancellationToken: CancellationToken as CancellationTokenConstructor,
+  };
+}
+
+function isUpdater(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return [
+    "setFeedURL",
+    "checkForUpdates",
+    "downloadUpdate",
+    "quitAndInstall",
+    "on",
+    "removeListener",
+  ].every((key) => typeof value[key] === "function");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 export function isInstalledWindowsBuild(

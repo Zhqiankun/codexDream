@@ -48,6 +48,64 @@ describe("ElectronUpdaterGateway", () => {
     });
   });
 
+  it("normalizes CommonJS exports wrapped by a dynamic ESM import", async () => {
+    for (const tokenLocation of ["default", "namespace"] as const) {
+      const fixture = updaterFixture("1.3.0");
+      const loaded =
+        tokenLocation === "default"
+          ? {
+              default: {
+                autoUpdater: fixture.updater,
+                CancellationToken: FakeCancellationToken,
+              },
+            }
+          : {
+              default: { autoUpdater: fixture.updater },
+              CancellationToken: FakeCancellationToken,
+            };
+      const gateway = new ElectronUpdaterGateway({
+        supported: true,
+        loadUpdater: vi.fn().mockResolvedValue(loaded),
+      });
+      fixture.updater.downloadUpdate.mockImplementation(async (token) => {
+        expect(token).toBeInstanceOf(FakeCancellationToken);
+        return [];
+      });
+
+      await expect(gateway.fetchLatest()).resolves.toEqual({
+        version: "1.3.0",
+        url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.0",
+      });
+      await gateway.download(vi.fn());
+
+      expect(fixture.updater.downloadUpdate).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("rejects updater modules with missing required exports deterministically", async () => {
+    const missingUpdater = new ElectronUpdaterGateway({
+      supported: true,
+      loadUpdater: vi.fn().mockResolvedValue({
+        default: { CancellationToken: FakeCancellationToken },
+      }),
+    });
+    await expect(missingUpdater.fetchLatest()).rejects.toThrow(
+      "UPDATE_CHECK_FAILED:updater-module-exports",
+    );
+
+    const fixture = updaterFixture("1.3.0");
+    const missingToken = new ElectronUpdaterGateway({
+      supported: true,
+      loadUpdater: vi.fn().mockResolvedValue({
+        default: { autoUpdater: fixture.updater },
+      }),
+    });
+    await expect(missingToken.fetchLatest()).rejects.toThrow(
+      "UPDATE_CHECK_FAILED:updater-module-exports",
+    );
+    expect(fixture.updater.setFeedURL).not.toHaveBeenCalled();
+  });
+
   it("forwards safe progress, supports cancellation, and installs visibly", async () => {
     const fixture = updaterFixture("1.2.0");
     const gateway = new ElectronUpdaterGateway({
