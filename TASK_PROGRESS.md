@@ -1,6 +1,6 @@
 # CodexStyle 任务进度
 
-更新时间：2026-08-28
+更新时间：2026-08-29
 
 ## 目标与范围
 
@@ -28,6 +28,7 @@
 - [x] LIVE PREVIEW 增加首页 / 对话即时切换；两个页面共享主题草稿、背景作用域、焦点、颜色和 Safe CSS，未新增持久化或 IPC 状态。
 - [x] 编辑器增加“放弃本次修改”，由受管 checkpoint 恢复最近保存或新建起点，并保留 revision 与下次启动选择语义。
 - [x] 主进程增加启动后及每 20 分钟静默更新检查；只提示新版，不自动下载，顶部更新入口改用安装语义图标与状态胶囊。
+- [x] 13 张用户提供图片已分别形成内置主题预设；主进程严格校验并一次性原子追加，已有主题及选择状态不被覆盖。
 
 ### Native secure-store 阶段
 
@@ -56,6 +57,8 @@
 - `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`，`main` 与 `origin/main` 同步；`v1.0.0` 发布改动将在验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-29 `v1.3.5` 发布候选：13 套图片主题目录、一次性 pack 标记、已有库升级、删除不复活和失败全回滚均已实现。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、184 项主进程测试、51 项 renderer 测试、8 项集成测试和 1 项真实 Electron E2E 全部通过；安装包 ASAR 内 catalog 与 13 张图片逐项通过 SHA-256，打包成品以隔离数据目录启动并得到原 2 套加新 13 套主题。
 
 - 2026-08-26 `v1.0.0` 发布候选完成：加入用户主动触发的 GitHub Release 更新检查；固定 API 与 Release 地址、稳定语义版本、响应大小和超时均由 main 校验，不后台轮询、不静默下载、不执行远程文件。
 - `npm run test:unit`：20 个文件、95 项通过；`npm run test:renderer`：2 个文件、29 项通过；`npm run test:integration`：2 个文件、6 项通过，仓库外可选旧版验证器缺失时 1 项明确跳过；真实 Electron E2E 1 项通过。

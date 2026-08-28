@@ -46,27 +46,27 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 ## Highlights
 
 - Live 16:9 previews for the Codex home and conversation views.
-- Theme presets plus controls for colors, opacity, background images, panel styling, shadows, corner radius, sidebar text, message surfaces, and send icons.
+- Thirteen bundled wallpaper presets plus controls for colors, opacity, background images, panel styling, shadows, corner radius, sidebar text, message surfaces, and send icons. Bundled presets are appended once and never overwrite an existing local theme.
 - Validated background-image and custom-icon imports with clear size and format guidance.
 - Local theme library with lossless current-theme ZIP export and an explicit v1.0.x–v1.2.x compatibility export. Compatibility export drops the six new color fields and rejects advanced CSS that older clients cannot read.
 - Optional constrained Safe CSS for advanced styling.
 - A dedicated Windows app icon, tray icon, and packaged application identity.
 - Managed Codex launch with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
 - Local-first storage with a native Windows x64 secure-store component.
-- User-initiated in-app update checks and verified downloads for the installed Windows build, with progress, cancellation, restart-to-install, and install-on-exit choices. There is no background polling or silent installation.
+- User-initiated verified downloads for the installed Windows build, with progress, cancellation, restart-to-install, and install-on-exit choices. Background checks read only fixed release metadata; they never download or install silently.
 - Privacy-bounded daily diagnostic logs with a 7-day retention window and a one-click **Open logs** action for troubleshooting.
 
 ## Download
 
-Download `v1.3.4` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.5` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.4-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.4-x64.zip` — portable archive.
+- `CodexStyle-1.3.5-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.5-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.4` adds reliable discard-and-restore for theme edits, durable copy-on-write checkpoints, 20-minute background version checks, and a clearer update indicator. Install it over the existing copy; no uninstall is required, and local themes are preserved. Installed v1.3.1+ builds that open normally can update in-app. The portable ZIP remains manual-update only.
+`v1.3.5` adds thirteen curated wallpaper presets with matching palettes, appearance modes, artwork focus, and surface settings. Existing local themes, selection, pause state, and checkpoints are preserved; the preset pack is appended only once. Install it over the existing copy—no uninstall is required. Installed v1.3.1+ builds that open normally can update in-app. The portable ZIP remains manual-update only.
 
 ## Requirements
 

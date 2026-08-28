@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.5 — 2026-08-29
+
+### English
+
+- Added thirteen bundled wallpaper presets, each with a matching eighteen-color palette, light or dark appearance, artwork focus, background scope, surface opacity, and configured component styling.
+- Added a strict main-process preset catalog with bounded image decoding, SHA-256 verification, stable pack/theme identifiers, and fixed ASAR packaging; renderer, preload, and IPC receive no asset paths or image bytes.
+- Added one-time, atomic preset installation for both new and existing libraries. Existing themes, ordering, selection, last-known-good state, pause state, and checkpoints are preserved; failures roll back staged images and index changes.
+- Added regression and release-package coverage for first install, upgrade, duplicate prevention, delete-without-revival, tampered assets, write rollback, packaged ASAR hashes, and a real packaged-runtime smoke test.
+
+> v1.3.5 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall is required, and local themes are preserved.
+
+### 简体中文
+
+- 新增 13 套内置壁纸预设；每套都带完整十八色、浅色或深色外观、画面焦点、背景范围、表面透明度和组件样式配置。
+- 新增严格的主进程预设目录：有界解码图片、校验 SHA-256、固定 pack/theme 标识并打入 ASAR；renderer、preload 和 IPC 不接收资源路径或图片字节。
+- 新增适用于全新及已有主题库的一次性原子安装。已有主题、顺序、当前选择、last-known-good、暂停状态和 checkpoint 均保持不变；任一步骤失败都会回滚暂存图片和索引变更。
+- 补充首次安装、升级、不重复、删除不复活、资产篡改、写入回滚、安装包 ASAR 哈希及真实成品启动烟测的回归与发布验证。
+
+> SignPath Foundation 申请仍在审核，v1.3.5 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载，本地主题会保留。
+
 ## v1.3.4 — 2026-08-28
 
 ### English
