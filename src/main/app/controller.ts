@@ -6,7 +6,6 @@ import {
   nativeImage,
   net,
   protocol,
-  session as electronSession,
   Tray,
 } from "electron";
 import { join } from "node:path";
@@ -30,6 +29,10 @@ import { MainOperationBusyError, MainOperationGate } from "./operation-gate";
 import { UpdateService } from "./update-service";
 import { ElectronUpdaterGateway } from "../infra/electron-updater-gateway";
 
+const STUDIO_STARTUP_TIMEOUT_MS = 10_000;
+const STUDIO_RETRY_DELAY_MS = 250;
+const MAX_STUDIO_RECOVERY_ATTEMPTS = 1;
+
 export class AppController {
   mainWindow?: BrowserWindow;
   tray?: Tray;
@@ -39,6 +42,12 @@ export class AppController {
   readonly themeService: ThemeService;
   private readonly operationGate = new MainOperationGate();
   private quitting = false;
+  private showStudioRequested = true;
+  private studioRendererReady = false;
+  private studioReadyToShow = false;
+  private studioRecoveryAttempts = 0;
+  private studioStartupWatchdog?: ReturnType<typeof setTimeout>;
+  private studioRetryTimer?: ReturnType<typeof setTimeout>;
   private readonly updateService: UpdateService;
   private readonly devRendererUrl = resolveDevRendererUrl(
     process.env.ELECTRON_RENDERER_URL,
@@ -83,6 +92,8 @@ export class AppController {
 
   dispose(): void {
     this.quitting = true;
+    this.clearStudioStartupWatchdog();
+    if (this.studioRetryTimer) clearTimeout(this.studioRetryTimer);
     if (this.updateService.snapshot().status === "downloading")
       this.updateService.cancel();
     this.store.managedStore.close();
@@ -91,11 +102,6 @@ export class AppController {
   async init(): Promise<void> {
     await this.store.init();
     await this.session.restoreOrphanedState();
-    // Studio assets use stable app:// URLs. Clear any response cached by an
-    // earlier build before the first window loads, then mark every response as
-    // non-cacheable so development reloads and installed upgrades cannot serve
-    // stale renderer code.
-    await electronSession.defaultSession.clearCache();
     protocol.handle("app", async (request) => {
       let url: URL;
       try {
@@ -168,9 +174,9 @@ export class AppController {
       }
       return new Response("Not found", { status: 404 });
     });
-    this.createWindow();
-    this.createTray();
     registerIpc(this);
+    this.createTray();
+    this.createWindow();
   }
 
   snapshot(): ThemeSnapshot {
@@ -187,9 +193,21 @@ export class AppController {
   }
 
   async openStudio(): Promise<void> {
+    this.showStudioRequested = true;
     if (!this.mainWindow || this.mainWindow.isDestroyed()) this.createWindow();
-    this.mainWindow?.show();
-    this.mainWindow?.focus();
+    if (this.mainWindow) this.showStudioWindowIfReady(this.mainWindow);
+  }
+
+  rendererReady(): Result<boolean> {
+    const window = this.mainWindow;
+    if (!window || window.isDestroyed())
+      return {
+        ok: false,
+        error: { code: "UNKNOWN", messageKey: "window.unavailable" },
+      };
+    this.studioRendererReady = true;
+    this.showStudioWindowIfReady(window);
+    return { ok: true, data: true };
   }
 
   getStudioSnapshot(): Result<ThemeSnapshot> {
@@ -550,7 +568,11 @@ export class AppController {
   }
 
   private createWindow(): void {
-    this.mainWindow = new BrowserWindow({
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) return;
+    this.clearStudioStartupWatchdog();
+    this.studioRendererReady = false;
+    this.studioReadyToShow = false;
+    const window = new BrowserWindow({
       width: 1260,
       height: 820,
       minWidth: 960,
@@ -567,30 +589,111 @@ export class AppController {
         webSecurity: true,
       },
     });
-    this.mainWindow.webContents.setWindowOpenHandler(() => ({
+    this.mainWindow = window;
+    window.webContents.setWindowOpenHandler(() => ({
       action: "deny",
     }));
-    this.mainWindow.webContents.on("will-navigate", (event, targetUrl) => {
+    window.webContents.on("will-navigate", (event, targetUrl) => {
       if (!isStudioDocumentUrl(targetUrl)) event.preventDefault();
     });
-    this.mainWindow.webContents.on("will-attach-webview", (event) => {
+    window.webContents.on("will-attach-webview", (event) => {
       event.preventDefault();
     });
-    this.mainWindow.webContents.session.setPermissionRequestHandler(
+    window.webContents.session.setPermissionRequestHandler(
       (_webContents, _permission, callback) => callback(false),
     );
-    this.mainWindow.webContents.session.setPermissionCheckHandler(() => false);
-    this.mainWindow.on("close", (event) => {
+    window.webContents.session.setPermissionCheckHandler(() => false);
+    window.webContents.on(
+      "did-fail-load",
+      (_event, code, description, url, isMainFrame) => {
+        if (isMainFrame)
+          this.recoverStudioWindow(
+            window,
+            `did-fail-load ${code} ${description} ${url}`,
+          );
+      },
+    );
+    window.webContents.on("preload-error", (_event, path, error) => {
+      this.recoverStudioWindow(
+        window,
+        `preload-error ${path}: ${error.message}`,
+      );
+    });
+    window.webContents.on("render-process-gone", (_event, details) => {
+      this.recoverStudioWindow(window, `render-process-gone ${details.reason}`);
+    });
+    window.on("close", (event) => {
       if (!this.quitting) {
         event.preventDefault();
-        this.mainWindow?.hide();
+        this.showStudioRequested = false;
+        window.hide();
       }
     });
-    this.mainWindow.on("closed", () => {
+    window.on("closed", () => {
+      if (this.mainWindow !== window) return;
+      this.clearStudioStartupWatchdog();
       this.mainWindow = undefined;
+      this.studioRendererReady = false;
+      this.studioReadyToShow = false;
     });
-    this.mainWindow.once("ready-to-show", () => this.mainWindow?.show());
-    void this.mainWindow.loadURL("app://studio/index.html");
+    window.once("ready-to-show", () => {
+      if (this.mainWindow !== window || window.isDestroyed()) return;
+      this.studioReadyToShow = true;
+      this.showStudioWindowIfReady(window);
+    });
+    this.studioStartupWatchdog = setTimeout(
+      () => this.recoverStudioWindow(window, "renderer-ready timeout"),
+      STUDIO_STARTUP_TIMEOUT_MS,
+    );
+    this.studioStartupWatchdog.unref?.();
+    void window
+      .loadURL("app://studio/index.html")
+      .catch((error: unknown) =>
+        this.recoverStudioWindow(window, `loadURL ${formatError(error)}`),
+      );
+  }
+
+  private showStudioWindowIfReady(window: BrowserWindow): void {
+    if (
+      this.mainWindow !== window ||
+      window.isDestroyed() ||
+      !this.studioRendererReady ||
+      !this.studioReadyToShow
+    )
+      return;
+    this.clearStudioStartupWatchdog();
+    if (!this.showStudioRequested) return;
+    window.show();
+    window.focus();
+  }
+
+  private recoverStudioWindow(window: BrowserWindow, reason: string): void {
+    if (this.quitting || this.mainWindow !== window || window.isDestroyed())
+      return;
+    console.error("CodexStyle Studio window failed to start", reason);
+    this.clearStudioStartupWatchdog();
+    this.mainWindow = undefined;
+    window.destroy();
+    if (this.studioRecoveryAttempts < MAX_STUDIO_RECOVERY_ATTEMPTS) {
+      this.studioRecoveryAttempts += 1;
+      this.studioRetryTimer = setTimeout(() => {
+        this.studioRetryTimer = undefined;
+        if (!this.quitting) this.createWindow();
+      }, STUDIO_RETRY_DELAY_MS);
+      this.studioRetryTimer.unref?.();
+      return;
+    }
+    dialog.showErrorBox(
+      "CodexStyle 启动失败",
+      "工作台页面连续两次未能加载。应用将退出，请重新打开；如果仍然失败，请重新安装最新版。",
+    );
+    app.quit();
+  }
+
+  private clearStudioStartupWatchdog(): void {
+    if (!this.studioStartupWatchdog) return;
+    clearTimeout(this.studioStartupWatchdog);
+    this.studioStartupWatchdog = undefined;
   }
 
   private createTray(): void {
@@ -811,6 +914,10 @@ function resolveDevRendererUrl(value: string | undefined): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function resolveDevAssetUrl(

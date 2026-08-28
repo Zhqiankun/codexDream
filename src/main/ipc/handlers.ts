@@ -33,6 +33,9 @@ export function registerIpc(controller: AppController): void {
     });
   };
 
+  handle("studio.rendererReady", EmptyRequestSchema, () =>
+    controller.rendererReady(),
+  );
   handle("studio.getSnapshot", EmptyRequestSchema, () =>
     controller.getStudioSnapshot(),
   );

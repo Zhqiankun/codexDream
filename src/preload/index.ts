@@ -10,6 +10,7 @@ const invoke = <T>(channel: string, payload: unknown): Promise<Result<T>> =>
   ipcRenderer.invoke(channel, payload) as Promise<Result<T>>;
 
 const api: CodexStyleApi = {
+  rendererReady: () => invoke("studio.rendererReady", { v: PROTOCOL_VERSION }),
   getSnapshot: () => invoke("studio.getSnapshot", { v: PROTOCOL_VERSION }),
   getTheme: (request) =>
     invoke("theme.get", { v: PROTOCOL_VERSION, ...request }),

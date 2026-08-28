@@ -232,6 +232,7 @@ export function App() {
   };
 
   useEffect(() => {
+    void bridge.rendererReady();
     void refresh();
     return bridge.onStateChanged((next) => {
       setSnapshot(next);

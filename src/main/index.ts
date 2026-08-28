@@ -1,4 +1,4 @@
-import { app, protocol } from "electron";
+import { app, dialog, protocol } from "electron";
 import { AppController } from "./app/controller";
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -21,18 +21,42 @@ if (!hasSingleInstanceLock) {
   }
 
   const controller = new AppController();
+  let startupSucceeded = false;
+  let openStudioQueued = false;
 
-  void app.whenReady().then(async () => {
-    if (process.platform === "win32")
-      app.setAppUserModelId("com.codexstyle.desktop");
-    await controller.init();
-    app.on("activate", () => void controller.openStudio());
-  });
+  const startupPromise = app
+    .whenReady()
+    .then(async () => {
+      if (process.platform === "win32")
+        app.setAppUserModelId("com.codexstyle.desktop");
+      await controller.init();
+      startupSucceeded = true;
+    })
+    .catch((error: unknown) => {
+      console.error("CodexStyle startup failed", error);
+      const detail = error instanceof Error ? error.message : String(error);
+      dialog.showErrorBox(
+        "CodexStyle 启动失败",
+        `应用初始化失败：${detail}\n\n应用已安全退出。请重新打开；如果仍然失败，请重新安装最新版。`,
+      );
+      app.quit();
+    });
+
+  const openStudioAfterStartup = () => {
+    if (openStudioQueued) return;
+    openStudioQueued = true;
+    void startupPromise.then(() => {
+      openStudioQueued = false;
+      if (startupSucceeded) return controller.openStudio();
+    });
+  };
+
+  app.on("activate", openStudioAfterStartup);
 
   app.on("before-quit", () => controller.dispose());
 
   app.on("second-instance", () => {
-    void controller.openStudio();
+    openStudioAfterStartup();
   });
 
   app.on("window-all-closed", () => {

@@ -112,6 +112,7 @@ const snapshot: ThemeSnapshot = {
 
 function makeApi() {
   const api = {
+    rendererReady: vi.fn().mockResolvedValue({ ok: true, data: true }),
     getSnapshot: vi.fn().mockResolvedValue({ ok: true, data: snapshot }),
     getTheme: vi.fn().mockResolvedValue({ ok: true, data: theme }),
     createDraft: vi.fn(),

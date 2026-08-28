@@ -65,6 +65,7 @@ describe("preload public boundary", () => {
       "openUpdatePage",
       "patchDraft",
       "pauseSession",
+      "rendererReady",
       "requestUpdate",
       "resolveImport",
       "resumeSession",
@@ -72,6 +73,11 @@ describe("preload public boundary", () => {
     ]);
     expect(api).not.toHaveProperty("invoke");
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
+      v: 1,
+    });
+
+    await api.rendererReady();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.rendererReady", {
       v: 1,
     });
 

@@ -325,6 +325,7 @@ export const ExportSchema = z
   .strict();
 
 export interface CodexStyleApi {
+  rendererReady(): Promise<Result<boolean>>;
   getSnapshot(): Promise<Result<ThemeSnapshot>>;
   getTheme(
     request: Omit<z.infer<typeof LibraryIdSchema>, "v">,

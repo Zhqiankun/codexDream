@@ -319,6 +319,7 @@ describe("CodexSessionService", () => {
     "openai-codex-shell/3",
     "openai-codex-shell/4",
     "openai-codex-shell/5",
+    "openai-codex-shell/6",
   ])(
     "treats the previous selector profile %s as orphaned instead of tampered",
     async (selectorProfile) => {
