@@ -11,12 +11,25 @@ const state = vi.hoisted(() => ({
   dispose: vi.fn(),
   quit: vi.fn(),
   showErrorBox: vi.fn(),
+  logger: {
+    directory: "C:\\Temp\\CodexStyleLogs",
+    log: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    cleanup: vi.fn(),
+    dispose: vi.fn(),
+  },
 }));
 
 vi.mock("electron", () => ({
   app: {
     requestSingleInstanceLock: vi.fn(() => true),
+    getPath: vi.fn(() => "C:\\Temp"),
+    getVersion: vi.fn(() => "1.3.3"),
+    isPackaged: true,
     whenReady: vi.fn(() => state.readyPromise),
+    setAppLogsPath: vi.fn(),
     setAppUserModelId: vi.fn(),
     on: vi.fn((event: string, listener: AppListener) => {
       state.listeners.set(event, listener);
@@ -33,6 +46,10 @@ vi.mock("../../src/main/app/controller", () => ({
     openStudio = state.openStudio;
     dispose = state.dispose;
   },
+}));
+
+vi.mock("../../src/main/infra/main-logger", () => ({
+  createMainLogger: vi.fn(() => state.logger),
 }));
 
 describe("main process startup", () => {

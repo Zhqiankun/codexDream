@@ -6,6 +6,7 @@ import {
   nativeImage,
   net,
   protocol,
+  shell,
   Tray,
 } from "electron";
 import { join } from "node:path";
@@ -14,20 +15,23 @@ import { LocalThemeStore } from "../infra/local-store";
 import { ThemeService } from "./theme-service";
 import { WindowsPlatform } from "../platform/windows";
 import { CodexSessionService } from "../session/session-service";
-import type {
-  ErrorCode,
-  ExportResult,
-  ImportResult,
-  Result,
-  ThemeDetail,
-  ThemePatch,
-  ThemeSnapshot,
-  UpdateSnapshot,
+import {
+  PROTOCOL_VERSION,
+  type ErrorCode,
+  type ExportResult,
+  type ImportResult,
+  type Result,
+  type StudioRuntimeInfo,
+  type ThemeDetail,
+  type ThemePatch,
+  type ThemeSnapshot,
+  type UpdateSnapshot,
 } from "../../contracts";
 import { registerIpc } from "../ipc/handlers";
 import { MainOperationBusyError, MainOperationGate } from "./operation-gate";
 import { UpdateService } from "./update-service";
 import { ElectronUpdaterGateway } from "../infra/electron-updater-gateway";
+import type { MainLogger } from "../infra/main-logger";
 
 const STUDIO_STARTUP_TIMEOUT_MS = 10_000;
 const STUDIO_RETRY_DELAY_MS = 250;
@@ -53,7 +57,10 @@ export class AppController {
     process.env.ELECTRON_RENDERER_URL,
   );
 
-  constructor(updateService?: UpdateService) {
+  constructor(
+    updateService?: UpdateService,
+    private readonly logger?: MainLogger,
+  ) {
     const currentVersion = app.getVersion();
     this.updateService =
       updateService ??
@@ -174,7 +181,7 @@ export class AppController {
       }
       return new Response("Not found", { status: 404 });
     });
-    registerIpc(this);
+    registerIpc(this, this.logger);
     this.createTray();
     this.createWindow();
   }
@@ -198,7 +205,7 @@ export class AppController {
     if (this.mainWindow) this.showStudioWindowIfReady(this.mainWindow);
   }
 
-  rendererReady(): Result<boolean> {
+  rendererReady(): Result<StudioRuntimeInfo> {
     const window = this.mainWindow;
     if (!window || window.isDestroyed())
       return {
@@ -207,6 +214,21 @@ export class AppController {
       };
     this.studioRendererReady = true;
     this.showStudioWindowIfReady(window);
+    return {
+      ok: true,
+      data: { appVersion: app.getVersion(), protocolVersion: PROTOCOL_VERSION },
+    };
+  }
+
+  async openLogDirectory(): Promise<Result<boolean>> {
+    if (!this.logger)
+      return resultError("UNKNOWN", "diagnostics.logsUnavailable");
+    const failure = await shell.openPath(this.logger.directory);
+    if (failure) {
+      this.logger.warn("diagnostics.logs.openFailed");
+      return resultError("UNKNOWN", "diagnostics.logsOpenFailed");
+    }
+    this.logger.info("diagnostics.logs.opened");
     return { ok: true, data: true };
   }
 
@@ -670,6 +692,7 @@ export class AppController {
   private recoverStudioWindow(window: BrowserWindow, reason: string): void {
     if (this.quitting || this.mainWindow !== window || window.isDestroyed())
       return;
+    this.logger?.error("studio.window.startFailed", reason);
     console.error("CodexStyle Studio window failed to start", reason);
     this.clearStudioStartupWatchdog();
     this.mainWindow = undefined;

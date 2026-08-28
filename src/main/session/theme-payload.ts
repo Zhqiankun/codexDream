@@ -171,15 +171,24 @@ export function buildThemePayload(
       const changeCardSelector = '[data-ds-part="change-card"][data-codexstyle-owner="' + config.marker + '"]';
       const changeCardBridge = '\\n' + changeCardSelector + ' { --codex-diffs-surface-override: var(--ds-theme-color-change-card-background) !important; background-color: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }' +
         '\\n' + changeCardSelector + ' :where(button, [class~="text-default"], [class~="text-secondary"]) { color: var(--ds-theme-color-change-card-text) !important; }';
+      const composerSelector = '[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]';
+      const composerToolbarSelector = '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"]';
+      const composerPlaceholderSelector = composerSelector + ' :where([data-placeholder], [aria-placeholder])';
+      const composerPlaceholderNodeSelector = composerSelector + ' :where([data-placeholder], [aria-placeholder]):not([contenteditable="true"]):not(input):not(textarea)';
+      const composerMutedBridge = '\\n' + composerPlaceholderNodeSelector + ' { color: var(--ds-theme-color-muted) !important; }' +
+        '\\n' + composerPlaceholderSelector + '::before, ' + composerPlaceholderSelector + '::after { color: var(--ds-theme-color-muted) !important; }' +
+        '\\n' + composerSelector + ' :where(input, textarea)::placeholder { color: var(--ds-theme-color-muted) !important; opacity: 1 !important; }';
+      const composerPermissionSelector = composerToolbarSelector + ' [data-permission-mode]';
       const configuredSurfaceBridge = config.configuredRecipes
         ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-background); }' +
           (config.configuredRecipes.sidebar && config.backgroundScope === "content"
             ? '\\n' + sidebarTextSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel) 88%, transparent) !important; }'
             : '') +
           (config.configuredRecipes.composer
-            ? '\\n[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 88%, transparent) !important; }' +
-              '\\n[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]:focus-within { border-color: var(--ds-theme-color-accent-alt) !important; }' +
-              '\\n[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"] :where(button, span) { color: var(--ds-theme-color-secondary) !important; }' +
+            ? '\\n' + composerSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 88%, transparent) !important; }' +
+              '\\n' + composerSelector + ':focus-within { border-color: var(--ds-theme-color-accent-alt) !important; }' +
+              '\\n' + composerToolbarSelector + ' :where(button, span) { color: var(--ds-theme-color-secondary) !important; }' +
+              '\\n' + composerPermissionSelector + ' { color: var(--ds-theme-color-accent) !important; }' +
               '\\n[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-background) !important; }'
             : '') +
           (config.configuredRecipes.message
@@ -201,7 +210,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-background); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

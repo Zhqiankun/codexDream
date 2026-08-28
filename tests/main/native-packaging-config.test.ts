@@ -98,7 +98,9 @@ describe("native secure-store packaging", () => {
     expect(controller).toContain("dispose(): void");
     expect(controller).toContain("this.quitting = true");
     expect(controller).toContain("this.store.managedStore.close()");
-    expect(main).toContain('app.on("before-quit", () => controller.dispose())');
+    expect(main).toMatch(
+      /app\.on\("before-quit", \(\) => \{[\s\S]*controller\.dispose\(\);[\s\S]*logger\.dispose\(\);/u,
+    );
   });
 
   it("does not enable a browser-specific V8 snapshot fuse without shipping its snapshot", async () => {

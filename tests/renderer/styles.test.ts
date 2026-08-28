@@ -21,5 +21,12 @@ describe("renderer styles", () => {
     expect(css).toContain("--preview-change-card-text");
     expect(css).toContain('data-preview-color-target="changeCardBackground"');
     expect(css).toContain('data-preview-color-target="changeCardText"');
+    expect(css).toContain(
+      ".mock-composer-placeholder {\n  color: var(--preview-muted, #6f7d98);",
+    );
+    expect(css).not.toContain(
+      ".mock-composer-placeholder {\n  color: color-mix(in srgb, var(--preview-muted) 70%, transparent);",
+    );
+    expect(css).toContain('.color-value > input[aria-invalid="true"]');
   });
 });

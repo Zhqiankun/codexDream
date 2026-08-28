@@ -432,6 +432,60 @@ describe("theme payload", () => {
     ).toBe(false);
   });
 
+  it("bridges muted placeholders without changing toolbar and primary action roles", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    const composer = document.querySelector("[data-composer-surface-variant]");
+    composer?.insertAdjacentHTML(
+      "afterbegin",
+      '<span data-placeholder="true">Data placeholder</span><span aria-placeholder="Prompt">ARIA placeholder</span><span class="composer-placeholder-copy">Class placeholder</span><textarea placeholder="Native placeholder"></textarea>',
+    );
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+          styleConfig: {
+            ...defaultConfiguration.styleConfig,
+            mode: "configured",
+          },
+        },
+      ),
+    );
+
+    const source =
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent ?? "";
+    expect(source).toContain(
+      ':where([data-placeholder], [aria-placeholder]):not([contenteditable="true"]):not(input):not(textarea) { color: var(--ds-theme-color-muted) !important; }',
+    );
+    expect(source).toContain(
+      ":where([data-placeholder], [aria-placeholder])::before",
+    );
+    expect(source).toContain(
+      ":where(input, textarea)::placeholder { color: var(--ds-theme-color-muted) !important; opacity: 1 !important; }",
+    );
+    expect(source).toContain(
+      ":where(button, span) { color: var(--ds-theme-color-secondary) !important; }",
+    );
+    expect(source).toContain(
+      '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' +
+        marker +
+        '"] [data-permission-mode]',
+    );
+    expect(source).toContain(
+      "{ color: var(--ds-theme-color-accent) !important; }",
+    );
+    expect(source).toContain(
+      "background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-background) !important;",
+    );
+    expect(composer?.querySelector('[data-placeholder="true"]')).not.toBeNull();
+  });
+
   it("replaces only the send-state glyph for a built-in icon", () => {
     resetDocument();
     const marker = "codexstyle-00000000-0000-4000-8000-000000000000";

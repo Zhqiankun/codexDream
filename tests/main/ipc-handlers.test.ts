@@ -31,7 +31,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("session.launch")!(trustedEvent(), {
-      v: 1,
+      v: 2,
     });
 
     expect(result).toEqual({
@@ -51,7 +51,7 @@ describe("IPC handler command boundary", () => {
 
     const result = await handlers.get("update.request")!(
       trustedEvent({ senderId: 99 }),
-      { v: 1 },
+      { v: 2 },
     );
 
     expect(result).toEqual({
@@ -67,13 +67,17 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.get")!(trustedEvent(), {
-      v: 1,
+      v: 2,
       libraryId: "not-a-uuid",
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
-      error: { code: "IPC_INVALID", messageKey: "ipc.invalid" },
+      error: {
+        code: "IPC_INVALID",
+        messageKey: "ipc.invalid",
+        details: [{ key: "libraryId" }],
+      },
     });
     expect(controller.getTheme).not.toHaveBeenCalled();
     expect(controller.broadcast).not.toHaveBeenCalled();
@@ -84,7 +88,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.patchDraft")!(trustedEvent(), {
-      v: 1,
+      v: 2,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       patch: {
@@ -93,11 +97,42 @@ describe("IPC handler command boundary", () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
-      error: { code: "IPC_INVALID", messageKey: "ipc.invalid" },
+      error: {
+        code: "IPC_INVALID",
+        messageKey: "ipc.invalid",
+        details: [{ key: "patch.sidebarOverlayOpacity" }],
+      },
     });
     expect(controller.patchDraft).not.toHaveBeenCalled();
+  });
+
+  it("logs only safe validation paths and issue codes", async () => {
+    const controller = controllerFixture();
+    const logger = {
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    registerIpc(controller as never, logger as never);
+
+    await handlers.get("theme.patchDraft")!(trustedEvent(), {
+      v: 2,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 1,
+      patch: {
+        colors: { background: "sensitive-invalid-value" },
+      },
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith("ipc.request.invalid", {
+      channel: "theme.patchDraft",
+      issueCodes: expect.stringContaining("invalid_type"),
+      issuePaths: expect.stringContaining("patch.colors"),
+    });
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(
+      "sensitive-invalid-value",
+    );
   });
 
   it("validates and delegates a custom send icon selection", async () => {
@@ -106,7 +141,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const request = {
-      v: 1,
+      v: 2,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -122,6 +157,37 @@ describe("IPC handler command boundary", () => {
     );
   });
 
+  it("rejects stale protocol requests but accepts the bootstrap handshake", async () => {
+    const controller = controllerFixture();
+    controller.rendererReady.mockReturnValue({
+      ok: true,
+      data: { appVersion: "1.3.3", protocolVersion: 2 },
+    });
+    registerIpc(controller as never);
+
+    const stale = await handlers.get("studio.getSnapshot")!(trustedEvent(), {
+      v: 1,
+    });
+    const bootstrap = await handlers.get("studio.rendererReady")!(
+      trustedEvent(),
+      { v: 1 },
+    );
+
+    expect(stale).toEqual({
+      ok: false,
+      error: {
+        code: "IPC_VERSION_MISMATCH",
+        messageKey: "ipc.versionMismatch",
+      },
+    });
+    expect(controller.getStudioSnapshot).not.toHaveBeenCalled();
+    expect(bootstrap).toMatchObject({
+      ok: true,
+      data: { protocolVersion: 2 },
+    });
+    expect(controller.rendererReady).toHaveBeenCalledOnce();
+  });
+
   it("validates and delegates theme deletion", async () => {
     const controller = controllerFixture();
     controller.deleteTheme.mockResolvedValue({
@@ -130,7 +196,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const request = {
-      v: 1,
+      v: 2,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -158,7 +224,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("update.request")!(trustedEvent(), {
-      v: 1,
+      v: 2,
     });
 
     expect(result).toEqual({
@@ -188,20 +254,24 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const valid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 1,
+      v: 2,
       mode: "now",
     });
     const invalid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 1,
+      v: 2,
       mode: "silent-with-path",
       path: "C:\\untrusted.exe",
     });
 
     expect(controller.installUpdate).toHaveBeenCalledWith("now");
     expect(valid).toMatchObject({ ok: true });
-    expect(invalid).toEqual({
+    expect(invalid).toMatchObject({
       ok: false,
-      error: { code: "IPC_INVALID", messageKey: "ipc.invalid" },
+      error: {
+        code: "IPC_INVALID",
+        messageKey: "ipc.invalid",
+        details: [{ key: "mode" }, { key: "request" }],
+      },
     });
   });
 });
@@ -213,6 +283,8 @@ function controllerFixture() {
       webContents: { id: 17 },
     },
     broadcast: vi.fn(),
+    rendererReady: vi.fn(),
+    openLogDirectory: vi.fn(),
     getStudioSnapshot: vi.fn(),
     getTheme: vi.fn(),
     createDraft: vi.fn(),

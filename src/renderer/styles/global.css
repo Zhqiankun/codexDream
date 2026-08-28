@@ -36,6 +36,39 @@ textarea:focus-visible {
   min-height: 100vh;
   background: #0b1020;
 }
+.runtime-mismatch {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    radial-gradient(
+      circle at 50% 20%,
+      rgba(245, 185, 76, 0.12),
+      transparent 38%
+    ),
+    #0b1020;
+}
+.runtime-mismatch-card {
+  width: min(620px, 100%);
+  padding: 32px;
+  border: 1px solid #33405f;
+  border-radius: 18px;
+  background: #11182a;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+}
+.runtime-mismatch-card .brand-mark {
+  margin-bottom: 24px;
+}
+.runtime-mismatch-card h1 {
+  margin: 8px 0 14px;
+  font-size: 26px;
+}
+.runtime-mismatch-card p {
+  margin: 0 0 12px;
+  color: #c4ccdc;
+  line-height: 1.75;
+}
 .topbar {
   height: 64px;
   padding: 0 28px;
@@ -993,6 +1026,13 @@ input.opacity-range {
   font-size: 9px;
   line-height: 1.45;
 }
+.color-panel-guidance {
+  display: grid;
+  gap: 3px;
+}
+.color-panel-guidance #theme-color-format {
+  color: #a9b5ca;
+}
 .color-display-switch {
   flex: 0 0 auto;
   display: flex;
@@ -1076,6 +1116,12 @@ input.opacity-range {
   box-shadow: 0 0 0 1px rgba(245, 185, 76, 0.16);
   transform: translateY(-1px);
 }
+.color-config.invalid {
+  border-color: #b64f62;
+}
+.color-config.invalid:focus-within {
+  box-shadow: 0 0 0 2px rgba(182, 79, 98, 0.18);
+}
 .recipe-toggle {
   display: flex;
   align-items: center;
@@ -1117,6 +1163,16 @@ input.opacity-range {
 }
 .color-value > input {
   flex: 1 1 auto;
+}
+.color-value > input[aria-invalid="true"] {
+  border-color: #d26072;
+  box-shadow: 0 0 0 2px rgba(182, 79, 98, 0.12);
+}
+.color-format-error {
+  grid-column: 1 / -1;
+  color: #fb91a2;
+  font-size: 8.5px;
+  line-height: 1.4;
 }
 .color-opacity-control {
   grid-column: 1 / -1;
@@ -1961,7 +2017,7 @@ input.opacity-range {
   border-top-right-radius: 0;
 }
 .mock-composer-placeholder {
-  color: color-mix(in srgb, var(--preview-muted) 70%, transparent);
+  color: var(--preview-muted, #6f7d98);
   font-size: 7px;
 }
 .mock-composer-toolbar {

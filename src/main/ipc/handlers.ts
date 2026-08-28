@@ -7,34 +7,67 @@ import {
   InstallUpdateSchema,
   LibraryIdSchema,
   PatchDraftSchema,
+  PROTOCOL_VERSION,
+  RendererReadySchema,
   ResolveImportSchema,
   RevisionSchema,
   type ErrorCode,
   type Result,
+  type SafeDetail,
 } from "../../contracts";
 import type { AppController } from "../app/controller";
+import type { MainLogger } from "../infra/main-logger";
 
-export function registerIpc(controller: AppController): void {
+export function registerIpc(
+  controller: AppController,
+  logger?: MainLogger,
+): void {
   const handle = <T, TRequest extends Record<string, unknown>>(
     channel: string,
     schema: z.ZodType<TRequest>,
     callback: (data: TRequest) => Promise<Result<T>> | Result<T>,
+    options: { bootstrap?: boolean } = {},
   ) => {
     ipcMain.handle(channel, async (event, payload) => {
       if (!authorized(event, controller))
         return error<T>("UNAUTHORIZED_RENDERER", "ipc.unauthorized");
+      if (!options.bootstrap && requestVersion(payload) !== PROTOCOL_VERSION) {
+        logger?.warn("ipc.request.versionMismatch", { channel });
+        return error<T>("IPC_VERSION_MISMATCH", "ipc.versionMismatch");
+      }
       const parsed = schema.safeParse(payload);
-      if (!parsed.success) return error<T>("IPC_INVALID", "ipc.invalid");
+      if (!parsed.success) {
+        const details = safeValidationDetails(parsed.error.issues);
+        logger?.warn("ipc.request.invalid", {
+          channel,
+          issueCodes: details.map((detail) => detail.value).join(","),
+          issuePaths: details.map((detail) => detail.key).join(","),
+        });
+        return error<T>("IPC_INVALID", "ipc.invalid", details);
+      }
       try {
-        return await callback(parsed.data);
-      } catch {
+        const result = await callback(parsed.data);
+        if (!result.ok)
+          logger?.warn("ipc.operation.failed", {
+            channel,
+            errorCode: result.error.code,
+          });
+        return result;
+      } catch (caught) {
+        logger?.error("ipc.operation.unhandled", caught, { channel });
         return error<T>("UNKNOWN", "error.unknown");
       }
     });
   };
 
-  handle("studio.rendererReady", EmptyRequestSchema, () =>
-    controller.rendererReady(),
+  handle(
+    "studio.rendererReady",
+    RendererReadySchema,
+    () => controller.rendererReady(),
+    { bootstrap: true },
+  );
+  handle("diagnostics.openLogs", EmptyRequestSchema, () =>
+    controller.openLogDirectory(),
   );
   handle("studio.getSnapshot", EmptyRequestSchema, () =>
     controller.getStudioSnapshot(),
@@ -141,6 +174,30 @@ function authorized(
   );
 }
 
-function error<T>(code: ErrorCode, messageKey: string): Result<T> {
-  return { ok: false, error: { code, messageKey } };
+function error<T>(
+  code: ErrorCode,
+  messageKey: string,
+  details?: SafeDetail[],
+): Result<T> {
+  return {
+    ok: false,
+    error: {
+      code,
+      messageKey,
+      ...(details?.length ? { details } : {}),
+    },
+  };
+}
+
+function requestVersion(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload))
+    return undefined;
+  return (payload as Record<string, unknown>).v;
+}
+
+function safeValidationDetails(issues: z.core.$ZodIssue[]): SafeDetail[] {
+  return issues.slice(0, 8).map((issue) => ({
+    key: issue.path.length ? issue.path.join(".") : "request",
+    value: issue.code,
+  }));
 }

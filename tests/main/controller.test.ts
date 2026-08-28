@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+const { shellOpenPath } = vi.hoisted(() => ({ shellOpenPath: vi.fn() }));
+
 vi.mock("electron", () => ({
   app: { getPath: vi.fn(() => "C:\\Temp") },
   BrowserWindow: class BrowserWindow {},
@@ -9,6 +11,7 @@ vi.mock("electron", () => ({
   net: { fetch: vi.fn() },
   protocol: { handle: vi.fn() },
   session: { defaultSession: { clearCache: vi.fn() } },
+  shell: { openPath: shellOpenPath },
   Tray: class Tray {},
 }));
 
@@ -16,6 +19,25 @@ import { AppController, withoutCache } from "../../src/main/app/controller";
 import { MainOperationGate } from "../../src/main/app/operation-gate";
 
 describe("AppController", () => {
+  it("opens the configured diagnostic log directory", async () => {
+    const controller = Object.create(AppController.prototype) as AppController;
+    const logger = {
+      directory: "C:\\Temp\\CodexStyle\\logs",
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    Object.assign(controller as object, { logger });
+    shellOpenPath.mockReset().mockResolvedValue("");
+
+    await expect(controller.openLogDirectory()).resolves.toEqual({
+      ok: true,
+      data: true,
+    });
+
+    expect(shellOpenPath).toHaveBeenCalledWith(logger.directory);
+    expect(logger.info).toHaveBeenCalledWith("diagnostics.logs.opened");
+  });
+
   it("prevents stable app URLs from serving stale renderer assets", async () => {
     const response = withoutCache(
       new Response("current renderer", {

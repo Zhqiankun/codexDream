@@ -9,7 +9,9 @@ import {
   type ImportResult,
   type Result,
   type SessionState,
+  type StudioRuntimeInfo,
   type ThemeDetail,
+  type ThemePatch,
   type ThemeSnapshot,
   type UpdateSnapshot,
 } from "../../contracts";
@@ -20,9 +22,12 @@ import {
   type StudioTab,
 } from "../features/studio/StudioControls";
 import { SendIconGlyph } from "../features/studio/SendIconGlyph";
+import { isStudioThemeColor } from "../features/studio/theme-color-input";
 
-const PREVIEW_COLOR_PATTERN =
-  /^(#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|#[0-9a-fA-F]{3,4}|rgb\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*\)|rgba\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*(?:0|1|1\.0|0?\.[0-9]{1,6})\s*\))$/u;
+const MAX_CSS_CHARACTERS = 262_144;
+const MAX_CSS_BYTES = 256 * 1024;
+const RENDERER_PROTOCOL_VERSION = 2;
+const cssTextEncoder = new TextEncoder();
 
 type View = "library" | "session";
 type PreviewPage = "home" | "conversation";
@@ -67,8 +72,13 @@ const errorMessages: Record<string, string> = {
     "应用内更新仅支持正式安装的 Windows 版本；开发版或 ZIP 便携版请手动更新。",
   "update.openFailed": "无法打开下载页面，请前往项目的 GitHub Releases。",
   "ipc.busy": "另一项操作正在进行，请稍后再试。",
-  "ipc.invalid": "请求内容无效，请重试。",
+  "ipc.invalid":
+    "请求内容无效；如果刚完成覆盖安装，请从托盘完全退出 CodexStyle 后重新打开。",
+  "ipc.versionMismatch":
+    "检测到新旧版本组件同时运行，请从托盘完全退出 CodexStyle 后重新打开。",
   "ipc.unauthorized": "当前页面无权执行此操作。",
+  "diagnostics.logsUnavailable": "诊断日志当前不可用。",
+  "diagnostics.logsOpenFailed": "无法打开日志目录，请稍后重试。",
   "session.externalRunning": "外部 Codex 正在运行，请自行关闭后再试。",
   "session.storePackageNotFound": "未找到受支持的 Microsoft Store Codex。",
   "session.launchFailed": "Windows 未能启动 Store Codex，请重试。",
@@ -105,6 +115,16 @@ const errorMessages: Record<string, string> = {
 
 function messageForError(messageKey: string): string {
   return errorMessages[messageKey] ?? "操作未完成，请重试。";
+}
+
+function isCompatibleRuntime(value: unknown): value is StudioRuntimeInfo {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const runtime = value as Partial<StudioRuntimeInfo>;
+  return (
+    typeof runtime.appVersion === "string" &&
+    runtime.appVersion.length > 0 &&
+    runtime.protocolVersion === RENDERER_PROTOCOL_VERSION
+  );
 }
 
 function messageForImport(result: ImportResult): string {
@@ -190,6 +210,7 @@ export function App() {
   const [dismissedUpdateVersion, setDismissedUpdateVersion] =
     useState<string>();
   const [busy, setBusy] = useState(false);
+  const [runtimeMismatch, setRuntimeMismatch] = useState(false);
   const selectedLibraryIdRef = useRef<string | undefined>(undefined);
   const selectedRevisionRef = useRef<number | undefined>(undefined);
 
@@ -232,21 +253,36 @@ export function App() {
   };
 
   useEffect(() => {
-    void bridge.rendererReady();
-    void refresh();
-    return bridge.onStateChanged((next) => {
-      setSnapshot(next);
-      const libraryId = selectedLibraryIdRef.current;
-      const summary = next.themes.find(
-        (theme) => theme.libraryId === libraryId,
-      );
-      if (libraryId && summary?.revision !== selectedRevisionRef.current)
-        void bridge.getTheme({ libraryId }).then((result) => {
-          if (result.ok) {
-            adoptSelectedDetail(result.data);
-          }
+    let disposed = false;
+    let unsubscribe: () => void = () => undefined;
+    void (async () => {
+      try {
+        const runtime = await bridge.rendererReady();
+        if (disposed) return;
+        if (!runtime.ok || !isCompatibleRuntime(runtime.data)) {
+          setRuntimeMismatch(true);
+          return;
+        }
+        unsubscribe = bridge.onStateChanged((next) => {
+          setSnapshot(next);
+          const libraryId = selectedLibraryIdRef.current;
+          const summary = next.themes.find(
+            (theme) => theme.libraryId === libraryId,
+          );
+          if (libraryId && summary?.revision !== selectedRevisionRef.current)
+            void bridge.getTheme({ libraryId }).then((result) => {
+              if (result.ok) adoptSelectedDetail(result.data);
+            });
         });
-    });
+        await refresh();
+      } catch {
+        if (!disposed) setRuntimeMismatch(true);
+      }
+    })();
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
   }, []);
 
   const run = async <T,>(
@@ -361,6 +397,15 @@ export function App() {
       },
     );
 
+  const openLogDirectory = async () => {
+    try {
+      const opened = unwrap(await bridge.openLogDirectory(), report);
+      if (opened) report("已打开日志目录；诊断日志自动保留 7 天。");
+    } catch {
+      report(messageForError("diagnostics.logsOpenFailed"));
+    }
+  };
+
   const activateTheme = (theme: ThemeSnapshot["themes"][number]) => {
     if (theme.status !== "ready") {
       report("请先保存主题，再双击启用。");
@@ -394,6 +439,8 @@ export function App() {
     );
   };
 
+  if (runtimeMismatch) return <RuntimeMismatch />;
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -405,6 +452,14 @@ export function App() {
           <span>本地主题工作台</span>
         </div>
         <div className="topbar-spacer" />
+        <button
+          className="icon-button"
+          title="打开诊断日志目录"
+          aria-label="打开诊断日志目录"
+          onClick={() => void openLogDirectory()}
+        >
+          ▤
+        </button>
         <div
           className={`session-pill state-${snapshot?.session.state ?? "NO_SESSION"}`}
         >
@@ -765,6 +820,28 @@ function serializeThemeJson(detail: ThemeDetail): string {
   return JSON.stringify(source, null, 2);
 }
 
+function buildThemePatch(draft: ThemeDetail): ThemePatch {
+  return {
+    name: draft.name,
+    description: draft.description,
+    ...(draft.styleConfig.mode === "advanced" ? { css: draft.css } : {}),
+    themeId: draft.themeId,
+    backgroundScope: draft.backgroundScope,
+    sidebarOverlayOpacity: draft.sidebarOverlayOpacity,
+    appearance: draft.appearance,
+    art: draft.art,
+    colors: draft.colors,
+    styleConfig: draft.styleConfig,
+  };
+}
+
+function cssFitsPatchContract(css: string): boolean {
+  return (
+    css.length <= MAX_CSS_CHARACTERS &&
+    cssTextEncoder.encode(css).byteLength <= MAX_CSS_BYTES
+  );
+}
+
 function StudioView({
   detail,
   summary,
@@ -804,19 +881,23 @@ function StudioView({
   }, [draft, themeJsonDirty]);
   const cssChanged =
     draft.styleConfig.mode === "advanced" && draft.css !== detail.css;
-  const colorsValid = Object.values(draft.colors).every((value) =>
-    PREVIEW_COLOR_PATTERN.test(value),
-  );
-  // The main process is the source of truth for CSS validation; unsaved text
-  // must never be injected into the preview.
+  const colorsValid = Object.values(draft.colors).every(isStudioThemeColor);
+  const cssContractValid =
+    draft.styleConfig.mode === "configured" || cssFitsPatchContract(draft.css);
+  // The main process is the source of truth for CSS safety. Renderer preflight
+  // only enforces the IPC size contract, and unsaved text is never previewed.
+  const previewCssValid = !cssChanged && draft.validation.css === "valid";
   const cssValid =
-    (draft.styleConfig.mode === "configured" && colorsValid) ||
-    (!cssChanged && draft.validation.css === "valid");
+    draft.styleConfig.mode === "configured"
+      ? colorsValid
+      : cssContractValid && (cssChanged || previewCssValid);
   useEffect(() => {
     if (previewStyleRef.current)
       previewStyleRef.current.textContent =
-        draft.styleConfig.mode === "advanced" && cssValid ? draft.css : "";
-  }, [cssValid, draft.css, draft.styleConfig.mode]);
+        draft.styleConfig.mode === "advanced" && previewCssValid
+          ? draft.css
+          : "";
+  }, [draft.css, draft.styleConfig.mode, previewCssValid]);
   const structuredChanged =
     draft.appearance !== detail.appearance ||
     JSON.stringify(draft.art) !== JSON.stringify(detail.art) ||
@@ -830,6 +911,15 @@ function StudioView({
     draft.backgroundScope !== detail.backgroundScope ||
     draft.sidebarOverlayOpacity !== detail.sidebarOverlayOpacity ||
     structuredChanged;
+  const draftPatch = buildThemePatch(draft);
+  const canPersistDraft = !themeJsonDirty && colorsValid && cssContractValid;
+  const persistenceDisabledReason = themeJsonDirty
+    ? "请先校验并应用高级配置，或恢复当前配置"
+    : !colorsValid
+      ? "请先修正标为无效的颜色值"
+      : !cssContractValid
+        ? "CSS 不能超过 262,144 个字符或 256 KiB"
+        : undefined;
   const selectedForNextLaunch = Boolean(summary?.selectedForNextLaunch);
   const canSelectForNextLaunch =
     detail.status === "ready" &&
@@ -843,18 +933,6 @@ function StudioView({
     setThemeJsonError(undefined);
     onDetailChanged(next);
   };
-  const patchFields = () => ({
-    name: draft.name,
-    description: draft.description,
-    ...(draft.styleConfig.mode === "advanced" ? { css: draft.css } : {}),
-    themeId: draft.themeId,
-    backgroundScope: draft.backgroundScope,
-    sidebarOverlayOpacity: draft.sidebarOverlayOpacity,
-    appearance: draft.appearance,
-    art: draft.art,
-    colors: draft.colors,
-    styleConfig: draft.styleConfig,
-  });
   const persistAnd = async <T,>(
     action: (current: ThemeDetail) => Promise<Result<T>>,
     onSuccess?: (data: T) => void,
@@ -864,12 +942,24 @@ function StudioView({
       setStudioTab("theme-json");
       return;
     }
+    if (!canPersistDraft) {
+      if (!colorsValid) {
+        report("颜色格式无效，请按字段提示修正后再试。");
+        setStudioTab("design");
+      } else if (!cssContractValid) {
+        report("CSS 超出 262,144 个字符或 256 KiB，请缩短后再试。");
+        setStudioTab("css");
+      } else {
+        report("主题字段未通过保存格式检查，请修正后再试。");
+      }
+      return;
+    }
     const current = changed
       ? await run(() =>
           bridge.patchDraft({
             libraryId: detail.libraryId,
             expectedRevision: detail.revision,
-            patch: patchFields(),
+            patch: draftPatch,
           }),
         )
       : detail;
@@ -896,7 +986,7 @@ function StudioView({
       bridge.patchDraft({
         libraryId: selectedBackground.libraryId,
         expectedRevision: selectedBackground.revision,
-        patch: patchFields(),
+        patch: draftPatch,
       }),
     );
     if (updated) applyDetail(updated);
@@ -923,7 +1013,7 @@ function StudioView({
         libraryId: selectedIcon.libraryId,
         expectedRevision: selectedIcon.revision,
         patch: {
-          ...patchFields(),
+          ...draftPatch,
           styleConfig: {
             ...draft.styleConfig,
             sendIcon: "custom",
@@ -1011,17 +1101,24 @@ function StudioView({
         </div>
         <div className="heading-actions">
           <span className={`validation-chip ${cssValid ? "good" : "bad"}`}>
-            {cssValid
-              ? draft.styleConfig.mode === "configured"
-                ? "主题配置已通过"
-                : "安全样式已通过"
-              : draft.styleConfig.mode === "configured"
-                ? "需要修正颜色"
-                : "需要修正 CSS"}
+            {draft.styleConfig.mode === "advanced" &&
+            cssChanged &&
+            cssContractValid
+              ? "CSS 将在保存时校验"
+              : cssValid
+                ? draft.styleConfig.mode === "configured"
+                  ? "主题配置已通过"
+                  : "安全样式已通过"
+                : draft.styleConfig.mode === "configured"
+                  ? "需要修正颜色"
+                  : cssContractValid
+                    ? "需要修正 CSS"
+                    : "CSS 超出大小限制"}
           </span>
           <button
             className="secondary-button"
-            disabled={busy || themeJsonDirty}
+            disabled={busy || !canPersistDraft}
+            title={persistenceDisabledReason}
             onClick={() =>
               void persistAnd((current) =>
                 bridge.exportZip({
@@ -1037,8 +1134,11 @@ function StudioView({
           </button>
           <button
             className="secondary-button"
-            disabled={busy || themeJsonDirty}
-            title="适用于 v1.0.x 至 v1.2.x；会移除六个新颜色字段，并拒绝旧版不支持的高级 CSS"
+            disabled={busy || !canPersistDraft}
+            title={
+              persistenceDisabledReason ??
+              "适用于 v1.0.x 至 v1.2.x；会移除六个新颜色字段，并拒绝旧版不支持的高级 CSS"
+            }
             onClick={() =>
               void persistAnd((current) =>
                 bridge.exportZip({
@@ -1054,11 +1154,11 @@ function StudioView({
           {detail.packageFormat === "formal" && (
             <button
               className="secondary-button"
-              disabled={busy || changed || themeJsonDirty}
+              disabled={busy || changed || !canPersistDraft}
               title={
                 changed
                   ? "主题已经编辑，不能再原样重建导入时的正式包"
-                  : "导出导入时的原始正式包"
+                  : (persistenceDisabledReason ?? "导出导入时的原始正式包")
               }
               onClick={() =>
                 void run(() =>
@@ -1087,7 +1187,8 @@ function StudioView({
           </button>
           <button
             className="primary-button"
-            disabled={busy || themeJsonDirty}
+            disabled={busy || !canPersistDraft}
+            title={persistenceDisabledReason}
             onClick={() =>
               void persistAnd((current) =>
                 bridge.commit({
@@ -1111,6 +1212,7 @@ function StudioView({
           draft={draft}
           busy={busy}
           cssValid={cssValid}
+          cssContractValid={cssContractValid}
           backgroundKey={backgroundKey}
           tab={studioTab}
           themeJsonSource={themeJsonSource}
@@ -1871,5 +1973,26 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         创建第一个主题
       </button>
     </div>
+  );
+}
+
+function RuntimeMismatch() {
+  return (
+    <main className="runtime-mismatch" role="alert">
+      <div className="runtime-mismatch-card">
+        <div className="brand-mark" aria-hidden="true">
+          C
+        </div>
+        <p className="eyebrow">CODEXSTYLE VERSION CHECK</p>
+        <h1>检测到新旧版本组件同时运行</h1>
+        <p>
+          覆盖安装时，旧版 CodexStyle
+          可能仍停留在系统托盘。为了避免保存请求被旧主进程拒绝，请先从托盘彻底退出
+          CodexStyle；如果托盘中没有图标，请在任务管理器结束所有
+          CodexStyle.exe，再重新打开。
+        </p>
+        <p className="muted">主题和本地配置不会因此被删除。</p>
+      </div>
+    </main>
   );
 }

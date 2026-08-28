@@ -62,6 +62,7 @@ describe("preload public boundary", () => {
       "installUpdate",
       "launchSession",
       "onStateChanged",
+      "openLogDirectory",
       "openUpdatePage",
       "patchDraft",
       "pauseSession",
@@ -73,7 +74,7 @@ describe("preload public boundary", () => {
     ]);
     expect(api).not.toHaveProperty("invoke");
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
-      v: 1,
+      v: 2,
     });
 
     await api.rendererReady();
@@ -81,11 +82,16 @@ describe("preload public boundary", () => {
       v: 1,
     });
 
+    await api.openLogDirectory();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("diagnostics.openLogs", {
+      v: 2,
+    });
+
     await api.cancelUpdate();
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 1 });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 2 });
     await api.installUpdate({ mode: "now" });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.install", {
-      v: 1,
+      v: 2,
       mode: "now",
     });
   });

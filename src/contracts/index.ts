@@ -11,7 +11,8 @@ import { isThemeIconDataUrl } from "./send-icon";
 export * from "./theme-config";
 export * from "./send-icon";
 
-export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION = 2 as const;
+export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
 export const DEFAULT_SIDEBAR_OVERLAY_OPACITY = 75;
@@ -19,6 +20,7 @@ export const SIDEBAR_OVERLAY_RGB = "15 23 42";
 
 export type ErrorCode =
   | "IPC_INVALID"
+  | "IPC_VERSION_MISMATCH"
   | "UNAUTHORIZED_RENDERER"
   | "OPERATION_BUSY"
   | "PAUSED"
@@ -51,6 +53,11 @@ export type ErrorCode =
 export interface SafeDetail {
   key: string;
   value?: string;
+}
+
+export interface StudioRuntimeInfo {
+  appVersion: string;
+  protocolVersion: typeof PROTOCOL_VERSION;
 }
 
 export type Result<T> =
@@ -255,6 +262,9 @@ const ThemeStyleConfigSchema = z
   );
 
 export const EmptyRequestSchema = z.object(VersionField).strict();
+export const RendererReadySchema = z
+  .object({ v: z.literal(BOOTSTRAP_PROTOCOL_VERSION) })
+  .strict();
 export const InstallUpdateSchema = z
   .object({ ...VersionField, mode: z.enum(["now", "on-quit"]) })
   .strict();
@@ -325,7 +335,8 @@ export const ExportSchema = z
   .strict();
 
 export interface CodexStyleApi {
-  rendererReady(): Promise<Result<boolean>>;
+  rendererReady(): Promise<Result<StudioRuntimeInfo>>;
+  openLogDirectory(): Promise<Result<boolean>>;
   getSnapshot(): Promise<Result<ThemeSnapshot>>;
   getTheme(
     request: Omit<z.infer<typeof LibraryIdSchema>, "v">,

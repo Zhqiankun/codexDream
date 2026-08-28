@@ -48,6 +48,14 @@ interface StoreJournal {
   createdAt: string;
 }
 
+interface PreparedBackground {
+  fileName: string;
+  data: Buffer;
+  mime: string;
+  sha256: string;
+  bytes: number;
+}
+
 const DEFAULT_CSS = `[data-ds-part="root"] {\n  background-color: #111827;\n  color: #e5e7eb;\n}\n[data-ds-part="sidebar"] {\n  background-color: #0f172a;\n  border-color: #334155;\n}\n[data-ds-part="composer"]:hover {\n  background-color: #334155;\n}`;
 const MAX_CSS_BYTES = 256 * 1024;
 
@@ -150,6 +158,7 @@ export class LocalThemeStore {
   async createDraft(name = "Untitled theme"): Promise<ThemeRecord> {
     const libraryId = randomUUID();
     const now = new Date().toISOString();
+    const background = await createTransparentBackground(libraryId);
     const configuration = cloneThemeConfiguration({
       appearance: "auto",
       art: DEFAULT_THEME_ART,
@@ -172,12 +181,16 @@ export class LocalThemeStore {
           id: `local-${libraryId.slice(0, 8)}`,
           name: name || "Untitled theme",
           description: "",
-          image: "background.png",
+          image: background.fileName,
           backgroundScope: DEFAULT_BACKGROUND_SCOPE,
           sidebarOverlayOpacity: DEFAULT_SIDEBAR_OVERLAY_OPACITY,
         },
         configuration,
       ),
+      backgroundFile: background.fileName,
+      backgroundMime: background.mime,
+      backgroundSha256: background.sha256,
+      backgroundBytes: background.bytes,
       status: "draft",
       revision: 1,
       updatedAt: now,
@@ -186,15 +199,35 @@ export class LocalThemeStore {
       signed: false,
       validation: {
         css: validation.valid && !validation.empty ? "valid" : "invalid",
-        image: "missing",
+        image: "valid",
         package: "draft",
         warnings: [],
       },
     };
-    return this.mutate(() => {
+
+    const before = this.captureState();
+    const backgroundFile = managedThemeFile(background.fileName);
+    let backgroundWriteAttempted = false;
+    let persistAttempted = false;
+    try {
+      if (this.managedStore.readFile(backgroundFile) !== undefined)
+        throw new Error("STORE_TAMPERED:theme-file-conflict");
+      backgroundWriteAttempted = true;
+      this.managedStore.writeFileAtomic(backgroundFile, background.data);
+      this.backgrounds.set(libraryId, Buffer.from(background.data));
       this.index.themes.unshift(record);
+      persistAttempted = true;
+      await this.persist();
       return record;
-    });
+    } catch (error) {
+      return this.rollbackBackgroundMutation(
+        before,
+        background.fileName,
+        backgroundWriteAttempted,
+        persistAttempted,
+        error,
+      );
+    }
   }
 
   async patch(
@@ -341,6 +374,47 @@ export class LocalThemeStore {
     const cssValidation = validateSafeCss(theme.css);
     if (!cssValidation.valid || cssValidation.empty)
       throw new Error(cssValidation.empty ? "INCOMPLETE_THEME" : "UNSAFE_CSS");
+
+    if (isLegacyBackgroundlessDraft(theme)) {
+      const background = await createTransparentBackground(libraryId);
+      const before = this.captureState();
+      const backgroundFile = managedThemeFile(background.fileName);
+      let backgroundWriteAttempted = false;
+      let persistAttempted = false;
+      try {
+        if (this.managedStore.readFile(backgroundFile) !== undefined)
+          throw new Error("STORE_TAMPERED:theme-file-conflict");
+        backgroundWriteAttempted = true;
+        this.managedStore.writeFileAtomic(backgroundFile, background.data);
+        this.backgrounds.set(libraryId, Buffer.from(background.data));
+        theme.backgroundFile = background.fileName;
+        theme.backgroundMime = background.mime;
+        theme.backgroundSha256 = background.sha256;
+        theme.backgroundBytes = background.bytes;
+        theme.json = { ...theme.json, image: background.fileName };
+        theme.validation.image = "valid";
+        await this.validateThemePayload(theme);
+        theme.validation.css = "valid";
+        theme.validation.package = "ready";
+        theme.validation.warnings = [];
+        theme.status = "ready";
+        theme.fingerprint = this.fingerprint(theme);
+        theme.revision += 1;
+        theme.updatedAt = new Date().toISOString();
+        persistAttempted = true;
+        await this.persist();
+        return theme;
+      } catch (error) {
+        return this.rollbackBackgroundMutation(
+          before,
+          background.fileName,
+          backgroundWriteAttempted,
+          persistAttempted,
+          error,
+        );
+      }
+    }
+
     await this.validateThemePayload(theme);
     return this.mutate(() => {
       theme.validation.css = "valid";
@@ -545,6 +619,71 @@ export class LocalThemeStore {
   }): void {
     this.index = state.index;
     this.backgrounds = state.backgrounds;
+  }
+
+  private async rollbackBackgroundMutation(
+    before: { index: ThemeIndex; backgrounds: Map<string, Buffer> },
+    fileName: string,
+    backgroundWriteAttempted: boolean,
+    persistAttempted: boolean,
+    originalError: unknown,
+  ): Promise<never> {
+    this.restoreState(before);
+    try {
+      if (persistAttempted) await this.restorePersistedIndex(before.index);
+      if (backgroundWriteAttempted) this.removeUncommittedBackground(fileName);
+    } catch (rollbackError) {
+      throw new Error("STORE_TAMPERED:background-rollback", {
+        cause: rollbackError,
+      });
+    }
+    throw originalError;
+  }
+
+  private async restorePersistedIndex(index: ThemeIndex): Promise<void> {
+    const current = this.managedStore.readFile(MANAGED_FILES.index);
+    if (!current || !indexPayloadMatches(current, index)) {
+      try {
+        await this.persist();
+      } catch (error) {
+        const restored = this.managedStore.readFile(MANAGED_FILES.index);
+        if (!restored || !indexPayloadMatches(restored, index)) throw error;
+      }
+    }
+    await this.removeTransactionArtifacts(index);
+    const restored = this.managedStore.readFile(MANAGED_FILES.index);
+    if (!restored || !indexPayloadMatches(restored, index))
+      throw new Error("STORE_TAMPERED:index-rollback");
+  }
+
+  private async removeTransactionArtifacts(index: ThemeIndex): Promise<void> {
+    if (
+      this.managedStore.readFile(MANAGED_FILES.journal) === undefined &&
+      this.managedStore.readFile(MANAGED_FILES.backup) === undefined
+    )
+      return;
+    const release = await this.acquireLock();
+    try {
+      const current = this.managedStore.readFile(MANAGED_FILES.index);
+      if (!current || !indexPayloadMatches(current, index))
+        throw new Error("STORE_TAMPERED:index-rollback");
+      for (const file of [MANAGED_FILES.journal, MANAGED_FILES.backup]) {
+        if (this.managedStore.readFile(file) === undefined) continue;
+        this.managedStore.removeFile(file);
+        if (this.managedStore.readFile(file) !== undefined)
+          throw new Error("STORE_TAMPERED:transaction-rollback");
+      }
+    } finally {
+      await release();
+    }
+  }
+
+  private removeUncommittedBackground(fileName: string): void {
+    const file = managedThemeFile(fileName);
+    if (this.managedStore.readFile(file) === undefined) return;
+    this.managedStore.removeFile(file);
+    if (this.managedStore.readFile(file) !== undefined)
+      throw new Error("STORE_TAMPERED:background-rollback");
   }
 
   private async mutate<T>(operation: () => T | Promise<T>): Promise<T> {
@@ -866,6 +1005,57 @@ export class LocalThemeStore {
 
 export function diskTheme(record: ThemeRecord): DiskTheme {
   return { record };
+}
+
+async function createTransparentBackground(
+  libraryId: string,
+): Promise<PreparedBackground> {
+  const fileName = `${libraryId}.png`;
+  const data = await sharp({
+    create: {
+      width: 1,
+      height: 1,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .png()
+    .toBuffer();
+  const verified = await validateImage(data, fileName);
+  return {
+    fileName,
+    data,
+    mime: verified.mime,
+    sha256: verified.sha256,
+    bytes: verified.bytes,
+  };
+}
+
+function isLegacyBackgroundlessDraft(theme: ThemeRecord): boolean {
+  return (
+    theme.status === "draft" &&
+    theme.packageFormat === "simplified" &&
+    theme.importedFormal === undefined &&
+    theme.fingerprint === "" &&
+    theme.validation.image === "missing" &&
+    theme.validation.package === "draft" &&
+    theme.backgroundFile === undefined &&
+    theme.backgroundMime === undefined &&
+    theme.backgroundSha256 === undefined &&
+    theme.backgroundBytes === undefined &&
+    theme.json.image === "background.png"
+  );
+}
+
+function indexPayloadMatches(data: Buffer, index: ThemeIndex): boolean {
+  try {
+    const parsed = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(data),
+    ) as unknown;
+    return JSON.stringify(parsed) === JSON.stringify(index);
+  } catch {
+    return false;
+  }
 }
 
 function sha256(data: Buffer): string {

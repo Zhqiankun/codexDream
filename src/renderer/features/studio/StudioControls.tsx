@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import type {
-  ThemeAppearance,
-  ThemeColors,
-  ThemeDetail,
-  ThemeSafeArea,
-  ThemeSendIcon,
-  ThemeShadow,
-  ThemeStyleMode,
-  ThemeTaskMode,
+import {
+  type ThemeAppearance,
+  type ThemeColors,
+  type ThemeDetail,
+  type ThemeSafeArea,
+  type ThemeSendIcon,
+  type ThemeShadow,
+  type ThemeStyleMode,
+  type ThemeTaskMode,
 } from "../../../contracts";
 import { SendIconGlyph } from "./SendIconGlyph";
+import { isStudioThemeColor } from "./theme-color-input";
 import {
   applyThemePreset,
   isThemePresetActive,
@@ -23,6 +24,7 @@ interface StudioControlsProps {
   draft: ThemeDetail;
   busy: boolean;
   cssValid: boolean;
+  cssContractValid: boolean;
   backgroundKey: string;
   tab: StudioTab;
   themeJsonSource: string;
@@ -108,7 +110,11 @@ const colorGroups: ReadonlyArray<{
     title: "操作与状态",
     hint: "按钮、焦点与选择反馈",
     fields: [
-      { key: "accent", label: "发送按钮", hint: "主要操作" },
+      {
+        key: "accent",
+        label: "权限状态与发送按钮",
+        hint: "“完全访问”等权限状态与主要提交操作",
+      },
       {
         key: "accentAlt",
         label: "输入框焦点边框",
@@ -116,8 +122,8 @@ const colorGroups: ReadonlyArray<{
       },
       {
         key: "secondary",
-        label: "输入框工具栏",
-        hint: "加号、模型与麦克风",
+        label: "输入框工具栏文字",
+        hint: "加号、模型与音频等次要操作",
       },
       { key: "highlight", label: "选中文字背景", hint: "文本选区" },
     ],
@@ -127,7 +133,11 @@ const colorGroups: ReadonlyArray<{
     hint: "主要内容和结构线",
     fields: [
       { key: "text", label: "正文文字", hint: "页面主要内容" },
-      { key: "muted", label: "说明文字", hint: "时间、占位与辅助信息" },
+      {
+        key: "muted",
+        label: "输入占位与说明文字",
+        hint: "“随心输入”、时间与其他辅助信息",
+      },
       { key: "line", label: "边框与分隔线", hint: "卡片边界和分隔" },
     ],
   },
@@ -155,6 +165,7 @@ export function StudioControls({
   draft,
   busy,
   cssValid,
+  cssContractValid,
   backgroundKey,
   tab,
   themeJsonSource,
@@ -210,6 +221,7 @@ export function StudioControls({
           draft={draft}
           busy={busy}
           cssValid={cssValid}
+          cssContractValid={cssContractValid}
           onDraftChange={onDraftChange}
           onChooseSendIcon={onChooseSendIcon}
         />
@@ -487,9 +499,15 @@ function DesignPanel({
         {section === "colors" && (
           <StudioSection title="主题颜色" meta="18 项 · 均支持透明度">
             <div className="color-panel-toolbar">
-              <p>
-                将鼠标移到设置上，或用键盘聚焦控件，右侧会标出受影响的位置。
-              </p>
+              <div className="color-panel-guidance">
+                <p>
+                  将鼠标移到设置上，或用键盘聚焦控件，右侧会标出受影响的位置。
+                </p>
+                <p id="theme-color-format">
+                  格式支持 #RGB、#RGBA、#RRGGBB、#RRGGBBAA、rgb(r, g, b) 或
+                  rgba(r, g, b, a)。
+                </p>
+              </div>
               <div
                 className="color-display-switch"
                 role="group"
@@ -529,9 +547,13 @@ function DesignPanel({
                     <div className="color-config-grid">
                       {group.fields.map(({ key, label, hint }) => {
                         const opacity = toColorOpacity(draft.colors[key]);
+                        const colorValid = isStudioThemeColor(
+                          draft.colors[key],
+                        );
+                        const errorId = `theme-color-${key}-error`;
                         return (
                           <div
-                            className="color-config"
+                            className={`color-config ${colorValid ? "" : "invalid"}`}
                             key={key}
                             data-color-key={key}
                             onMouseEnter={() => setHoveredColorTarget(key)}
@@ -590,6 +612,12 @@ function DesignPanel({
                               <input
                                 value={draft.colors[key]}
                                 aria-label={`${label}颜色`}
+                                aria-invalid={!colorValid}
+                                aria-describedby={
+                                  colorValid
+                                    ? "theme-color-format"
+                                    : `theme-color-format ${errorId}`
+                                }
                                 onChange={(event) =>
                                   update({
                                     colors: {
@@ -600,6 +628,16 @@ function DesignPanel({
                                 }
                               />
                             </span>
+                            {!colorValid && (
+                              <span
+                                className="color-format-error"
+                                id={errorId}
+                                role="alert"
+                              >
+                                格式无效，请使用上方列出的十六进制、rgb() 或
+                                rgba() 格式。
+                              </span>
+                            )}
                             <label className="color-opacity-control">
                               <span>透明度</span>
                               <input
@@ -645,11 +683,17 @@ function CssPanel({
   draft,
   busy,
   cssValid,
+  cssContractValid,
   onDraftChange,
   onChooseSendIcon,
 }: Pick<
   StudioControlsProps,
-  "draft" | "busy" | "cssValid" | "onDraftChange" | "onChooseSendIcon"
+  | "draft"
+  | "busy"
+  | "cssValid"
+  | "cssContractValid"
+  | "onDraftChange"
+  | "onChooseSendIcon"
 >) {
   const updateMode = (mode: ThemeStyleMode) =>
     onDraftChange({
@@ -817,14 +861,18 @@ function CssPanel({
             className={`css-editor ${cssValid ? "" : "invalid"}`}
             spellCheck={false}
             value={draft.css}
+            maxLength={262_144}
             onChange={(event) =>
               onDraftChange({ ...draft, css: event.target.value })
             }
             aria-label="Safe CSS 编辑器"
+            aria-invalid={!cssContractValid}
           />
           {!cssValid && (
             <p className="field-error">
-              {draft.validation.warnings.join("、") || "CSS 不符合安全规则"}
+              {!cssContractValid
+                ? "CSS 不能超过 262,144 个字符或 256 KiB。"
+                : draft.validation.warnings.join("、") || "CSS 不符合安全规则"}
             </p>
           )}
         </StudioSection>

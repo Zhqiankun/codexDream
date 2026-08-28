@@ -9,12 +9,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  CodexStyleApi,
-  ImportResult,
-  Result,
-  ThemeDetail,
-  ThemeSnapshot,
+import {
+  PatchDraftSchema,
+  PROTOCOL_VERSION,
+  type CodexStyleApi,
+  type ImportResult,
+  type Result,
+  type ThemeDetail,
+  type ThemeSnapshot,
 } from "../../src/contracts";
 import { App } from "../../src/renderer/app/App";
 
@@ -112,7 +114,11 @@ const snapshot: ThemeSnapshot = {
 
 function makeApi() {
   const api = {
-    rendererReady: vi.fn().mockResolvedValue({ ok: true, data: true }),
+    rendererReady: vi.fn().mockResolvedValue({
+      ok: true,
+      data: { appVersion: "1.3.3", protocolVersion: 2 },
+    }),
+    openLogDirectory: vi.fn().mockResolvedValue({ ok: true, data: true }),
     getSnapshot: vi.fn().mockResolvedValue({ ok: true, data: snapshot }),
     getTheme: vi.fn().mockResolvedValue({ ok: true, data: theme }),
     createDraft: vi.fn(),
@@ -204,6 +210,39 @@ describe("Studio renderer", () => {
     expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
       "src/renderer/styles/global.css",
     );
+  });
+
+  it("opens the bounded diagnostic log directory from the top bar", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "打开诊断日志目录" }),
+    );
+
+    await waitFor(() => expect(api.openLogDirectory).toHaveBeenCalledOnce());
+    expect(
+      await screen.findByText("已打开日志目录；诊断日志自动保留 7 天。"),
+    ).toBeInTheDocument();
+  });
+
+  it("blocks a renderer loaded by an incompatible resident main process", async () => {
+    const api = makeApi();
+    api.rendererReady.mockResolvedValue({
+      ok: true,
+      data: true as never,
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "检测到新旧版本组件同时运行",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/从托盘彻底退出 CodexStyle/u)).toBeInTheDocument();
+    expect(api.getSnapshot).not.toHaveBeenCalled();
   });
 
   it("downloads a verified update internally and offers installation choices", async () => {
@@ -388,7 +427,9 @@ describe("Studio renderer", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("页面背景颜色")).toHaveValue("#071b22"),
     );
-    expect(screen.getByLabelText("发送按钮颜色")).toHaveValue("#5eead4");
+    expect(screen.getByLabelText("权限状态与发送按钮颜色")).toHaveValue(
+      "#5eead4",
+    );
     fireEvent.click(screen.getByRole("tab", { name: "基础" }));
     expect(screen.getByDisplayValue("Midnight Copper")).toBeInTheDocument();
     expect(
@@ -537,6 +578,40 @@ describe("Studio renderer", () => {
         }),
       }),
     );
+    const request = api.patchDraft.mock.calls.at(-1)?.[0];
+    expect(
+      PatchDraftSchema.safeParse({ v: PROTOCOL_VERSION, ...request }).success,
+    ).toBe(true);
+  });
+
+  it("blocks configured-theme persistence until every color uses a supported format", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "组件样式" }));
+    fireEvent.click(screen.getByRole("button", { name: "配置生成" }));
+    fireEvent.click(screen.getByRole("tab", { name: "设计" }));
+    fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
+
+    const color = screen.getByRole("textbox", { name: "页面背景颜色" });
+    fireEvent.change(color, { target: { value: "navy" } });
+
+    expect(color).toHaveAttribute("aria-invalid", "true");
+    expect(color).toHaveAccessibleDescription(/格式无效/u);
+    expect(
+      screen.getByText(/格式无效，请使用上方列出的十六进制/u),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存主题" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "导出主题 ZIP" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "导出旧版兼容 ZIP" }),
+    ).toBeDisabled();
+    expect(api.patchDraft).not.toHaveBeenCalled();
+    expect(api.exportZip).not.toHaveBeenCalled();
+
+    fireEvent.change(color, { target: { value: "#123456" } });
+    expect(color).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByRole("button", { name: "保存主题" })).toBeEnabled();
   });
 
   it("previews focus and theme colors before patching structured design", async () => {
@@ -552,20 +627,23 @@ describe("Studio renderer", () => {
       target: { value: "80" },
     });
     fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
-    const accentPicker = screen.getByLabelText("选择发送按钮颜色");
+    const accentPicker = screen.getByLabelText("选择权限状态与发送按钮颜色");
     expect(accentPicker).toHaveValue("#f59e0b");
     fireEvent.change(accentPicker, {
       target: { value: "#336699" },
     });
-    expect(screen.getByRole("textbox", { name: "发送按钮颜色" })).toHaveValue(
-      "#336699",
+    expect(
+      screen.getByRole("textbox", { name: "权限状态与发送按钮颜色" }),
+    ).toHaveValue("#336699");
+    fireEvent.change(
+      screen.getByRole("slider", { name: "权限状态与发送按钮透明度" }),
+      {
+        target: { value: "42" },
+      },
     );
-    fireEvent.change(screen.getByRole("slider", { name: "发送按钮透明度" }), {
-      target: { value: "42" },
-    });
-    expect(screen.getByRole("textbox", { name: "发送按钮颜色" })).toHaveValue(
-      "rgba(51, 102, 153, 0.42)",
-    );
+    expect(
+      screen.getByRole("textbox", { name: "权限状态与发送按钮颜色" }),
+    ).toHaveValue("rgba(51, 102, 153, 0.42)");
     expect(
       screen.getByRole("textbox", { name: "左侧面板文字颜色" }),
     ).toHaveValue("#ffffff");
@@ -667,6 +745,9 @@ describe("Studio renderer", () => {
     expect(screen.getByText("对话与输入")).toBeInTheDocument();
     expect(screen.getByText("操作与状态")).toBeInTheDocument();
     expect(screen.getByText("文字与边界")).toBeInTheDocument();
+    expect(screen.getByText("权限状态与发送按钮")).toBeInTheDocument();
+    expect(screen.getByText("输入框工具栏文字")).toBeInTheDocument();
+    expect(screen.getByText("输入占位与说明文字")).toBeInTheDocument();
     expect(screen.queryByText("accentAlt")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "高级" }));
@@ -689,6 +770,12 @@ describe("Studio renderer", () => {
     const changeCardText = screen.getByRole("textbox", {
       name: "文件变更文字颜色",
     });
+    const muted = screen.getByRole("textbox", {
+      name: "输入占位与说明文字颜色",
+    });
+    fireEvent.change(muted, { target: { value: "#4a90e2" } });
+    expect(preview.style.getPropertyValue("--preview-muted")).toBe("#4a90e2");
+    expect(document.querySelector(".mock-composer-placeholder")).not.toBeNull();
     expect(
       changeCardBackground.closest(".color-config")?.nextElementSibling,
     ).toBe(changeCardText.closest(".color-config"));
@@ -1503,11 +1590,31 @@ describe("Studio renderer", () => {
     fireEvent.change(editor, { target: { value: untrusted } });
 
     await waitFor(() =>
-      expect(screen.getByText("需要修正 CSS")).toBeInTheDocument(),
+      expect(screen.getByText("CSS 将在保存时校验")).toBeInTheDocument(),
     );
+    expect(screen.getByRole("button", { name: "保存主题" })).toBeEnabled();
     const previewStyle = document.querySelector(".mock-codex style");
     expect(previewStyle?.textContent).not.toContain(untrusted);
     expect(document.querySelector('img[src="x"]')).toBeNull();
+  });
+
+  it("blocks CSS that exceeds the UTF-8 patch limit before IPC", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "组件样式" }));
+    const editor = await screen.findByRole("textbox", {
+      name: "Safe CSS 编辑器",
+    });
+    fireEvent.change(editor, { target: { value: "你".repeat(90_000) } });
+
+    expect(editor).toHaveAttribute("aria-invalid", "true");
+    expect(
+      screen.getByText("CSS 不能超过 262,144 个字符或 256 KiB。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存主题" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "导出主题 ZIP" })).toBeDisabled();
+    expect(api.patchDraft).not.toHaveBeenCalled();
+    expect(api.exportZip).not.toHaveBeenCalled();
   });
 
   it("offers recovery when the persisted pause has no owned session", async () => {
