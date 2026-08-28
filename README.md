@@ -57,15 +57,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.1` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.2` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.1-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.1-x64.zip` — portable archive.
+- `CodexStyle-1.3.2-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.2-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.1` fixes updater loading in packaged builds. Every user on `v1.3.0` or earlier must download and run the `v1.3.1` installer once because those clients cannot reliably discover this fix in-app. Install it over the existing copy; no uninstall is required, and local themes are preserved. In-app updates resume from `v1.3.1` onward. The portable ZIP remains manual-update only.
+`v1.3.2` fixes a startup failure that can leave v1.3.1 running without a window. Affected v1.3.1 users must manually download and run the v1.3.2 installer once because the updater UI is unavailable in that state. Install it over the existing copy; no uninstall is required, and local themes are preserved. Users whose installed v1.3.1 opens normally can update in-app. The portable ZIP remains manual-update only.
 
 ## Requirements
 
@@ -99,7 +99,7 @@ CodexStyle is deliberately narrow in scope:
 - It performs no background update checks and includes no silent auto-installer or remote analytics service. GitHub is contacted only when the user chooses **Check and update**. Only an NSIS-installed build may download an update, and installation still requires an explicit user choice after SHA-512 verification.
 - Managed data stays under `%LOCALAPPDATA%\CodexStyle` for the current Windows user.
 
-See [REQUIREMENTS.md](REQUIREMENTS.md) for the complete product and security contract.
+See [PRIVACY.md](PRIVACY.md), [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md), and [REQUIREMENTS.md](REQUIREMENTS.md) for the privacy, release-integrity, product, and security contracts.
 
 ## Development
 
@@ -166,6 +166,8 @@ Additional project documents:
 - [REQUIREMENTS.md](REQUIREMENTS.md) — product contract and acceptance criteria.
 - [PLAN.md](PLAN.md) — architecture and delivery plan.
 - [TASK_PROGRESS.md](TASK_PROGRESS.md) — implementation and verification history.
+- [PRIVACY.md](PRIVACY.md) — local data and network behavior.
+- [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) — release-signing roles and policy.
 
 ## Contributing
 

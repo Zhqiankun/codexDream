@@ -57,15 +57,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.1`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.2`：
 
-- `CodexStyle-1.3.1-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.1-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.2-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.2-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.1` 修复了正式打包版本的更新器加载问题。所有 `v1.3.0` 及更早版本都需要手动下载并运行一次 `v1.3.1` 安装程序，因为这些旧版本无法可靠地通过应用内检查发现本次修复。直接覆盖原安装即可，无需先卸载，本地主题会保留；从 `v1.3.1` 起可继续使用应用内更新。ZIP 便携版仍需手动更新。
+`v1.3.2` 修复了 v1.3.1 可能只在后台运行而不显示窗口的问题。受影响的 v1.3.1 用户需要手动下载并运行一次 v1.3.2 安装程序，因为该状态下无法使用更新界面。直接覆盖原安装即可，无需先卸载，本地主题会保留；能够正常打开的 v1.3.1 安装版可以继续使用应用内更新。ZIP 便携版仍需手动更新。
 
 ## 运行要求
 
@@ -99,7 +99,7 @@ CodexStyle 会严格限制自身作用范围：
 - 不进行后台更新检查，不包含静默自动安装器，也不接入远程分析服务。只有用户点击**检查并更新**时才会访问 GitHub；仅 NSIS 正式安装版可下载更新，并且 SHA-512 校验通过后仍需用户明确选择安装时机。
 - 受管数据固定保存在当前 Windows 用户的 `%LOCALAPPDATA%\CodexStyle`。
 
-完整的产品和安全契约请查看 [REQUIREMENTS.md](REQUIREMENTS.md)。
+隐私、发布完整性、产品和安全契约请查看 [PRIVACY.md](PRIVACY.md)、[CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) 与 [REQUIREMENTS.md](REQUIREMENTS.md)。
 
 ## 开发
 
@@ -166,6 +166,8 @@ tests/                  单元、渲染层、验收与 Electron E2E 测试
 - [REQUIREMENTS.md](REQUIREMENTS.md) — 产品契约与验收标准。
 - [PLAN.md](PLAN.md) — 架构与交付计划。
 - [TASK_PROGRESS.md](TASK_PROGRESS.md) — 实现和验证记录。
+- [PRIVACY.md](PRIVACY.md) — 本地数据与联网行为。
+- [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) — 发布签名角色与政策。
 
 ## 参与贡献
 

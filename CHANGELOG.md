@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.3.2 — 2026-08-28
+
+### English
+
+- Fixed a startup failure that treated a valid selector-profile v6 ownership record as tampered after upgrading to selector profile v7.
+- Prevented process-only startup failures by removing the blocking cache-clear dependency, serializing second-instance requests behind initialization, and reporting initialization errors through a native dialog.
+- Added a renderer-ready handshake, guarded window display, and one bounded BrowserWindow rebuild for navigation, preload, renderer-process, or startup-timeout failures while keeping the renderer sandbox enabled.
+- Added regression coverage for startup ordering, single-instance queuing, stale window events, bounded recovery, and the v6 ownership migration.
+- Added the project code-signing policy and privacy notice required for the pending SignPath Foundation open-source application. This release remains unsigned.
+
+> If v1.3.1 stays running in the background without opening a window, manually download and run the v1.3.2 installer once because the in-app updater is unavailable in that state. Install over the existing copy—no uninstall is required, and local themes are preserved. The v1.3.2 binaries are not code-signed, so Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer.
+
+### 简体中文
+
+- 修复 selector profile 升级至 v7 后，将合法的 v6 ownership 记录误判为篡改而导致的启动失败。
+- 移除会阻塞首屏的缓存清理依赖，将第二实例请求排队到初始化完成后，并通过原生对话框显示初始化错误，避免只剩后台进程。
+- 新增 renderer-ready 握手、受控窗口显示，以及针对导航、preload、renderer 进程和启动超时的单次有界 BrowserWindow 重建，同时保持 renderer 沙箱开启。
+- 为启动顺序、单实例排队、旧窗口事件、有界恢复和 v6 ownership 迁移补充回归测试。
+- 补充 SignPath Foundation 开源申请所需的代码签名政策和隐私声明；本版本仍未签名。
+
+> 如果 v1.3.1 只在后台运行而无法打开窗口，需要手动下载并运行一次 v1.3.2 安装程序，因为该状态下无法使用应用内更新。直接覆盖原安装即可，无需先卸载，本地主题会保留。v1.3.2 构建产物尚未进行代码签名，Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。
+
 ## v1.3.1 — 2026-08-28
 
 ### English
