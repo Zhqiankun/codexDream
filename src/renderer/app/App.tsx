@@ -29,6 +29,9 @@ type PreviewPage = "home" | "conversation";
 
 const CONVERSATION_COLOR_TARGETS = new Set<PreviewColorTarget>([
   "assistantPanel",
+  "assistantMessageText",
+  "changeCardBackground",
+  "changeCardText",
   "highlight",
   "userMessageText",
 ]);
@@ -955,7 +958,10 @@ function StudioView({
     "--preview-sidebar-text": draft.colors.sidebarText,
     "--preview-panel-alt": draft.colors.panelAlt,
     "--preview-assistant-panel": draft.colors.assistantPanel,
+    "--preview-assistant-message-text": draft.colors.assistantMessageText,
     "--preview-user-message-text": draft.colors.userMessageText,
+    "--preview-change-card-background": draft.colors.changeCardBackground,
+    "--preview-change-card-text": draft.colors.changeCardText,
     "--preview-top-bar-background": draft.colors.topBarBackground,
     "--preview-top-bar-text": draft.colors.topBarText,
     "--preview-accent": draft.colors.accent,
@@ -973,7 +979,12 @@ function StudioView({
     "--ds-theme-color-sidebar-text": draft.colors.sidebarText,
     "--ds-theme-color-panel-alt": draft.colors.panelAlt,
     "--ds-theme-color-assistant-panel": draft.colors.assistantPanel,
+    "--ds-theme-color-assistant-message-text":
+      draft.colors.assistantMessageText,
     "--ds-theme-color-user-message-text": draft.colors.userMessageText,
+    "--ds-theme-color-change-card-background":
+      draft.colors.changeCardBackground,
+    "--ds-theme-color-change-card-text": draft.colors.changeCardText,
     "--ds-theme-color-top-bar-background": draft.colors.topBarBackground,
     "--ds-theme-color-top-bar-text": draft.colors.topBarText,
     "--ds-theme-color-accent": draft.colors.accent,
@@ -1025,7 +1036,7 @@ function StudioView({
           <button
             className="secondary-button"
             disabled={busy || themeJsonDirty}
-            title="适用于 v1.0.x 与 v1.1.x；会移除三个新颜色字段，并拒绝旧版不支持的高级 CSS"
+            title="适用于 v1.0.x 至 v1.2.x；会移除六个新颜色字段，并拒绝旧版不支持的高级 CSS"
             onClick={() =>
               void persistAnd((current) =>
                 bridge.exportZip({
@@ -1387,6 +1398,38 @@ function StudioView({
                             const theme = "{draft.name || "CodexStyle"}";
                           </span>
                           <span>await studio.preview(theme);</span>
+                        </div>
+                        <div
+                          className="mock-change-card"
+                          data-ds-part="change-card"
+                          aria-label="文件变更预览"
+                        >
+                          <div className="mock-change-card-head">
+                            <span
+                              className="mock-change-card-mark"
+                              aria-hidden="true"
+                            >
+                              ↕
+                            </span>
+                            <span className="mock-change-card-summary">
+                              <strong>已编辑 2 个文件</strong>
+                              <small>本轮代码变更</small>
+                            </span>
+                            <span className="mock-change-card-counts">
+                              <b>+4</b>
+                              <i>−1</i>
+                            </span>
+                          </div>
+                          <div className="mock-change-card-files">
+                            <span className="mock-change-file-row">
+                              <span>src/renderer/app/App.tsx</span>
+                              <small>+3 −1</small>
+                            </span>
+                            <span className="mock-change-file-row">
+                              <span>src/renderer/styles/global.css</span>
+                              <small>+1 −0</small>
+                            </span>
+                          </div>
                         </div>
                         <div className="mock-dialog" data-ds-part="dialog">
                           <span>

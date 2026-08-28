@@ -64,7 +64,10 @@ describe("theme zip compatibility", () => {
       colors: {
         ...configuration.colors,
         accent: "#336699",
+        assistantMessageText: "rgba(101, 102, 103, 0.8)",
         userMessageText: "rgba(12, 34, 56, 0.72)",
+        changeCardBackground: "rgba(61, 62, 63, 0.64)",
+        changeCardText: "#fedcba",
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
       },
@@ -85,7 +88,10 @@ describe("theme zip compatibility", () => {
       art: { focusX: 0.31, safeArea: "left" },
       colors: {
         accent: "#336699",
+        assistantMessageText: "rgba(101, 102, 103, 0.8)",
         userMessageText: "rgba(12, 34, 56, 0.72)",
+        changeCardBackground: "rgba(61, 62, 63, 0.64)",
+        changeCardText: "#fedcba",
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
       },
@@ -107,7 +113,10 @@ describe("theme zip compatibility", () => {
       .png()
       .toBuffer();
     const {
+      assistantMessageText: _assistantMessageText,
       userMessageText: _userMessageText,
+      changeCardBackground: _changeCardBackground,
+      changeCardText: _changeCardText,
       topBarBackground: _topBarBackground,
       topBarText: _topBarText,
       ...previousColors
@@ -135,7 +144,10 @@ describe("theme zip compatibility", () => {
 
     const parsed = await readThemeZip(zipPath);
     const colors = readThemeConfiguration(parsed.record.json).colors;
+    expect(colors.assistantMessageText).toBe(previousColors.text);
     expect(colors.userMessageText).toBe(previousColors.text);
+    expect(colors.changeCardBackground).toBe(previousColors.panelAlt);
+    expect(colors.changeCardText).toBe(previousColors.text);
     expect(colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
     expect(colors.topBarText).toBe(previousColors.muted);
   });
@@ -158,7 +170,10 @@ describe("theme zip compatibility", () => {
     const rawColors = rawTheme.colors;
     expect(rawColors).toHaveProperty("sidebarText");
     expect(rawColors).toHaveProperty("assistantPanel");
+    expect(rawColors).not.toHaveProperty("assistantMessageText");
     expect(rawColors).not.toHaveProperty("userMessageText");
+    expect(rawColors).not.toHaveProperty("changeCardBackground");
+    expect(rawColors).not.toHaveProperty("changeCardText");
     expect(rawColors).not.toHaveProperty("topBarBackground");
     expect(rawColors).not.toHaveProperty("topBarText");
   });

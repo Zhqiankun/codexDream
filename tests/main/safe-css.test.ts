@@ -7,10 +7,10 @@ import {
 describe("safe css policy", () => {
   it("accepts registered parts and allowed pseudo states", () => {
     const result = validateSafeCss(
-      '[data-ds-part="root"] { color: #f8fafc; } [data-ds-part="sidebar"] { color: var(--ds-theme-color-sidebar-text); } [data-ds-part="titlebar"] { background-color: var(--ds-theme-color-top-bar-background); color: var(--ds-theme-color-top-bar-text); } [data-ds-part="header"]:hover { background-color: #334155; } [data-ds-part="message"] { color: var(--ds-theme-color-user-message-text); } [data-ds-part="composer"]:focus-within { border-color: var(--ds-theme-color-accent-alt); }',
+      '[data-ds-part="root"] { color: #f8fafc; } [data-ds-part="sidebar"] { color: var(--ds-theme-color-sidebar-text); } [data-ds-part="titlebar"] { background-color: var(--ds-theme-color-top-bar-background); color: var(--ds-theme-color-top-bar-text); } [data-ds-part="header"]:hover { background-color: #334155; } [data-ds-part="message"] { color: var(--ds-theme-color-assistant-message-text); } [data-ds-part="change-card"] { background-color: var(--ds-theme-color-change-card-background); color: var(--ds-theme-color-change-card-text); } [data-ds-part="composer"]:focus-within { border-color: var(--ds-theme-color-accent-alt); }',
     );
     expect(result.valid).toBe(true);
-    expect(result.ruleCount).toBe(6);
+    expect(result.ruleCount).toBe(7);
   });
 
   it("rejects network, at-rules, arbitrary selectors, and important", () => {
@@ -31,7 +31,9 @@ describe("safe css policy", () => {
       '[data-ds-part="titlebar"] { color: var(--ds-theme-color-text); }',
       '[data-ds-part="composer"]:focus-within { border-color: #ffffff; }',
       '[data-ds-part="sidebar"] { color: var(--ds-theme-color-sidebar-text); }',
+      '[data-ds-part="message"] { color: var(--ds-theme-color-assistant-message-text); }',
       '[data-ds-part="message"] { color: var(--ds-theme-color-user-message-text); }',
+      '[data-ds-part="change-card"] { background-color: var(--ds-theme-color-change-card-background); color: var(--ds-theme-color-change-card-text); }',
     ]) {
       expect(validateSafeCss(css).valid).toBe(true);
       expect(validateLegacySafeCss(css)).toMatchObject({

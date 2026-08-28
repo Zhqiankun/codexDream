@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/6" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/7" as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -20,6 +20,7 @@ export const SELECTOR_PARTS = [
     "message",
     ':is([data-user-message-bubble="true"], [data-markdown-text-style="assistant-message"])',
   ],
+  ["change-card", 'div:has(> [class~="group/turn-diff-header"])'],
   ["composer", "[data-codex-composer-root] [data-composer-surface-variant]"],
   [
     "composer-toolbar",

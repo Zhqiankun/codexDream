@@ -1747,7 +1747,7 @@ input.opacity-range {
 .mock-message {
   display: flex;
   align-items: flex-start;
-  color: var(--preview-text, #c4cfe2);
+  color: var(--preview-assistant-message-text, var(--preview-text, #c4cfe2));
   font-size: 8px;
   line-height: 1.45;
 }
@@ -1784,6 +1784,113 @@ input.opacity-range {
   color: var(--preview-muted, #91a9ce);
   font-family: "Cascadia Code", monospace;
   font-size: 7px;
+}
+.mock-change-card {
+  overflow: hidden;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--preview-change-card-text, var(--preview-text, #dce6f6)) 24%,
+      transparent
+    );
+  border-radius: 7px;
+  background: var(
+    --preview-change-card-background,
+    var(--preview-panel-alt, #10182b)
+  );
+  color: var(--preview-change-card-text, var(--preview-text, #dce6f6));
+  font-size: 6.5px;
+}
+.mock-change-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px;
+  border-bottom: 1px solid
+    color-mix(
+      in srgb,
+      var(--preview-change-card-text, var(--preview-text, #dce6f6)) 18%,
+      transparent
+    );
+}
+.mock-change-card-mark {
+  width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.78;
+  font-size: 7px;
+  font-weight: 700;
+}
+.mock-change-card-summary {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.mock-change-card-summary strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 6.8px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mock-change-card-summary small,
+.mock-change-file-row small {
+  color: color-mix(
+    in srgb,
+    var(--preview-change-card-text, var(--preview-text, #dce6f6)) 64%,
+    transparent
+  );
+  font-size: 5.8px;
+}
+.mock-change-card-counts {
+  display: flex;
+  gap: 3px;
+  font-size: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.mock-change-card-counts b {
+  color: #22c55e;
+  font-style: normal;
+  font-weight: 650;
+}
+.mock-change-card-counts i {
+  color: #ef4444;
+  font-style: normal;
+  font-weight: 650;
+}
+.mock-change-card-files {
+  display: grid;
+}
+.mock-change-file-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 7px;
+}
+.mock-change-file-row + .mock-change-file-row {
+  border-top: 1px solid
+    color-mix(
+      in srgb,
+      var(--preview-change-card-text, var(--preview-text, #dce6f6)) 12%,
+      transparent
+    );
+}
+.mock-change-file-row > span {
+  overflow: hidden;
+  color: color-mix(
+    in srgb,
+    var(--preview-change-card-text, var(--preview-text, #dce6f6)) 84%,
+    transparent
+  );
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mock-home-suggestions {
   width: min(79%, 490px);
@@ -1984,7 +2091,10 @@ input.opacity-range {
 .mock-codex[data-style-mode="configured"][data-recipe-message="true"][data-preview-color-target="panelAlt"]
   .mock-user-message,
 .mock-codex[data-preview-color-target="assistantPanel"] .mock-message,
+.mock-codex[data-preview-color-target="assistantMessageText"] .mock-message,
 .mock-codex[data-preview-color-target="userMessageText"] .mock-user-message,
+.mock-codex[data-preview-color-target="changeCardBackground"] .mock-change-card,
+.mock-codex[data-preview-color-target="changeCardText"] .mock-change-card,
 .mock-codex[data-preview-color-target="topBarBackground"]
   :is(.mock-titlebar, .mock-toolbar),
 .mock-codex[data-preview-color-target="topBarText"]

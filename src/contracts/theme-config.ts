@@ -23,7 +23,10 @@ export interface ThemeColors {
   sidebarText: string;
   panelAlt: string;
   assistantPanel: string;
+  assistantMessageText: string;
   userMessageText: string;
+  changeCardBackground: string;
+  changeCardText: string;
   topBarBackground: string;
   topBarText: string;
   accent: string;
@@ -66,7 +69,10 @@ export const THEME_COLOR_KEYS = [
   "sidebarText",
   "panelAlt",
   "assistantPanel",
+  "assistantMessageText",
   "userMessageText",
+  "changeCardBackground",
+  "changeCardText",
   "topBarBackground",
   "topBarText",
   "accent",
@@ -81,7 +87,10 @@ export const THEME_COLOR_KEYS = [
 const OPTIONAL_THEME_COLOR_KEYS = new Set<keyof ThemeColors>([
   "sidebarText",
   "assistantPanel",
+  "assistantMessageText",
   "userMessageText",
+  "changeCardBackground",
+  "changeCardText",
   "topBarBackground",
   "topBarText",
 ]);
@@ -103,7 +112,10 @@ export const DEFAULT_THEME_COLORS: ThemeColors = {
   sidebarText: "#ffffff",
   panelAlt: "#2d2d2d",
   assistantPanel: "#2d2d2d",
+  assistantMessageText: "#ffffff",
   userMessageText: "#ffffff",
+  changeCardBackground: "#2d2d2d",
+  changeCardText: "#ffffff",
   topBarBackground: "rgba(0, 0, 0, 0)",
   topBarText: "rgba(255, 255, 255, .498)",
   accent: "#ffffff",
@@ -199,8 +211,20 @@ export function normalizeThemeColors(
   if (!isThemeColor(source.assistantPanel) && isThemeColor(source.panelAlt)) {
     result.assistantPanel = source.panelAlt;
   }
+  if (!isThemeColor(source.assistantMessageText) && isThemeColor(source.text)) {
+    result.assistantMessageText = source.text;
+  }
   if (!isThemeColor(source.userMessageText) && isThemeColor(source.text)) {
     result.userMessageText = source.text;
+  }
+  if (
+    !isThemeColor(source.changeCardBackground) &&
+    isThemeColor(source.panelAlt)
+  ) {
+    result.changeCardBackground = source.panelAlt;
+  }
+  if (!isThemeColor(source.changeCardText) && isThemeColor(source.text)) {
+    result.changeCardText = source.text;
   }
   if (!isThemeColor(source.topBarText) && isThemeColor(source.muted)) {
     result.topBarText = source.muted;

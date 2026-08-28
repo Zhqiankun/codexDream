@@ -165,6 +165,12 @@ export function buildThemePayload(
       const userMessageSelector = '[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="' + config.marker + '"]';
       const userMessageTextBridge = '\\n' + userMessageSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
         '\\n' + userMessageSelector + ' :where(a, code, em, p, span, strong) { color: var(--ds-theme-color-user-message-text) !important; }';
+      const assistantMessageSelector = '[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="' + config.marker + '"]';
+      const assistantMessageTextBridge = '\\n' + assistantMessageSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; }' +
+        '\\n' + assistantMessageSelector + ' :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) { color: var(--ds-theme-color-assistant-message-text) !important; }';
+      const changeCardSelector = '[data-ds-part="change-card"][data-codexstyle-owner="' + config.marker + '"]';
+      const changeCardBridge = '\\n' + changeCardSelector + ' { --codex-diffs-surface-override: var(--ds-theme-color-change-card-background) !important; background-color: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }' +
+        '\\n' + changeCardSelector + ' :where(button, [class~="text-default"], [class~="text-secondary"]) { color: var(--ds-theme-color-change-card-text) !important; }';
       const configuredSurfaceBridge = config.configuredRecipes
         ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-background); }' +
           (config.configuredRecipes.sidebar && config.backgroundScope === "content"
@@ -184,7 +190,7 @@ export function buildThemePayload(
             : '')
         : '';
       const assistantMessageBridge = config.configuredRecipes?.message
-        ? '\\n[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="' + config.marker + '"] { box-sizing: border-box; background-color: color-mix(in srgb, var(--ds-theme-color-assistant-panel) 92%, transparent) !important; padding: 12px 16px; }'
+        ? '\\n' + assistantMessageSelector + ' { box-sizing: border-box; background-color: color-mix(in srgb, var(--ds-theme-color-assistant-panel) 92%, transparent) !important; padding: 12px 16px; }'
         : "";
       const sendIconSelector = '[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"]';
       const sendIconBridge = config.sendIcon === "native"
@@ -195,7 +201,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-background); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + userMessageTextBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

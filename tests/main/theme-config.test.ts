@@ -45,8 +45,17 @@ describe("structured theme configuration", () => {
     expect(legacy.colors.assistantPanel).toBe(
       DEFAULT_THEME_COLORS.assistantPanel,
     );
+    expect(legacy.colors.assistantMessageText).toBe(
+      DEFAULT_THEME_COLORS.assistantMessageText,
+    );
     expect(legacy.colors.userMessageText).toBe(
       DEFAULT_THEME_COLORS.userMessageText,
+    );
+    expect(legacy.colors.changeCardBackground).toBe(
+      DEFAULT_THEME_COLORS.changeCardBackground,
+    );
+    expect(legacy.colors.changeCardText).toBe(
+      DEFAULT_THEME_COLORS.changeCardText,
     );
     expect(legacy.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
     expect(legacy.colors.topBarText).toBe(DEFAULT_THEME_COLORS.topBarText);
@@ -54,13 +63,28 @@ describe("structured theme configuration", () => {
     const {
       sidebarText: _sidebarText,
       assistantPanel: _assistantPanel,
+      assistantMessageText: _assistantMessageText,
       userMessageText: _userMessageText,
+      changeCardBackground: _changeCardBackground,
+      changeCardText: _changeCardText,
       topBarBackground: _topBarBackground,
       topBarText: _topBarText,
       ...legacyColors
     } = DEFAULT_THEME_COLORS;
     expect(isCompatibleThemeColors(legacyColors)).toBe(true);
     expect(isCompatibleThemeColors(DEFAULT_THEME_COLORS)).toBe(true);
+    expect(
+      isCompatibleThemeColors({
+        ...legacyColors,
+        assistantMessageText: "not-a-color",
+      }),
+    ).toBe(false);
+    expect(
+      isCompatibleThemeColors({
+        ...legacyColors,
+        changeCardBackground: "not-a-color",
+      }),
+    ).toBe(false);
     expect(
       isCompatibleThemeColors({
         ...legacyColors,
@@ -72,12 +96,16 @@ describe("structured theme configuration", () => {
       colors: {
         ...legacyColors,
         sidebarText: "#334455",
+        panelAlt: "#445566",
         assistantPanel: "#556677",
         text: "#123456",
         muted: "rgba(10, 20, 30, 0.5)",
       },
     });
+    expect(normalizedCurrentTheme.colors.assistantMessageText).toBe("#123456");
     expect(normalizedCurrentTheme.colors.userMessageText).toBe("#123456");
+    expect(normalizedCurrentTheme.colors.changeCardBackground).toBe("#445566");
+    expect(normalizedCurrentTheme.colors.changeCardText).toBe("#123456");
     expect(normalizedCurrentTheme.colors.topBarBackground).toBe(
       "rgba(0, 0, 0, 0)",
     );
@@ -96,7 +124,14 @@ describe("structured theme configuration", () => {
     expect(tokens.get("--ds-theme-color-accent")).toBe("#336699");
     expect(tokens.get("--ds-theme-color-sidebar-text")).toBe("#ffffff");
     expect(tokens.get("--ds-theme-color-assistant-panel")).toBe("#2d2d2d");
+    expect(tokens.get("--ds-theme-color-assistant-message-text")).toBe(
+      "#ffffff",
+    );
     expect(tokens.get("--ds-theme-color-user-message-text")).toBe("#ffffff");
+    expect(tokens.get("--ds-theme-color-change-card-background")).toBe(
+      "#2d2d2d",
+    );
+    expect(tokens.get("--ds-theme-color-change-card-text")).toBe("#ffffff");
     expect(tokens.get("--ds-theme-color-top-bar-background")).toBe(
       "rgba(0, 0, 0, 0)",
     );

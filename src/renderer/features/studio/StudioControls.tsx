@@ -87,6 +87,21 @@ const colorGroups: ReadonlyArray<{
         label: "助手回复背景",
         hint: "助手消息卡片",
       },
+      {
+        key: "assistantMessageText",
+        label: "助手回复文字",
+        hint: "助手消息正文",
+      },
+      {
+        key: "changeCardBackground",
+        label: "文件变更背景",
+        hint: "改动摘要与文件列表",
+      },
+      {
+        key: "changeCardText",
+        label: "文件变更文字",
+        hint: "标题、数量与文件路径",
+      },
     ],
   },
   {
@@ -111,7 +126,7 @@ const colorGroups: ReadonlyArray<{
     title: "文字与边界",
     hint: "主要内容和结构线",
     fields: [
-      { key: "text", label: "正文文字", hint: "助手回复与主要内容" },
+      { key: "text", label: "正文文字", hint: "页面主要内容" },
       { key: "muted", label: "说明文字", hint: "时间、占位与辅助信息" },
       { key: "line", label: "边框与分隔线", hint: "卡片边界和分隔" },
     ],
@@ -470,7 +485,7 @@ function DesignPanel({
         )}
 
         {section === "colors" && (
-          <StudioSection title="主题颜色" meta="15 项 · 均支持透明度">
+          <StudioSection title="主题颜色" meta="18 项 · 均支持透明度">
             <div className="color-panel-toolbar">
               <p>
                 将鼠标移到设置上，或用键盘聚焦控件，右侧会标出受影响的位置。

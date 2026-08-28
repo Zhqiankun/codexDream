@@ -37,7 +37,10 @@ const theme: ThemeDetail = {
     sidebarText: "#ffffff",
     panelAlt: "#2d2d2d",
     assistantPanel: "#2d2d2d",
+    assistantMessageText: "#ffffff",
     userMessageText: "#ffffff",
+    changeCardBackground: "#2d2d2d",
+    changeCardText: "#ffffff",
     topBarBackground: "rgba(0, 0, 0, 0)",
     topBarText: "rgba(255, 255, 255, .498)",
     accent: "#f59e0b",
@@ -190,6 +193,15 @@ describe("Studio renderer", () => {
     );
     expect(document.querySelector(".mock-code")).not.toHaveAttribute(
       "data-ds-part",
+    );
+    expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
+      "已编辑 2 个文件",
+    );
+    expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
+      "src/renderer/app/App.tsx",
+    );
+    expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
+      "src/renderer/styles/global.css",
     );
   });
 
@@ -541,6 +553,16 @@ describe("Studio renderer", () => {
     expect(
       screen.getByRole("textbox", { name: "助手回复背景颜色" }),
     ).toHaveValue("rgba(45, 45, 45, 0.36)");
+    fireEvent.change(screen.getByLabelText("选择助手回复文字颜色"), {
+      target: { value: "#a1b2c3" },
+    });
+    fireEvent.change(
+      screen.getByRole("slider", { name: "文件变更背景透明度" }),
+      { target: { value: "44" } },
+    );
+    fireEvent.change(screen.getByLabelText("选择文件变更文字颜色"), {
+      target: { value: "#c4d5e6" },
+    });
     fireEvent.change(screen.getByLabelText("选择我的消息文字颜色"), {
       target: { value: "#102030" },
     });
@@ -571,6 +593,15 @@ describe("Studio renderer", () => {
     expect(preview.style.getPropertyValue("--preview-assistant-panel")).toBe(
       "rgba(45, 45, 45, 0.36)",
     );
+    expect(
+      preview.style.getPropertyValue("--preview-assistant-message-text"),
+    ).toBe("#a1b2c3");
+    expect(
+      preview.style.getPropertyValue("--preview-change-card-background"),
+    ).toBe("rgba(45, 45, 45, 0.44)");
+    expect(preview.style.getPropertyValue("--preview-change-card-text")).toBe(
+      "#c4d5e6",
+    );
     expect(preview.style.getPropertyValue("--preview-user-message-text")).toBe(
       "#102030",
     );
@@ -592,7 +623,10 @@ describe("Studio renderer", () => {
             accent: "rgba(51, 102, 153, 0.42)",
             sidebarText: "#ffffff",
             assistantPanel: "rgba(45, 45, 45, 0.36)",
+            assistantMessageText: "#a1b2c3",
             userMessageText: "#102030",
+            changeCardBackground: "rgba(45, 45, 45, 0.44)",
+            changeCardText: "#c4d5e6",
             topBarBackground: "rgba(18, 52, 86, 0.48)",
             topBarText: "rgba(255, 255, 255, .498)",
           }),
@@ -620,6 +654,24 @@ describe("Studio renderer", () => {
     const userMessageText = screen.getByRole("textbox", {
       name: "我的消息文字颜色",
     });
+    const assistantPanel = screen.getByRole("textbox", {
+      name: "助手回复背景颜色",
+    });
+    const assistantMessageText = screen.getByRole("textbox", {
+      name: "助手回复文字颜色",
+    });
+    const changeCardBackground = screen.getByRole("textbox", {
+      name: "文件变更背景颜色",
+    });
+    const changeCardText = screen.getByRole("textbox", {
+      name: "文件变更文字颜色",
+    });
+    expect(
+      changeCardBackground.closest(".color-config")?.nextElementSibling,
+    ).toBe(changeCardText.closest(".color-config"));
+    expect(assistantPanel.closest(".color-config")?.nextElementSibling).toBe(
+      assistantMessageText.closest(".color-config"),
+    );
     const card = userMessageText.closest(".color-config");
     expect(card).not.toBeNull();
 
@@ -650,6 +702,22 @@ describe("Studio renderer", () => {
     expect(document.querySelector(".mock-titlebar")).toHaveAttribute(
       "data-ds-part",
       "titlebar",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "首页" }));
+    fireEvent.focus(assistantMessageText);
+    expect(preview).toHaveAttribute("data-preview-page", "conversation");
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "assistantMessageText",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "首页" }));
+    fireEvent.focus(changeCardText);
+    expect(preview).toHaveAttribute("data-preview-page", "conversation");
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "changeCardText",
     );
   });
 

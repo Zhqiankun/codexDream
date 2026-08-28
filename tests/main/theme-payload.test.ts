@@ -107,6 +107,9 @@ describe("theme payload", () => {
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-user-message-text) !important",
       );
+      expect(style?.textContent).toContain(
+        "color: var(--ds-theme-color-assistant-message-text) !important",
+      );
     } finally {
       if (mutationObserver)
         Object.defineProperty(window, "MutationObserver", mutationObserver);
@@ -291,11 +294,14 @@ describe("theme payload", () => {
       "color: var(--ds-theme-color-user-message-text) !important",
     );
     expect(style?.textContent).toContain(
+      "color: var(--ds-theme-color-assistant-message-text) !important",
+    );
+    expect(style?.textContent).toContain(
       "--ds-theme-color-top-bar-background: rgba(0, 0, 0, 0)",
     );
   });
 
-  it("keeps top bar and user message text controls active when message surfaces are disabled", () => {
+  it("keeps top bar and message text controls active when message surfaces are disabled", () => {
     resetDocument();
     const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
     window.eval(
@@ -328,12 +334,102 @@ describe("theme payload", () => {
     expect(style?.textContent).toContain(
       "color: var(--ds-theme-color-user-message-text) !important",
     );
+    expect(style?.textContent).toContain(
+      "color: var(--ds-theme-color-assistant-message-text) !important",
+    );
     expect(style?.textContent).not.toContain(
       "background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 92%, transparent) !important",
     );
-    expect(style?.textContent).not.toContain(
+    expect(style?.textContent).toContain(
       'data-markdown-text-style="assistant-message"',
     );
+    expect(style?.textContent).not.toContain(
+      "background-color: color-mix(in srgb, var(--ds-theme-color-assistant-panel) 92%, transparent) !important",
+    );
+  });
+
+  it("scopes assistant text color to its container and common descendants", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+      ),
+    );
+
+    const source =
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent ?? "";
+    const assistantSelector = `[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="${marker}"]`;
+    const userSelector = `[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="${marker}"]`;
+
+    expect(source).toContain(
+      `${assistantSelector} { color: var(--ds-theme-color-assistant-message-text) !important; }`,
+    );
+    expect(source).toContain(
+      `${assistantSelector} :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) { color: var(--ds-theme-color-assistant-message-text) !important; }`,
+    );
+    expect(source).toContain(
+      `${userSelector} { color: var(--ds-theme-color-user-message-text) !important; }`,
+    );
+    expect(source).not.toContain(
+      `${userSelector} { color: var(--ds-theme-color-assistant-message-text)`,
+    );
+    expect(source).not.toContain(
+      `${userSelector} :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th)`,
+    );
+    expect(source).not.toContain(`${assistantSelector} :where(a,`);
+    expect(source).not.toContain(`${assistantSelector} :where(code,`);
+    expect(source).not.toContain(`${assistantSelector} :where(pre,`);
+    expect(source).not.toContain(`${assistantSelector} :where(span,`);
+  });
+
+  it("styles change cards without overriding addition and deletion colors", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    const card = document.querySelector('[data-testid="change-card"]');
+    // JSDOM's selector engine cannot parse the slash-bearing class token inside
+    // :has(), so selector-profile.test.ts owns that exact selector contract.
+    card?.setAttribute("data-ds-part", "change-card");
+    card?.setAttribute("data-codexstyle-owner", marker);
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+      ),
+    );
+
+    const source =
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent ?? "";
+    const cardSelector = `[data-ds-part="change-card"][data-codexstyle-owner="${marker}"]`;
+    const ordinaryTextSelector =
+      ':where(button, [class~="text-default"], [class~="text-secondary"])';
+
+    expect(card?.getAttribute("data-ds-part")).toBe("change-card");
+    expect(source).toContain(
+      `${cardSelector} { --codex-diffs-surface-override: var(--ds-theme-color-change-card-background) !important; background-color: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }`,
+    );
+    expect(source).toContain(
+      `${cardSelector} ${ordinaryTextSelector} { color: var(--ds-theme-color-change-card-text) !important; }`,
+    );
+    expect(source).toContain("--ds-theme-color-change-card-background:");
+    expect(source).toContain("--ds-theme-color-change-card-text:");
+    expect(
+      card?.querySelector(".text-default")?.matches(ordinaryTextSelector),
+    ).toBe(true);
+    expect(
+      card?.querySelector(".text-secondary")?.matches(ordinaryTextSelector),
+    ).toBe(true);
+    expect(
+      card?.querySelector(".diff-added")?.matches(ordinaryTextSelector),
+    ).toBe(false);
+    expect(
+      card?.querySelector(".diff-removed")?.matches(ordinaryTextSelector),
+    ).toBe(false);
   });
 
   it("replaces only the send-state glyph for a built-in icon", () => {
@@ -487,7 +583,7 @@ describe("theme payload", () => {
 });
 
 function resetDocument(
-  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface"><header class="app-header-tint"><span>主题会话</span></header><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
+  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface"><header class="app-header-tint"><span>主题会话</span></header><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-testid="change-card" class="bg-surface-elevated-secondary/50 text-default"><div class="group/turn-diff-header"><button><span class="text-secondary">审核</span></button></div><span class="text-default">src/main.ts</span><small class="text-secondary">已编辑</small><span class="diff-added" style="color: green">+4</span><span class="diff-removed" style="color: red">-1</span></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
 ) {
   document.head.innerHTML = "";
   document.body.innerHTML = body;

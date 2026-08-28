@@ -23,10 +23,14 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
-    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/6");
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/7");
     expect(SELECTOR_PARTS).toContainEqual([
       "titlebar",
       'div[class*="_ApplicationMenuTopBar_"]',
+    ]);
+    expect(SELECTOR_PARTS).toContainEqual([
+      "change-card",
+      'div:has(> [class~="group/turn-diff-header"])',
     ]);
   });
 

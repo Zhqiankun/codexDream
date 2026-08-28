@@ -120,7 +120,10 @@ const COLOR_KEYS = [
 const OPTIONAL_COLOR_KEYS = [
   "sidebarText",
   "assistantPanel",
+  "assistantMessageText",
   "userMessageText",
+  "changeCardBackground",
+  "changeCardText",
   "topBarBackground",
   "topBarText",
 ];
@@ -264,7 +267,10 @@ export async function writeSimplifiedZip(
     if (!validateLegacySafeCss(record.css).valid)
       throw new Error("UNSAFE_CSS:legacy-export-unsupported");
     const {
+      assistantMessageText: _assistantMessageText,
       userMessageText: _userMessageText,
+      changeCardBackground: _changeCardBackground,
+      changeCardText: _changeCardText,
       topBarBackground: _topBarBackground,
       topBarText: _topBarText,
       ...legacyColors

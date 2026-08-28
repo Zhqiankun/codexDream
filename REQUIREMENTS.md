@@ -34,7 +34,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 - 旧的内部主题或 ZIP 缺少上述字段时按 `backgroundScope: "window"`、`sidebarOverlayOpacity: 75` 读取；新建、编辑和简化导出必须显式写入这两个字段。
 - 修改任一展示配置都按普通主题编辑处理：递增 revision、退回 draft、使正式导入项变为已编辑并只能导出简化 ZIP。
 - `appearance` 只能为 `auto | light | dark`。`art` 包含 `focusX/focusY`（`0..1`）、`safeArea`（`none | left | right`）和 `taskMode`（`ambient | full | off`）。背景焦点必须立即改变预览与真实注入的图片定位。
-- `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前 v1 可选扩展为 `sidebarText/assistantPanel/userMessageText/topBarBackground/topBarText`。main 读取旧主题时必须补全缺失扩展：用户消息文字继承正文色、顶部栏文字继承说明文字、顶部栏背景默认为完全透明；再将规范化后的十五色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
+- `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前 v1 可选扩展为 `sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText`。main 读取旧主题时必须补全缺失扩展：助手回复文字、用户消息文字和文件变更文字继承正文色，文件变更背景继承次级面板色，顶部栏文字继承说明文字，顶部栏背景默认为完全透明；再将规范化后的十八色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
 - `style` 包含 `mode`、四个配方开关和受限表面参数。`mode: "configured"` 时，sidebar、composer、message、dialog 配方以及 blur、radius、borderWidth、shadow 由结构化配置确定，并通过唯一共享生成器产生非空 `theme.css`；用户无需手改 CSS。`mode: "advanced"` 时保留既有 Safe CSS 源码编辑和验证能力。
 - 新主题默认使用配置模式；旧内部主题和未声明 `style` 的导入包按高级模式读取，禁止迁移时覆盖原 CSS。两种模式都必须在 commit、导出、选择和注入前通过相同 Safe CSS 校验。
 - Studio 提供“设计 / CSS / theme.json”三个面板。theme.json 源码只能在显式“校验并应用”后进入主题记录；其字段、大小、图片引用和配置范围由 main 复验，未应用的文本不得进入预览、ZIP 或注入。
@@ -46,8 +46,8 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 - 普通 `.zip`，文件位于根目录或唯一一层目录。
 - 恰好包含非空 `theme.json`、非空 `theme.css` 和 `theme.json.image` 指向的一张 PNG/JPEG/WebP。
-- “导出主题 ZIP”仍使用同样的三件套，并在 `theme.json` 中完整保留当前十五色及其他展示配置，供当前版本往返。
-- “导出旧版兼容 ZIP”以已发布的 v1.0.x Safe CSS 与十二色契约为冻结基线：从 `colors` 中移除旧版不认识的 `userMessageText/topBarBackground/topBarText`，旧版导入后按正文色、透明背景和说明文字回退；同时拒绝 `titlebar`、`:focus-within`、`sidebarText` token 及三个新 token 等 v1.0.x 不支持的高级 CSS，并提示改用完整导出。
+- “导出主题 ZIP”仍使用同样的三件套，并在 `theme.json` 中完整保留当前十八色及其他展示配置，供当前版本往返。
+- “导出旧版兼容 ZIP”以已发布的 v1.0.x Safe CSS 与十二色契约为冻结基线：从 `colors` 中移除旧版不认识的 `assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText`；旧版导入后，助手、用户消息和文件变更文字按正文色回退，文件变更背景按次级面板色回退，顶部栏按透明背景和说明文字回退。同时拒绝 `titlebar`、`:focus-within`、`sidebarText` token 及六个新 token 等 v1.0.x 不支持的高级 CSS，并提示改用完整导出。
 
 ### 正式旧包
 
@@ -115,10 +115,10 @@ preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑�
 11. 在写入、flush、rename 和恢复各失败点，重启后只能读到完整旧状态或完整新状态；`state/themes/transactions/lock/ownership` 均遵守相同根句柄和逐段校验规则。
 12. 打包后的 `.node` 位于 ASAR unpacked 资源并可在无 Build Tools 的普通用户环境加载；删除该文件会稳定 fail closed。用户选择的外部导出 ZIP 仍可按原契约创建，且不能借此访问 managed path。
 13. 全窗口模式下背景覆盖根区域并透过配置的侧栏遮罩可见；仅内容区模式下背景只覆盖主内容区域。相同主题配置在 LIVE PREVIEW 和真实 Codex 注入中使用相同作用域与遮罩规则。
-14. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和十五色配色在设计面板可配置，保存、重开、完整主题 ZIP 往返后配置不丢失；用户消息文字、顶部栏透明背景与顶部栏文字在 LIVE PREVIEW 和真实 Codex 注入中一致，焦点、颜色变量和 color-scheme 同样一致。旧版兼容 ZIP 明确降级三个新增字段。
+14. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和十八色配色在设计面板可配置，保存、重开、完整主题 ZIP 往返后配置不丢失；助手回复文字、用户消息文字、文件变更卡片背景/文字、顶部栏透明背景与顶部栏文字在 LIVE PREVIEW 和真实 Codex 注入中一致，焦点、颜色变量和 color-scheme 同样一致。旧版兼容 ZIP 明确降级六个新增字段。
 15. 配置模式下启停四个样式配方或调整 blur/radius/border/shadow 会立即更新预览，并由共享生成器写入合法非空 theme.css；无需编辑源码。高级模式继续支持现有 CSS，旧主题不会被自动改写。
 16. theme.json 面板可校验并应用合法源码；语法错误、未知字段、越界值或图片引用变化会被拒绝且不改变 revision、预览、选择或已持久化主题。
 17. LIVE PREVIEW 可在“首页”和“对话”之间即时切换；两个页面复用同一主题根、侧栏、背景作用域、焦点、画面处理、颜色变量和 Safe CSS，切换只影响预览内容，不修改草稿或 revision。
 18. 主题可在确认后删除并从重启后的主题库消失；已选择、last-known-good 或工具拥有会话期间的删除返回 `THEME_IN_USE` 且不改变主题或资产。左侧双击 ready 主题立即更新下次启动选择，双击草稿不提交。
 19. 普通编辑区只显示一个“保存主题”操作，并自动保持 patch-before-commit 的 revision 顺序；高级 JSON 的独立校验边界不变。
-20. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、十五色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。
+20. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、十八色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。

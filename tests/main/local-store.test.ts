@@ -258,16 +258,23 @@ describe("local theme store", () => {
     const index = JSON.parse(indexBytes.toString("utf8")) as {
       themes: Array<Record<string, unknown>>;
     };
-    const expected = new Map<string, { text: string; muted: string }>();
+    const expected = new Map<
+      string,
+      { panelAlt: string; text: string; muted: string }
+    >();
 
     for (const theme of index.themes) {
       const json = theme.json as Record<string, unknown>;
       const colors = json.colors as Record<string, string>;
       expected.set(theme.libraryId as string, {
+        panelAlt: colors.panelAlt,
         text: colors.text,
         muted: colors.muted,
       });
+      delete colors.assistantMessageText;
       delete colors.userMessageText;
+      delete colors.changeCardBackground;
+      delete colors.changeCardText;
       delete colors.topBarBackground;
       delete colors.topBarText;
       theme.fingerprint = themeFingerprint(theme as never);
@@ -282,7 +289,10 @@ describe("local theme store", () => {
     for (const theme of reloaded.listRecords()) {
       const detail = reloaded.getDetail(theme.libraryId, "app://theme-asset")!;
       const fallback = expected.get(theme.libraryId)!;
+      expect(detail.colors.assistantMessageText).toBe(fallback.text);
       expect(detail.colors.userMessageText).toBe(fallback.text);
+      expect(detail.colors.changeCardBackground).toBe(fallback.panelAlt);
+      expect(detail.colors.changeCardText).toBe(fallback.text);
       expect(detail.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
       expect(detail.colors.topBarText).toBe(fallback.muted);
     }

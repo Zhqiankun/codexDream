@@ -15,5 +15,11 @@ describe("renderer styles", () => {
     expect(css).toContain(
       ".mock-home-composer-wrap,\n.mock-conversation-composer-wrap {\n  width: min(69%, 450px);\n  align-self: center;",
     );
+    expect(css).toContain("var(--preview-assistant-message-text");
+    expect(css).toContain('data-preview-color-target="assistantMessageText"');
+    expect(css).toContain("--preview-change-card-background");
+    expect(css).toContain("--preview-change-card-text");
+    expect(css).toContain('data-preview-color-target="changeCardBackground"');
+    expect(css).toContain('data-preview-color-target="changeCardText"');
   });
 });
