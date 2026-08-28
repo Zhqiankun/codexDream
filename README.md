@@ -57,15 +57,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.0` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.1` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.0-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.0-x64.zip` — portable archive.
+- `CodexStyle-1.3.1-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.1-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.1.0` introduced the in-app updater. Users on `v1.0.1` or earlier must install `v1.1.0` or later manually once; installing the current `v1.3.0` directly is sufficient. Installed builds can then update internally. The portable ZIP remains manual-update only.
+`v1.3.1` fixes updater loading in packaged builds. Every user on `v1.3.0` or earlier must download and run the `v1.3.1` installer once because those clients cannot reliably discover this fix in-app. Install it over the existing copy; no uninstall is required, and local themes are preserved. In-app updates resume from `v1.3.1` onward. The portable ZIP remains manual-update only.
 
 ## Requirements
 

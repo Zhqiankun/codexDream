@@ -57,15 +57,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.0`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.1`：
 
-- `CodexStyle-1.3.0-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.0-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.1-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.1-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.1.0` 首次加入应用内更新器。`v1.0.1` 及更早版本需要手动安装一次 `v1.1.0` 或更高版本，直接安装当前 `v1.3.0` 即可；之后正式安装版可以在应用内升级。ZIP 便携版仍需手动更新。
+`v1.3.1` 修复了正式打包版本的更新器加载问题。所有 `v1.3.0` 及更早版本都需要手动下载并运行一次 `v1.3.1` 安装程序，因为这些旧版本无法可靠地通过应用内检查发现本次修复。直接覆盖原安装即可，无需先卸载，本地主题会保留；从 `v1.3.1` 起可继续使用应用内更新。ZIP 便携版仍需手动更新。
 
 ## 运行要求
 

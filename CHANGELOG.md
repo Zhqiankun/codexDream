@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.1 — 2026-08-28
+
+### English
+
+- Fixed packaged update checks by normalizing `electron-updater` exports across CommonJS and Electron/Node ESM dynamic imports.
+- Added deterministic validation for the updater and cancellation-token exports, with regression coverage for the real mixed namespace/default export shape.
+- Reworded update-check failures so non-network errors are no longer incorrectly reported as GitHub connection failures.
+
+> Users on v1.3.0 or earlier must manually download and run the v1.3.1 installer once; those clients cannot reliably discover this updater fix in-app. Install over the existing copy—no uninstall is required. The v1.3.1 binaries are not code-signed, so Windows SmartScreen may display an unknown-publisher warning. Verify `SHA256SUMS.txt` before running the installer.
+
+### 简体中文
+
+- 修复正式打包版本的更新检查：兼容 `electron-updater` 在 CommonJS 与 Electron/Node ESM 动态导入下的不同导出形态。
+- 对 updater 与取消令牌导出增加确定性校验，并用真实的 namespace/default 混合形态补充回归测试。
+- 调整更新检查失败文案，不再把非网络错误误报成 GitHub 连接失败。
+
+> v1.3.0 及更早版本必须手动下载并运行一次 v1.3.1 安装程序；这些旧版本无法可靠地通过应用内检查发现本次更新器修复。直接覆盖原安装即可，无需先卸载。v1.3.1 构建产物尚未进行代码签名，Windows SmartScreen 可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。
+
 ## v1.3.0 — 2026-08-28
 
 ### English
