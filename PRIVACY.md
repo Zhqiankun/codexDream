@@ -18,6 +18,8 @@ CodexStyle stores its managed data for the current Windows user under:
 
 This data can include saved themes, drafts, imported background images and icons, constrained Safe CSS, preferences, selection state, update state, and security or session-ownership metadata needed to manage a Codex session launched by CodexStyle. Theme ZIP exports are written only to the location the user chooses in the native save dialog.
 
+Main-process diagnostic logs are stored separately under Electron's per-user `userData/logs` directory. Logs contain bounded lifecycle events, application/protocol versions, error codes, validation field paths, and sanitized error messages. They do not contain theme, CSS, JSON, image, conversation, nonce, token, secret, full command-line, or URL-query contents. Log files rotate daily, each segment is limited to 5 MiB, and files are retained for 7 days. Cleanup runs at startup and every 24 hours while CodexStyle is running. Users can open the directory from the log button in the Studio top bar.
+
 CodexStyle does not intentionally read or persist Codex conversation content. Local process, Microsoft Store package, port, and session identity information is used only to validate and manage the Codex session started by CodexStyle. It is not uploaded by CodexStyle.
 
 ## Network activity
@@ -50,6 +52,7 @@ To remove all CodexStyle data:
 2. Exit CodexStyle completely from the system tray.
 3. Uninstall or delete the application files as applicable.
 4. Delete `%LOCALAPPDATA%\CodexStyle` manually.
+5. Delete CodexStyle's Electron `userData/logs` directory if diagnostic logs should also be removed immediately rather than waiting for automatic expiry.
 
 Deleting that directory permanently removes the locally stored themes, assets, preferences, and managed state. CodexStyle has no cloud copy from which to restore them.
 
@@ -85,6 +88,8 @@ CodexStyle 把当前 Windows 用户的受管数据保存在：
 
 这些数据可能包括已保存主题、草稿、导入的背景图片和图标、受约束的 Safe CSS、偏好、选择状态、更新状态，以及管理由 CodexStyle 启动的 Codex 会话所需的安全或会话所有权元数据。导出主题 ZIP 时，文件只会写入用户在系统保存对话框中选择的位置。
 
+主进程诊断日志单独保存在 Electron 当前用户的 `userData/logs` 目录。日志只包含有界的生命周期事件、应用/协议版本、错误码、校验字段路径和经过脱敏的错误消息，不包含主题、CSS、JSON、图片、对话、nonce、令牌、密钥、完整命令行或 URL 查询参数内容。日志按日轮换，每个分段不超过 5 MiB，保留 7 天；CodexStyle 启动时及持续运行期间每 24 小时清理一次。用户可通过工作台顶部的日志按钮打开目录。
+
 CodexStyle 不会主动读取或持久保存 Codex 对话内容。本地进程、Microsoft Store 包、端口和会话身份信息只用于验证和管理 CodexStyle 启动的 Codex 会话，CodexStyle 不会上传这些信息。
 
 ## 网络行为
@@ -117,6 +122,7 @@ CodexStyle 不修改已安装的 Codex 应用、`WindowsApps`、`app.asar`、Cod
 2. 从系统托盘彻底退出 CodexStyle。
 3. 根据所用版本卸载或删除应用程序文件。
 4. 手动删除 `%LOCALAPPDATA%\CodexStyle`。
+5. 如需立即清除诊断日志，而不等待自动过期，请再删除 CodexStyle 的 Electron `userData/logs` 目录。
 
 删除该目录会永久移除本地主题、素材、偏好和受管状态。CodexStyle 不保留可用于恢复的云端副本。
 

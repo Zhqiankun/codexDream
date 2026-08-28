@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.3.3 — 2026-08-28
+
+### English
+
+- Prevented invalid color values from reaching theme-save IPC, added field-level format guidance, and recorded only safe Zod issue paths/codes for rejected requests.
+- Upgraded regular IPC to protocol v2 while retaining a narrow bootstrap handshake, so a renderer loaded by an older resident tray process shows an explicit full-exit/restart screen instead of failing later during save.
+- Made color-only themes complete by creating an atomic transparent PNG for new drafts and safely backfilling precisely recognized older backgroundless drafts during commit. Unknown or damaged records remain fail-closed.
+- Made the muted “input placeholder and explanatory text” color visible in the preview and bridged supported composer placeholder selectors in real Codex, while retaining separate toolbar and primary-action colors.
+- Added privacy-bounded daily JSONL diagnostics with 5 MiB segments, seven-day retention, startup/24-hour cleanup, secret/path/query sanitization, and a Studio button that opens the log directory.
+
+> v1.3.3 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall is required, and local themes are preserved.
+
+### 简体中文
+
+- 阻止非法颜色进入主题保存 IPC，增加字段级格式说明，并且只为被拒绝请求记录安全的 Zod 字段路径与错误码。
+- 普通 IPC 升级至 v2，同时保留收窄的启动握手；如果新版 renderer 被旧托盘主进程加载，会明确提示完全退出并重启，不再等到保存时才失败。
+- 新建主题原子创建透明 PNG，使只配颜色的主题可以直接保存；提交时也会安全补齐精确识别出的历史无背景草稿，未知或损坏记录继续 fail closed。
+- “输入占位与说明文字”颜色在预览中不再被额外淡化，并桥接到真实 Codex composer 的受支持占位选择器；工具栏和主要操作仍使用各自颜色。
+- 新增受隐私边界约束的按日 JSONL 诊断日志：5 MiB 分段、保留 7 天、启动及每 24 小时清理、密钥/路径/URL 查询脱敏，并可在工作台打开日志目录。
+
+> SignPath Foundation 申请仍在审核，v1.3.3 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载，本地主题会保留。
+
 ## v1.3.2 — 2026-08-28
 
 ### English

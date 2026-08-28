@@ -54,18 +54,19 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 - Managed Codex launch with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
 - Local-first storage with a native Windows x64 secure-store component.
 - User-initiated in-app update checks and verified downloads for the installed Windows build, with progress, cancellation, restart-to-install, and install-on-exit choices. There is no background polling or silent installation.
+- Privacy-bounded daily diagnostic logs with a 7-day retention window and a one-click **Open logs** action for troubleshooting.
 
 ## Download
 
-Download `v1.3.2` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.3` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.2-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.2-x64.zip` — portable archive.
+- `CodexStyle-1.3.3-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.3-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.2` fixes a startup failure that can leave v1.3.1 running without a window. Affected v1.3.1 users must manually download and run the v1.3.2 installer once because the updater UI is unavailable in that state. Install it over the existing copy; no uninstall is required, and local themes are preserved. Users whose installed v1.3.1 opens normally can update in-app. The portable ZIP remains manual-update only.
+`v1.3.3` fixes theme saving for color-only drafts, detects mixed renderer/main versions after an overwrite, improves composer explanatory colors, and adds seven-day diagnostic logs. Install it over the existing copy; no uninstall is required, and local themes are preserved. Installed v1.3.1+ builds that open normally can update in-app. The portable ZIP remains manual-update only.
 
 ## Requirements
 

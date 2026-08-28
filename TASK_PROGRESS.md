@@ -1,6 +1,6 @@
 # CodexStyle 任务进度
 
-更新时间：2026-08-26
+更新时间：2026-08-28
 
 ## 目标与范围
 
@@ -32,7 +32,7 @@
 - [x] 用户明确授权安装 Microsoft 官方 Build Tools 与 Windows SDK。
 - [x] 工具链实测可用：MSVC x64 `19.44.35228`、Windows SDK `10.0.26100.0`、Build Tools 2022 `17.14.37`，无需重启。
 - [x] 将固定 `%LOCALAPPDATA%\\CodexStyle` 根、预定义 managed path、根句柄生命周期、逐段 handle-relative/reparse-aware I/O、原子提交、无 Node `fs` fallback、ASAR-unpacked 和模块缺失 fail-closed 写入 `.agents.md`、`REQUIREMENTS.md`、`PLAN.md`。
-- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不改变 IPC `v: 1`、preload、renderer 或 `../old/`。
+- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不放宽 IPC `v: 2`、bootstrap 握手、preload、renderer 或 `../old/`。
 - [x] 已实施 native addon、main adapter、local/session 接入、构建打包和 main tests。
 - [ ] 测试工程师独立执行 native 行为测试、完整回归、构建与打包验证。
 - [ ] 高风险安全审计师独立复核 reparse/TOCTOU、原子提交、锁、模块加载和 fail-closed 证据。

@@ -54,18 +54,19 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 - 受管 Codex 启动流程，包含 Store 包检测、会话隔离、CDP 身份校验和版本选择器兼容性检查。
 - 数据本地优先，通过 Windows x64 原生 secure-store 组件保护关键状态。
 - Windows 正式安装版可由用户主动触发应用内检查和校验下载，显示进度并支持取消、重启安装或退出时安装；不后台轮询，也不静默安装。
+- 提供受隐私边界约束的按日诊断日志，默认保留 7 天，并可在工作台一键打开日志目录用于排查。
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.2`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.3`：
 
-- `CodexStyle-1.3.2-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.2-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.3-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.3-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.2` 修复了 v1.3.1 可能只在后台运行而不显示窗口的问题。受影响的 v1.3.1 用户需要手动下载并运行一次 v1.3.2 安装程序，因为该状态下无法使用更新界面。直接覆盖原安装即可，无需先卸载，本地主题会保留；能够正常打开的 v1.3.1 安装版可以继续使用应用内更新。ZIP 便携版仍需手动更新。
+`v1.3.3` 修复只配置颜色的新主题保存、覆盖安装后的 renderer/main 混版识别、输入框说明文字映射，并增加保留 7 天的诊断日志。直接覆盖原安装即可，无需卸载，本地主题会保留；能够正常打开的 v1.3.1 及以上安装版可使用应用内更新。ZIP 便携版仍需手动更新。
 
 ## 运行要求
 
