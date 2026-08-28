@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.4 — 2026-08-28
+
+### English
+
+- Added an explicit, confirmed “Discard current changes” action that restores the latest committed theme or a new theme's creation state, including colors, CSS, background artwork, send icons, and advanced JSON, without deleting the theme or changing its next-launch selection.
+- Upgraded the managed theme index to v2 with durable edit checkpoints, copy-on-write image replacement/recovery, globally unique image IDs, monotonic replacement revisions, v1 migration, and fail-closed rollback/tamper checks.
+- Added a quiet installed-build update check shortly after startup and every 20 minutes thereafter. Background checks only read the fixed GitHub Release metadata, never download automatically, preserve stable state on failure, and avoid overlapping slow requests.
+- Replaced the reset-like update glyph with a download/install icon, added a nearby “new version available” status pill, improved tray update states, and upgraded regular IPC to protocol v3 while retaining the v1 bootstrap handshake.
+
+> v1.3.4 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall is required, and local themes are preserved.
+
+### 简体中文
+
+- 新增明确且带二次确认的“放弃本次修改”：可恢复最近一次保存状态或新主题的创建初始状态，覆盖颜色、CSS、背景、发送图标和高级 JSON；不会删除主题，也不会改变下次启动选择。
+- 受管主题索引升级至 v2：加入持久化编辑 checkpoint、图片 copy-on-write 替换与恢复、全局唯一图片 ID、单调递增的导入替换 revision、v1 迁移，以及 fail closed 的回滚与防篡改校验。
+- 正式安装版会在启动后静默检查一次更新，之后每 20 分钟检查。后台只读取固定 GitHub Release 元数据，不自动下载；失败保持稳定状态，慢请求也不会重叠。
+- 更新入口改用下载/安装语义图标，按钮旁新增“有新版可用”状态提示，完善托盘更新状态；普通 IPC 升级至 v3，同时保留 v1 bootstrap 握手。
+
+> SignPath Foundation 申请仍在审核，v1.3.4 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载，本地主题会保留。
+
 ## v1.3.3 — 2026-08-28
 
 ### English
