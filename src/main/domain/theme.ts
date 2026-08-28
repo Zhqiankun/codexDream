@@ -43,11 +43,27 @@ export interface ThemeRecord {
 }
 
 export interface ThemeIndex {
-  version: 1;
+  version: 2;
   selectedLibraryId?: string;
   lastKnownGoodLibraryId?: string;
   paused: boolean;
   themes: ThemeRecord[];
+  checkpoints: ThemeCheckpoint[];
+}
+
+/**
+ * The durable state captured immediately before a theme's first edit.
+ *
+ * Background bytes live in a separate managed file so replacing a background
+ * with another image using the same extension cannot overwrite the rollback
+ * copy. The file name is deliberately independent from the theme library ID.
+ */
+export interface ThemeCheckpoint {
+  libraryId: string;
+  record: ThemeRecord;
+  backgroundFile?: string;
+  wasLastKnownGood: boolean;
+  createdAt: string;
 }
 
 const DEFAULT_ACCENT = "#8b5cf6";
@@ -88,10 +104,12 @@ export function toDetail(
   theme: ThemeRecord,
   selectedLibraryId?: string,
   assetUrl?: string,
+  canDiscardChanges = false,
 ): ThemeDetail {
   const configuration = readThemeConfiguration(theme.json);
   return {
     ...toSummary(theme, selectedLibraryId),
+    canDiscardChanges,
     themeId: theme.themeId,
     description: theme.description,
     css: theme.css,
@@ -114,7 +132,7 @@ export function toDetail(
 }
 
 export function createDefaultIndex(): ThemeIndex {
-  return { version: 1, paused: false, themes: [] };
+  return { version: 2, paused: false, themes: [], checkpoints: [] };
 }
 
 /**

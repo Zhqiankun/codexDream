@@ -25,7 +25,8 @@ export interface UpdateGateway {
 
 export class UpdateService {
   private state: UpdateSnapshot;
-  private pendingRequest?: Promise<UpdateSnapshot>;
+  private pendingCheck?: Promise<UpdateSnapshot>;
+  private pendingDownload?: Promise<UpdateSnapshot>;
   private cancelRequested = false;
 
   constructor(
@@ -47,6 +48,16 @@ export class UpdateService {
     return cloneSnapshot(this.state);
   }
 
+  checkAvailability(): Promise<UpdateSnapshot> {
+    if (!this.gateway.supported)
+      return Promise.reject(new Error("UPDATE_UNSUPPORTED"));
+    if (this.shouldSkipAvailabilityCheck())
+      return Promise.resolve(this.snapshot());
+    if (this.pendingDownload) return this.pendingDownload;
+    if (this.pendingCheck) return this.pendingCheck;
+    return this.startCheck(true);
+  }
+
   checkAndDownload(): Promise<UpdateSnapshot> {
     if (!this.gateway.supported)
       return Promise.reject(new Error("UPDATE_UNSUPPORTED"));
@@ -57,11 +68,39 @@ export class UpdateService {
       (this.state.status === "error" && this.state.errorPhase === "install")
     )
       return Promise.resolve(this.snapshot());
-    if (this.pendingRequest) return this.pendingRequest;
-    const pending = this.performCheckAndDownload().finally(() => {
-      if (this.pendingRequest === pending) this.pendingRequest = undefined;
-    });
-    this.pendingRequest = pending;
+    if (this.pendingDownload) return this.pendingDownload;
+
+    const joinedBackgroundCheck = this.pendingCheck !== undefined;
+    const check =
+      this.state.status === "available"
+        ? Promise.resolve(this.snapshot())
+        : (this.pendingCheck ?? this.startCheck(false));
+    const pending = check
+      .catch((error: unknown) => {
+        if (joinedBackgroundCheck) this.recordManualCheckFailure();
+        throw error;
+      })
+      .then((snapshot) =>
+        snapshot.status === "available"
+          ? this.performDownload(snapshot)
+          : snapshot,
+      )
+      .finally(() => {
+        if (this.pendingDownload === pending) this.pendingDownload = undefined;
+      });
+    this.pendingDownload = pending;
+    return pending;
+  }
+
+  private startCheck(
+    preserveStableStateOnFailure: boolean,
+  ): Promise<UpdateSnapshot> {
+    const pending = this.performCheck(preserveStableStateOnFailure).finally(
+      () => {
+        if (this.pendingCheck === pending) this.pendingCheck = undefined;
+      },
+    );
+    this.pendingCheck = pending;
     return pending;
   }
 
@@ -137,27 +176,23 @@ export class UpdateService {
     return this.snapshot();
   }
 
-  private async performCheckAndDownload(): Promise<UpdateSnapshot> {
+  private async performCheck(
+    preserveStableStateOnFailure: boolean,
+  ): Promise<UpdateSnapshot> {
     const checkedAt = this.now().toISOString();
-    this.cancelRequested = false;
-    this.setState({
-      configured: true,
-      status: "checking",
-      currentVersion: this.state.currentVersion,
-      checkedAt,
-    });
+    if (!preserveStableStateOnFailure)
+      this.setState({
+        configured: true,
+        status: "checking",
+        currentVersion: this.state.currentVersion,
+        checkedAt,
+      });
 
     let latest: ReleaseInfo;
     try {
       latest = await this.gateway.fetchLatest();
     } catch (error) {
-      this.setState({
-        configured: true,
-        status: "error",
-        currentVersion: this.state.currentVersion,
-        checkedAt,
-        errorPhase: "check",
-      });
+      this.recordCheckFailure(checkedAt, preserveStableStateOnFailure);
       throw error;
     }
 
@@ -165,13 +200,7 @@ export class UpdateService {
     try {
       comparison = compareVersions(latest.version, this.state.currentVersion);
     } catch (error) {
-      this.setState({
-        configured: true,
-        status: "error",
-        currentVersion: this.state.currentVersion,
-        checkedAt,
-        errorPhase: "check",
-      });
+      this.recordCheckFailure(checkedAt, preserveStableStateOnFailure);
       throw error;
     }
     if (comparison <= 0) {
@@ -194,6 +223,13 @@ export class UpdateService {
       checkedAt,
     };
     this.setState(available);
+    return this.snapshot();
+  }
+
+  private async performDownload(
+    available: UpdateSnapshot,
+  ): Promise<UpdateSnapshot> {
+    this.cancelRequested = false;
     this.setState({
       ...available,
       status: "downloading",
@@ -220,6 +256,30 @@ export class UpdateService {
     }
   }
 
+  private recordCheckFailure(
+    checkedAt: string,
+    preserveStableState: boolean,
+  ): void {
+    if (preserveStableState) return;
+    this.setState({
+      configured: true,
+      status: "error",
+      currentVersion: this.state.currentVersion,
+      checkedAt,
+      errorPhase: "check",
+    });
+  }
+
+  private recordManualCheckFailure(): void {
+    this.setState({
+      configured: true,
+      status: "error",
+      currentVersion: this.state.currentVersion,
+      checkedAt: this.now().toISOString(),
+      errorPhase: "check",
+    });
+  }
+
   private reportProgress(progress: DownloadProgress): void {
     if (this.state.status !== "downloading") return;
     const next = normalizeProgress(progress);
@@ -231,6 +291,16 @@ export class UpdateService {
     return (
       this.state.status === "downloaded" ||
       this.state.status === "scheduled" ||
+      (this.state.status === "error" && this.state.errorPhase === "install")
+    );
+  }
+
+  private shouldSkipAvailabilityCheck(): boolean {
+    return (
+      this.state.status === "downloading" ||
+      this.state.status === "downloaded" ||
+      this.state.status === "scheduled" ||
+      this.state.status === "installing" ||
       (this.state.status === "error" && this.state.errorPhase === "install")
     );
   }

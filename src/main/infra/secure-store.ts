@@ -49,6 +49,15 @@ export function managedThemeFile(fileName: string): ManagedFile {
   return file;
 }
 
+/**
+ * Checkpoint images intentionally share the native store's hardened theme
+ * directory and UUID file contract. Their independent UUID keeps them from
+ * aliasing the active image they protect.
+ */
+export function managedThemeCheckpointFile(fileName: string): ManagedFile {
+  return managedThemeFile(fileName);
+}
+
 export class SecureManagedStore {
   private constructor(private readonly native: NativeSecureStore) {}
 

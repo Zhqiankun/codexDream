@@ -72,6 +72,24 @@ export class ThemeService {
     }
   }
 
+  async discardChanges(
+    libraryId: string,
+    expectedRevision: number,
+  ): Promise<Result<ThemeDetail>> {
+    try {
+      const record = await this.store.discardChanges(
+        libraryId,
+        expectedRevision,
+      );
+      return {
+        ok: true,
+        data: this.store.getDetail(record.libraryId, "app://theme-asset")!,
+      };
+    } catch (error) {
+      return this.fromError(error);
+    }
+  }
+
   async chooseBackground(
     libraryId: string,
     expectedRevision: number,

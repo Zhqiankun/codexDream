@@ -50,7 +50,7 @@ describe("AppController operation gate", () => {
     });
     registerIpc(fixture.controller);
 
-    const ipcLaunch = handlers.get("session.launch")!(trustedEvent(), { v: 2 });
+    const ipcLaunch = handlers.get("session.launch")!(trustedEvent(), { v: 3 });
     await Promise.resolve();
     const trayLaunch = fixture.controller.launch();
     await Promise.resolve();
@@ -78,10 +78,10 @@ describe("AppController operation gate", () => {
     });
     registerIpc(fixture.controller);
 
-    const launch = handlers.get("session.launch")!(trustedEvent(), { v: 2 });
+    const launch = handlers.get("session.launch")!(trustedEvent(), { v: 3 });
     await Promise.resolve();
     const pause = fixture.controller.pause();
-    const end = handlers.get("session.endOwned")!(trustedEvent(), { v: 2 });
+    const end = handlers.get("session.endOwned")!(trustedEvent(), { v: 3 });
     const quit = fixture.controller.requestQuit();
     const install = fixture.controller.installUpdate("now");
 
@@ -118,7 +118,7 @@ describe("AppController operation gate", () => {
     registerIpc(fixture.controller);
 
     const result = await handlers.get("session.launch")!(trustedEvent(), {
-      v: 2,
+      v: 3,
     });
 
     expect(result).toEqual({

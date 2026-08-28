@@ -85,6 +85,12 @@ export function registerIpc(
       controller.patchDraft(libraryId, expectedRevision, patch),
   );
   handle(
+    "theme.discardChanges",
+    RevisionSchema,
+    async ({ libraryId, expectedRevision }) =>
+      controller.discardThemeChanges(libraryId, expectedRevision),
+  );
+  handle(
     "theme.chooseBackground",
     RevisionSchema,
     async ({ libraryId, expectedRevision }) =>

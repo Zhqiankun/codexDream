@@ -53,6 +53,7 @@ describe("preload public boundary", () => {
       "commit",
       "createDraft",
       "deleteTheme",
+      "discardChanges",
       "endOwnedSession",
       "exportZip",
       "getSnapshot",
@@ -74,7 +75,7 @@ describe("preload public boundary", () => {
     ]);
     expect(api).not.toHaveProperty("invoke");
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
-      v: 2,
+      v: 3,
     });
 
     await api.rendererReady();
@@ -84,14 +85,24 @@ describe("preload public boundary", () => {
 
     await api.openLogDirectory();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("diagnostics.openLogs", {
-      v: 2,
+      v: 3,
+    });
+
+    await api.discardChanges({
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 2,
+    });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.discardChanges", {
+      v: 3,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 2,
     });
 
     await api.cancelUpdate();
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 2 });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 3 });
     await api.installUpdate({ mode: "now" });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.install", {
-      v: 2,
+      v: 3,
       mode: "now",
     });
   });

@@ -157,6 +157,40 @@ textarea:focus-visible {
   color: #f5d68c;
   background: #1c2740;
 }
+.update-available-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #3c553d;
+  border-radius: 999px;
+  color: #b9efc4;
+  background: rgba(31, 66, 44, 0.58);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.update-available-hint > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.1);
+}
+.update-icon {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+}
+.update-icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .update-button.has-update {
   color: #ffd36e;
   background: #2c2518;
@@ -173,8 +207,8 @@ textarea:focus-visible {
   background: #4ade80;
   box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
 }
-.update-button.is-busy {
-  animation: update-spin 0.9s linear infinite;
+.update-button.is-busy .update-icon-arrow {
+  animation: update-drop 0.9s ease-in-out infinite;
 }
 .avatar-button {
   width: 34px;
@@ -445,9 +479,9 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-@keyframes update-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes update-drop {
+  50% {
+    transform: translateY(2px);
   }
 }
 .conflict-card {
@@ -2591,7 +2625,7 @@ input.opacity-range {
     transition-duration: 0.01ms !important;
   }
 
-  .update-button.is-busy {
+  .update-button.is-busy .update-icon-arrow {
     animation: none;
   }
 }

@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   clearCache: vi.fn<() => Promise<void>>(),
   protocolHandle: vi.fn(),
   registerIpc: vi.fn(),
+  checkAvailability: vi.fn<() => Promise<unknown>>(),
   quit: vi.fn(),
   showErrorBox: vi.fn(),
 }));
@@ -210,6 +211,7 @@ describe("CodexStyle startup window lifecycle", () => {
       .mockImplementation(() => new Promise(() => {}));
     state.protocolHandle.mockReset();
     state.registerIpc.mockReset();
+    state.checkAvailability.mockReset().mockResolvedValue(updateSnapshot());
     state.quit.mockReset();
     state.showErrorBox.mockReset();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -228,6 +230,53 @@ describe("CodexStyle startup window lifecycle", () => {
     ).toEqual(["protocol", "ipc", "tray", "loadURL"]);
   });
 
+  it("checks quietly after startup and then every twenty minutes", async () => {
+    const controller = createController();
+    await controller.init();
+
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(state.checkAvailability).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(state.checkAvailability).toHaveBeenCalledOnce();
+
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(20 * 60 * 1_000);
+    expect(state.checkAvailability).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not poll unsupported builds and clears polling on dispose", async () => {
+    const unsupported = createController(false);
+    await unsupported.init();
+    await vi.advanceTimersByTimeAsync(30 * 60 * 1_000);
+    expect(state.checkAvailability).not.toHaveBeenCalled();
+    unsupported.dispose();
+
+    const supported = createController();
+    await supported.init();
+    supported.dispose();
+    await vi.advanceTimersByTimeAsync(30 * 60 * 1_000);
+    expect(state.checkAvailability).not.toHaveBeenCalled();
+  });
+
+  it("does not overlap a slow availability request", async () => {
+    let finishCheck!: () => void;
+    state.checkAvailability.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishCheck = () => resolve(updateSnapshot());
+        }),
+    );
+    const controller = createController();
+    await controller.init();
+
+    await vi.advanceTimersByTimeAsync(40 * 60 * 1_000);
+    expect(state.checkAvailability).toHaveBeenCalledOnce();
+    finishCheck();
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(20 * 60 * 1_000);
+    expect(state.checkAvailability).toHaveBeenCalledTimes(2);
+  });
+
   it("shows the Studio only after both ready-to-show and rendererReady", async () => {
     const controller = createController();
     await controller.init();
@@ -238,7 +287,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 2 },
+      data: { appVersion: "1.3.1", protocolVersion: 3 },
     });
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
@@ -274,7 +323,7 @@ describe("CodexStyle startup window lifecycle", () => {
     firstWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 2 },
+      data: { appVersion: "1.3.1", protocolVersion: 3 },
     });
     firstWindow.emitWebContents(
       "render-process-gone",
@@ -287,7 +336,7 @@ describe("CodexStyle startup window lifecycle", () => {
     secondWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 2 },
+      data: { appVersion: "1.3.1", protocolVersion: 3 },
     });
     secondWindow.emitWebContents(
       "render-process-gone",
@@ -317,7 +366,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 2 },
+      data: { appVersion: "1.3.1", protocolVersion: 3 },
     });
     expect(currentWindow.show).not.toHaveBeenCalled();
 
@@ -352,9 +401,10 @@ describe("CodexStyle startup window lifecycle", () => {
   });
 });
 
-function createController(): AppController {
+function createController(configured = true): AppController {
   return new AppController({
-    snapshot: vi.fn(() => updateSnapshot()),
+    snapshot: vi.fn(() => updateSnapshot(configured)),
+    checkAvailability: state.checkAvailability,
     cancel: vi.fn(),
   } as never);
 }
@@ -374,10 +424,10 @@ function sessionSnapshot() {
   };
 }
 
-function updateSnapshot() {
+function updateSnapshot(configured = true) {
   return {
-    configured: true as const,
-    status: "idle" as const,
+    configured,
+    status: configured ? ("idle" as const) : ("unsupported" as const),
     currentVersion: "1.3.1",
   };
 }

@@ -8,6 +8,27 @@ import {
 } from "../../src/main/app/update-service";
 
 describe("UpdateService", () => {
+  it("checks availability without downloading and lets a manual request download the known release", async () => {
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    const service = new UpdateService("1.0.0", gateway);
+
+    await expect(service.checkAvailability()).resolves.toMatchObject({
+      status: "available",
+      latestVersion: "1.2.0",
+    });
+    expect(gateway.download).not.toHaveBeenCalled();
+
+    await expect(service.checkAndDownload()).resolves.toMatchObject({
+      status: "downloaded",
+      latestVersion: "1.2.0",
+    });
+    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
+    expect(gateway.download).toHaveBeenCalledOnce();
+  });
+
   it("checks, downloads, reports bounded progress, and opens the fixed release", async () => {
     const gateway = gatewayFixture({
       version: "1.2.0",
@@ -99,6 +120,145 @@ describe("UpdateService", () => {
       status: "error",
       errorPhase: "check",
     });
+  });
+
+  it("deduplicates concurrent availability checks", async () => {
+    let resolveLatest!: (release: ReleaseInfo) => void;
+    const release = {
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    };
+    const gateway = gatewayFixture(release);
+    gateway.fetchLatest.mockImplementation(
+      () =>
+        new Promise<ReleaseInfo>((resolve) => {
+          resolveLatest = resolve;
+        }),
+    );
+    const service = new UpdateService("1.0.0", gateway);
+
+    const first = service.checkAvailability();
+    const second = service.checkAvailability();
+    expect(second).toBe(first);
+    resolveLatest(release);
+
+    await expect(first).resolves.toMatchObject({ status: "available" });
+    await expect(second).resolves.toMatchObject({ status: "available" });
+    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
+    expect(gateway.download).not.toHaveBeenCalled();
+  });
+
+  it("shares an active background check with a manual download request", async () => {
+    let resolveLatest!: (release: ReleaseInfo) => void;
+    const release = {
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    };
+    const gateway = gatewayFixture(release);
+    gateway.fetchLatest.mockImplementation(
+      () =>
+        new Promise<ReleaseInfo>((resolve) => {
+          resolveLatest = resolve;
+        }),
+    );
+    const service = new UpdateService("1.0.0", gateway);
+
+    const background = service.checkAvailability();
+    const manual = service.checkAndDownload();
+    resolveLatest(release);
+
+    await expect(background).resolves.toMatchObject({ status: "available" });
+    await expect(manual).resolves.toMatchObject({ status: "downloaded" });
+    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
+    expect(gateway.download).toHaveBeenCalledOnce();
+  });
+
+  it("restores the last stable state when a background check fails", async () => {
+    const gateway = gatewayFixture({
+      version: "1.0.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.0.0",
+    });
+    const changed = vi.fn();
+    const service = new UpdateService(
+      "1.0.0",
+      gateway,
+      () => new Date("2026-08-27T08:00:00.000Z"),
+      changed,
+    );
+    await service.checkAvailability();
+    const stable = service.snapshot();
+    changed.mockClear();
+    gateway.fetchLatest.mockRejectedValueOnce(new Error("offline"));
+
+    await expect(service.checkAvailability()).rejects.toThrow("offline");
+    expect(service.snapshot()).toEqual(stable);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("keeps manual check failures in the existing error state when joining a background check", async () => {
+    let rejectLatest!: (error: Error) => void;
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    gateway.fetchLatest.mockImplementation(
+      () =>
+        new Promise<never>((_resolve, reject) => {
+          rejectLatest = reject;
+        }),
+    );
+    const service = new UpdateService("1.0.0", gateway);
+
+    const background = service.checkAvailability();
+    const manual = service.checkAndDownload();
+    rejectLatest(new Error("offline"));
+
+    await expect(background).rejects.toThrow("offline");
+    await expect(manual).rejects.toThrow("offline");
+    expect(service.snapshot()).toMatchObject({
+      status: "error",
+      errorPhase: "check",
+    });
+    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
+  });
+
+  it("skips availability checks during protected download and install states", async () => {
+    let resolveDownload!: () => void;
+    const gateway = gatewayFixture({
+      version: "1.2.0",
+      url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+    });
+    gateway.download.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDownload = resolve;
+        }),
+    );
+    const service = new UpdateService("1.0.0", gateway);
+
+    const download = service.checkAndDownload();
+    await vi.waitFor(() =>
+      expect(service.snapshot().status).toBe("downloading"),
+    );
+    await expect(service.checkAvailability()).resolves.toMatchObject({
+      status: "downloading",
+    });
+    resolveDownload();
+    await download;
+
+    await expect(service.checkAvailability()).resolves.toMatchObject({
+      status: "downloaded",
+    });
+    service.scheduleInstallOnQuit();
+    await expect(service.checkAvailability()).resolves.toMatchObject({
+      status: "scheduled",
+    });
+    service.cancel();
+    service.installNow();
+    await expect(service.checkAvailability()).resolves.toMatchObject({
+      status: "installing",
+    });
+    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
   });
 
   it("returns to available when a user cancels an active download", async () => {

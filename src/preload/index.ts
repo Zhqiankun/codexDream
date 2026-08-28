@@ -22,6 +22,8 @@ const api: CodexStyleApi = {
     invoke("theme.createDraft", { v: PROTOCOL_VERSION, ...request }),
   patchDraft: (request) =>
     invoke("theme.patchDraft", { v: PROTOCOL_VERSION, ...request }),
+  discardChanges: (request) =>
+    invoke("theme.discardChanges", { v: PROTOCOL_VERSION, ...request }),
   chooseBackground: (request) =>
     invoke("theme.chooseBackground", { v: PROTOCOL_VERSION, ...request }),
   chooseSendIcon: (request) =>

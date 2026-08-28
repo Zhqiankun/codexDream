@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -22,6 +23,7 @@ import { App } from "../../src/renderer/app/App";
 
 const theme: ThemeDetail = {
   libraryId: "11111111-1111-4111-8111-111111111111",
+  canDiscardChanges: false,
   themeId: "midnight-copper",
   name: "Midnight Copper",
   description: "Local theme",
@@ -116,7 +118,7 @@ function makeApi() {
   const api = {
     rendererReady: vi.fn().mockResolvedValue({
       ok: true,
-      data: { appVersion: "1.3.3", protocolVersion: 2 },
+      data: { appVersion: "1.3.3", protocolVersion: 3 },
     }),
     openLogDirectory: vi.fn().mockResolvedValue({ ok: true, data: true }),
     getSnapshot: vi.fn().mockResolvedValue({ ok: true, data: snapshot }),
@@ -125,6 +127,7 @@ function makeApi() {
     patchDraft: vi
       .fn()
       .mockResolvedValue({ ok: true, data: { ...theme, revision: 3 } }),
+    discardChanges: vi.fn().mockResolvedValue({ ok: true, data: theme }),
     chooseBackground: vi.fn(),
     chooseSendIcon: vi.fn(),
     commit: vi.fn().mockResolvedValue({
@@ -275,6 +278,75 @@ describe("Studio renderer", () => {
       expect(api.installUpdate).toHaveBeenCalledWith({ mode: "on-quit" }),
     );
     expect(await screen.findByText("已安排退出时安装")).toBeInTheDocument();
+  });
+
+  it("shows a quiet availability hint and a download icon before downloading", async () => {
+    const api = makeApi();
+    const available = {
+      configured: true as const,
+      status: "available" as const,
+      currentVersion: "1.3.3",
+      latestVersion: "1.4.0",
+      releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.4.0",
+      checkedAt: "2026-08-28T09:00:00.000Z",
+    };
+    const downloaded = { ...available, status: "downloaded" as const };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: available },
+    });
+    api.requestUpdate.mockResolvedValue({ ok: true, data: downloaded });
+    window.codexStyle = api;
+
+    render(<App />);
+
+    expect(await screen.findByText("有新版 v1.4.0")).toBeInTheDocument();
+    expect(screen.queryByLabelText("CodexStyle 更新")).toBeNull();
+    const updateButton = screen.getByRole("button", {
+      name: "下载 v1.4.0 更新",
+    });
+    expect(updateButton.querySelector("svg.update-icon")).toBeInTheDocument();
+    expect(updateButton).not.toHaveTextContent("↻");
+
+    fireEvent.click(updateButton);
+    await waitFor(() => expect(api.requestUpdate).toHaveBeenCalledOnce());
+    expect(await screen.findByText("v1.4.0 已准备好安装")).toBeInTheDocument();
+  });
+
+  it("shows immediate busy feedback when a manual check joins background work", async () => {
+    const api = makeApi();
+    let resolveUpdate!: (
+      result: Awaited<ReturnType<typeof api.requestUpdate>>,
+    ) => void;
+    api.requestUpdate.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpdate = resolve;
+        }),
+    );
+    window.codexStyle = api;
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "检查更新" }));
+
+    const pending = screen.getByRole("button", { name: "正在检查更新" });
+    expect(pending).toBeDisabled();
+    expect(pending).toHaveClass("is-busy");
+
+    await act(async () => {
+      resolveUpdate({
+        ok: true,
+        data: {
+          configured: true,
+          status: "current",
+          currentVersion: "1.3.3",
+          latestVersion: "1.3.3",
+        },
+      });
+    });
+    expect(
+      await screen.findByRole("button", { name: "检查更新" }),
+    ).toBeEnabled();
   });
 
   it("shows determinate download progress and allows cancellation", async () => {
@@ -437,6 +509,94 @@ describe("Studio renderer", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("discards the current edit only after explicit confirmation", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
+    const background = screen.getByRole("textbox", {
+      name: "页面背景颜色",
+    });
+    fireEvent.change(background, { target: { value: "#123456" } });
+
+    const discardButton = screen.getByRole("button", {
+      name: "放弃本次修改",
+    });
+    discardButton.focus();
+    fireEvent.click(discardButton);
+    let dialog = screen.getByRole("dialog", {
+      name: "放弃“Midnight Copper”的本次修改？",
+    });
+    expect(dialog).toHaveTextContent("主题本身和“下次启动”选择不会被删除");
+    expect(api.discardChanges).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(discardButton).toHaveFocus();
+
+    fireEvent.click(discardButton);
+    dialog = screen.getByRole("dialog", {
+      name: "放弃“Midnight Copper”的本次修改？",
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "继续编辑" }),
+    ).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "放弃并恢复" }));
+    await waitFor(() =>
+      expect(api.discardChanges).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: theme.revision,
+      }),
+    );
+    await waitFor(() =>
+      expect(background).toHaveValue(theme.colors.background),
+    );
+    expect(
+      await screen.findByText("已放弃本次修改，主题已恢复到最近保存的状态。"),
+    ).toBeInTheDocument();
+  });
+
+  it("offers discard for a persisted working copy even without local field changes", async () => {
+    const api = makeApi();
+    const persistedDraft: ThemeDetail = {
+      ...theme,
+      canDiscardChanges: true,
+      name: "Persisted draft",
+      status: "draft",
+      revision: 3,
+      validation: { ...theme.validation, package: "draft" },
+    };
+    const restored: ThemeDetail = {
+      ...theme,
+      canDiscardChanges: false,
+      revision: 4,
+    };
+    api.getTheme.mockResolvedValue({ ok: true, data: persistedDraft });
+    api.discardChanges.mockResolvedValue({ ok: true, data: restored });
+    window.codexStyle = api;
+
+    render(<App />);
+    const discard = await screen.findByRole("button", {
+      name: "放弃本次修改",
+    });
+    expect(discard).toBeEnabled();
+    fireEvent.click(discard);
+    fireEvent.click(screen.getByRole("button", { name: "放弃并恢复" }));
+
+    await waitFor(() =>
+      expect(api.discardChanges).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: persistedDraft.revision,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "放弃本次修改" }),
+      ).toBeDisabled(),
+    );
+    expect(screen.getByRole("tab", { name: "主题设计" })).toHaveFocus();
+  });
+
   it("switches the live preview between conversation and home", async () => {
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
@@ -491,6 +651,7 @@ describe("Studio renderer", () => {
     };
     const themeWithBackground: ThemeDetail = {
       ...draftWithoutBackground,
+      canDiscardChanges: true,
       backgroundUrl: theme.backgroundUrl,
       hasBackground: true,
       revision: draftWithoutBackground.revision + 1,

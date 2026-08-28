@@ -36,6 +36,8 @@ import type { MainLogger } from "../infra/main-logger";
 const STUDIO_STARTUP_TIMEOUT_MS = 10_000;
 const STUDIO_RETRY_DELAY_MS = 250;
 const MAX_STUDIO_RECOVERY_ATTEMPTS = 1;
+const UPDATE_INITIAL_CHECK_DELAY_MS = 10_000;
+const UPDATE_POLL_INTERVAL_MS = 20 * 60 * 1_000;
 
 export class AppController {
   mainWindow?: BrowserWindow;
@@ -52,6 +54,7 @@ export class AppController {
   private studioRecoveryAttempts = 0;
   private studioStartupWatchdog?: ReturnType<typeof setTimeout>;
   private studioRetryTimer?: ReturnType<typeof setTimeout>;
+  private updatePollTimer?: ReturnType<typeof setTimeout>;
   private readonly updateService: UpdateService;
   private readonly devRendererUrl = resolveDevRendererUrl(
     process.env.ELECTRON_RENDERER_URL,
@@ -101,6 +104,8 @@ export class AppController {
     this.quitting = true;
     this.clearStudioStartupWatchdog();
     if (this.studioRetryTimer) clearTimeout(this.studioRetryTimer);
+    if (this.updatePollTimer) clearTimeout(this.updatePollTimer);
+    this.updatePollTimer = undefined;
     if (this.updateService.snapshot().status === "downloading")
       this.updateService.cancel();
     this.store.managedStore.close();
@@ -184,6 +189,7 @@ export class AppController {
     registerIpc(this, this.logger);
     this.createTray();
     this.createWindow();
+    this.scheduleUpdateAvailabilityCheck(UPDATE_INITIAL_CHECK_DELAY_MS);
   }
 
   snapshot(): ThemeSnapshot {
@@ -251,6 +257,15 @@ export class AppController {
   ): Promise<Result<ThemeDetail>> {
     return this.runSideEffect(() =>
       this.themeService.patch(libraryId, expectedRevision, patch),
+    );
+  }
+
+  discardThemeChanges(
+    libraryId: string,
+    expectedRevision: number,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(() =>
+      this.themeService.discardChanges(libraryId, expectedRevision),
     );
   }
 
@@ -396,6 +411,33 @@ export class AppController {
       return updateError(error, this.updateService.snapshot());
     } finally {
       this.broadcast();
+    }
+  }
+
+  private scheduleUpdateAvailabilityCheck(delayMs: number): void {
+    if (
+      this.quitting ||
+      this.updatePollTimer ||
+      !this.updateService.snapshot().configured
+    )
+      return;
+    this.updatePollTimer = setTimeout(() => {
+      this.updatePollTimer = undefined;
+      void this.checkUpdateAvailabilityInBackground();
+    }, delayMs);
+    this.updatePollTimer.unref?.();
+  }
+
+  private async checkUpdateAvailabilityInBackground(): Promise<void> {
+    if (this.quitting) return;
+    try {
+      await this.updateService.checkAvailability();
+    } catch (error) {
+      this.logger?.warn("update.backgroundCheck.failed", {
+        errorCode: safeUpdatePollErrorCode(error),
+      });
+    } finally {
+      this.scheduleUpdateAvailabilityCheck(UPDATE_POLL_INTERVAL_MS);
     }
   }
 
@@ -730,6 +772,8 @@ export class AppController {
   private refreshTray(): void {
     if (!this.tray) return;
     const session = this.session.snapshot();
+    const update = this.updateService.snapshot();
+    const updateAction = trayUpdateAction(update);
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: "打开 Studio", click: () => void this.openStudio() },
@@ -764,7 +808,11 @@ export class AppController {
             ),
         },
         { type: "separator" },
-        { label: "检查更新", click: () => void this.checkForUpdatesFromTray() },
+        {
+          label: updateAction.label,
+          enabled: updateAction.enabled,
+          click: () => void this.checkForUpdatesFromTray(),
+        },
         { label: "退出", click: () => void this.requestQuit() },
       ]),
     );
@@ -885,6 +933,28 @@ function snapshotsEqual(left: ThemeSnapshot, right: ThemeSnapshot): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+export function trayUpdateAction(update: UpdateSnapshot): {
+  label: string;
+  enabled: boolean;
+} {
+  if (update.status === "available" && update.latestVersion)
+    return { label: `下载新版本 v${update.latestVersion}`, enabled: true };
+  if (update.status === "downloaded" && update.latestVersion)
+    return { label: `安装已下载的 v${update.latestVersion}`, enabled: true };
+  if (update.status === "scheduled" && update.latestVersion)
+    return {
+      label: `v${update.latestVersion} 已安排退出时安装`,
+      enabled: false,
+    };
+  if (update.status === "downloading" && update.latestVersion)
+    return { label: `正在下载 v${update.latestVersion}`, enabled: false };
+  if (update.status === "checking")
+    return { label: "正在检查更新", enabled: false };
+  if (update.status === "installing")
+    return { label: "正在启动更新安装", enabled: false };
+  return { label: "检查更新", enabled: true };
+}
+
 function createTrayIcon(): Electron.NativeImage {
   const image = nativeImage.createFromPath(resourcePath("tray-icon.png"));
   if (!image.isEmpty()) return image;
@@ -941,6 +1011,13 @@ function resolveDevRendererUrl(value: string | undefined): string | undefined {
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function safeUpdatePollErrorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  return /UPDATE_UNSUPPORTED/u.test(message)
+    ? "UPDATE_UNSUPPORTED"
+    : "UPDATE_CHECK_FAILED";
 }
 
 function resolveDevAssetUrl(

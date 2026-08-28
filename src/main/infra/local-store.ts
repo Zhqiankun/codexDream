@@ -20,7 +20,7 @@ import {
   type ThemePatch,
   type ThemeSnapshot,
 } from "../../contracts";
-import type { ThemeIndex, ThemeRecord } from "../domain/theme";
+import type { ThemeCheckpoint, ThemeIndex, ThemeRecord } from "../domain/theme";
 import {
   createDefaultIndex,
   themeFingerprint,
@@ -33,12 +33,22 @@ import { validateImage } from "./image";
 import {
   MANAGED_FILES,
   SecureManagedStore,
+  managedThemeCheckpointFile,
   managedThemeFile,
 } from "./secure-store";
 
 interface DiskTheme {
   record: ThemeRecord;
   backgroundBase64?: string;
+}
+
+interface StoredThemeIndex {
+  version: 1 | 2;
+  selectedLibraryId?: string;
+  lastKnownGoodLibraryId?: string;
+  paused: boolean;
+  themes: ThemeRecord[];
+  checkpoints?: ThemeCheckpoint[];
 }
 
 interface StoreJournal {
@@ -54,6 +64,11 @@ interface PreparedBackground {
   mime: string;
   sha256: string;
   bytes: number;
+}
+
+interface PreparedCheckpoint {
+  checkpoint: ThemeCheckpoint;
+  background?: Buffer;
 }
 
 const DEFAULT_CSS = `[data-ds-part="root"] {\n  background-color: #111827;\n  color: #e5e7eb;\n}\n[data-ds-part="sidebar"] {\n  background-color: #0f172a;\n  border-color: #334155;\n}\n[data-ds-part="composer"]:hover {\n  background-color: #334155;\n}`;
@@ -79,8 +94,8 @@ export class LocalThemeStore {
       else {
         const parsed = JSON.parse(
           new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-        ) as ThemeIndex;
-        if (!isThemeIndex(parsed))
+        ) as unknown;
+        if (!isStoredThemeIndex(parsed))
           throw new Error("STORE_TAMPERED:index-schema");
         this.index = withPresentationDefaults(parsed);
       }
@@ -106,6 +121,13 @@ export class LocalThemeStore {
           throw new Error("ready record is incomplete");
       } catch {
         throw new Error("STORE_TAMPERED:theme");
+      }
+    }
+    for (const checkpoint of this.index.checkpoints) {
+      try {
+        await this.validateCheckpoint(checkpoint);
+      } catch {
+        throw new Error("STORE_TAMPERED:checkpoint");
       }
     }
     if (this.index.themes.length === 0) {
@@ -144,6 +166,7 @@ export class LocalThemeStore {
       theme.backgroundFile
         ? `${assetBase}/${theme.libraryId}?v=${theme.revision}`
         : undefined,
+      Boolean(this.checkpointFor(libraryId)),
     );
   }
 
@@ -156,7 +179,7 @@ export class LocalThemeStore {
   }
 
   async createDraft(name = "Untitled theme"): Promise<ThemeRecord> {
-    const libraryId = randomUUID();
+    const libraryId = this.allocateLibraryId();
     const now = new Date().toISOString();
     const background = await createTransparentBackground(libraryId);
     const configuration = cloneThemeConfiguration({
@@ -247,7 +270,7 @@ export class LocalThemeStore {
       Buffer.byteLength(patch.themeJson, "utf8") > 64 * 1024
     )
       throw new Error("UNSAFE_ARCHIVE:theme-json-too-large");
-    return this.mutate(() => {
+    return this.mutateWithCheckpoint(libraryId, () => {
       if (patch.themeJson !== undefined) {
         applyThemeJsonSource(theme, patch.themeJson);
       } else {
@@ -323,11 +346,18 @@ export class LocalThemeStore {
     if (verified.mime !== mime || verified.sha256 !== sha256)
       throw new Error("UNSAFE_IMAGE:image-changed");
     const extension = verified.extension;
-    const fileNameOnDisk = `${libraryId}.${extension}`;
-    const previous = this.captureState();
+    const fileNameOnDisk = this.allocateManagedImageFile(extension);
+    const before = this.captureState();
     const previousImage = this.backgrounds.get(libraryId);
     const previousFile = theme.backgroundFile;
+    let stagedCheckpointFile: string | undefined;
+    let persistAttempted = false;
     try {
+      const prepared = await this.prepareCheckpoint(theme);
+      if (prepared) {
+        stagedCheckpointFile = prepared.checkpoint.backgroundFile;
+        this.writePreparedCheckpoint(prepared);
+      }
       this.managedStore.writeFileAtomic(managedThemeFile(fileNameOnDisk), data);
       this.backgrounds.set(libraryId, Buffer.from(data));
       theme.backgroundFile = fileNameOnDisk;
@@ -346,20 +376,34 @@ export class LocalThemeStore {
       theme.updatedAt = new Date().toISOString();
       if (this.index.lastKnownGoodLibraryId === libraryId)
         this.index.lastKnownGoodLibraryId = undefined;
+      persistAttempted = true;
       await this.persist();
+      if (previousFile && previousFile !== fileNameOnDisk) {
+        const removed = this.managedStore.removeFile(
+          managedThemeFile(previousFile),
+        );
+        if (!removed) throw new Error("STORE_TAMPERED:background-cleanup");
+      }
       return theme;
     } catch (error) {
-      this.restoreState(previous);
+      this.restoreState(before);
       try {
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
         if (previousImage && previousFile)
           this.managedStore.writeFileAtomic(
             managedThemeFile(previousFile),
             previousImage,
           );
         if (fileNameOnDisk !== previousFile)
-          this.managedStore.removeFile(managedThemeFile(fileNameOnDisk));
-      } catch {
-        // Preserve the original mutation failure after best-effort rollback.
+          this.removeManagedFileIfPresent(managedThemeFile(fileNameOnDisk));
+        if (stagedCheckpointFile)
+          this.removeManagedFileIfPresent(
+            managedThemeCheckpointFile(stagedCheckpointFile),
+          );
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:background-rollback", {
+          cause: rollbackError,
+        });
       }
       throw error;
     }
@@ -378,6 +422,11 @@ export class LocalThemeStore {
     if (isLegacyBackgroundlessDraft(theme)) {
       const background = await createTransparentBackground(libraryId);
       const before = this.captureState();
+      const checkpoint = this.checkpointFor(libraryId);
+      if (checkpoint) await this.validateCheckpoint(checkpoint);
+      const checkpointImage = checkpoint
+        ? await this.readCheckpointBackground(checkpoint)
+        : undefined;
       const backgroundFile = managedThemeFile(background.fileName);
       let backgroundWriteAttempted = false;
       let persistAttempted = false;
@@ -401,22 +450,36 @@ export class LocalThemeStore {
         theme.fingerprint = this.fingerprint(theme);
         theme.revision += 1;
         theme.updatedAt = new Date().toISOString();
+        this.removeCheckpointFromIndex(libraryId);
         persistAttempted = true;
         await this.persist();
+        if (checkpoint?.backgroundFile)
+          this.removeExpectedManagedFile(
+            managedThemeCheckpointFile(checkpoint.backgroundFile),
+          );
         return theme;
       } catch (error) {
-        return this.rollbackBackgroundMutation(
-          before,
-          background.fileName,
-          backgroundWriteAttempted,
-          persistAttempted,
-          error,
-        );
+        this.restoreState(before);
+        try {
+          if (persistAttempted) await this.restorePersistedIndex(before.index);
+          if (checkpoint?.backgroundFile && checkpointImage)
+            this.managedStore.writeFileAtomic(
+              managedThemeCheckpointFile(checkpoint.backgroundFile),
+              checkpointImage,
+            );
+          if (backgroundWriteAttempted)
+            this.removeUncommittedBackground(background.fileName);
+        } catch (rollbackError) {
+          throw new Error("STORE_TAMPERED:commit-rollback", {
+            cause: rollbackError,
+          });
+        }
+        throw error;
       }
     }
 
     await this.validateThemePayload(theme);
-    return this.mutate(() => {
+    return this.mutateClearingCheckpoint(libraryId, () => {
       theme.validation.css = "valid";
       theme.validation.package = "ready";
       theme.validation.warnings = [];
@@ -426,6 +489,86 @@ export class LocalThemeStore {
       theme.updatedAt = new Date().toISOString();
       return theme;
     });
+  }
+
+  async discardChanges(
+    libraryId: string,
+    expectedRevision: number,
+  ): Promise<ThemeRecord> {
+    const current = this.require(libraryId);
+    if (current.revision !== expectedRevision)
+      throw new Error("STALE_REVISION");
+    const checkpoint = this.checkpointFor(libraryId);
+    // The renderer also uses this endpoint to discard edits that have not yet
+    // crossed the IPC boundary. In that case there is deliberately no durable
+    // checkpoint and the current record is already the desired state.
+    if (!checkpoint) return current;
+
+    await this.validateCheckpoint(checkpoint);
+    const checkpointImage = await this.readCheckpointBackground(checkpoint);
+    const currentImage = current.backgroundFile
+      ? this.managedStore.readFile(managedThemeFile(current.backgroundFile))
+      : undefined;
+    if (current.backgroundFile && !currentImage)
+      throw new Error("STORE_TAMPERED:file");
+
+    const before = this.captureState();
+    const currentFile = current.backgroundFile;
+    let persistAttempted = false;
+    try {
+      const restored = cloneThemeRecord(checkpoint.record);
+      if (checkpointImage && checkpoint.backgroundFile) {
+        // Promote the immutable checkpoint copy instead of overwriting the
+        // active image. The index rename is then the only commit point: before
+        // it the old index/file pair is valid, afterwards the restored
+        // index/checkpoint-file pair is valid.
+        restored.backgroundFile = checkpoint.backgroundFile;
+        restored.json = {
+          ...restored.json,
+          image: checkpoint.backgroundFile,
+        };
+      }
+      restored.revision = current.revision + 1;
+      restored.updatedAt = new Date().toISOString();
+      const themeIndex = this.index.themes.findIndex(
+        (candidate) => candidate.libraryId === libraryId,
+      );
+      if (themeIndex < 0) throw new Error("NOT_FOUND");
+      this.index.themes[themeIndex] = restored;
+      if (
+        checkpoint.wasLastKnownGood &&
+        (!this.index.lastKnownGoodLibraryId ||
+          this.index.lastKnownGoodLibraryId === libraryId)
+      )
+        this.index.lastKnownGoodLibraryId = libraryId;
+      else if (this.index.lastKnownGoodLibraryId === libraryId)
+        this.index.lastKnownGoodLibraryId = undefined;
+      this.removeCheckpointFromIndex(libraryId);
+      if (checkpointImage) this.backgrounds.set(libraryId, checkpointImage);
+      else this.backgrounds.delete(libraryId);
+
+      persistAttempted = true;
+      await this.persist();
+      if (currentFile && currentFile !== restored.backgroundFile) {
+        this.removeExpectedManagedFile(managedThemeFile(currentFile));
+      }
+      return restored;
+    } catch (error) {
+      this.restoreState(before);
+      try {
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
+        if (currentFile && currentImage)
+          this.managedStore.writeFileAtomic(
+            managedThemeFile(currentFile),
+            currentImage,
+          );
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:discard-rollback", {
+          cause: rollbackError,
+        });
+      }
+      throw error;
+    }
   }
 
   async select(libraryId: string, expectedRevision: number): Promise<void> {
@@ -461,29 +604,42 @@ export class LocalThemeStore {
 
     const before = this.captureState();
     const image = this.backgrounds.get(libraryId);
+    const checkpoint = this.checkpointFor(libraryId);
+    if (checkpoint) await this.validateCheckpoint(checkpoint);
+    const checkpointImage = checkpoint
+      ? await this.readCheckpointBackground(checkpoint)
+      : undefined;
     this.index.themes.splice(index, 1);
+    this.removeCheckpointFromIndex(libraryId);
     this.backgrounds.delete(libraryId);
+    let persistAttempted = false;
     try {
+      persistAttempted = true;
       await this.persist();
-    } catch (error) {
-      this.restoreState(before);
-      throw error;
-    }
-
-    if (!theme.backgroundFile) return;
-    try {
-      this.managedStore.removeFile(managedThemeFile(theme.backgroundFile));
+      if (theme.backgroundFile)
+        this.removeExpectedManagedFile(managedThemeFile(theme.backgroundFile));
+      if (checkpoint?.backgroundFile)
+        this.removeExpectedManagedFile(
+          managedThemeCheckpointFile(checkpoint.backgroundFile),
+        );
     } catch (error) {
       this.restoreState(before);
       try {
-        if (image)
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
+        if (image && theme.backgroundFile)
           this.managedStore.writeFileAtomic(
             managedThemeFile(theme.backgroundFile),
             image,
           );
-        await this.persist();
-      } catch {
-        throw new Error("STORE_TAMPERED:delete-rollback");
+        if (checkpoint?.backgroundFile && checkpointImage)
+          this.managedStore.writeFileAtomic(
+            managedThemeCheckpointFile(checkpoint.backgroundFile),
+            checkpointImage,
+          );
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:delete-rollback", {
+          cause: rollbackError,
+        });
       }
       throw error;
     }
@@ -545,51 +701,122 @@ export class LocalThemeStore {
       throw new Error("THEME_ID_CONFLICT:last-known-good");
     if (replacement.libraryId !== libraryId)
       throw new Error("THEME_ID_CONFLICT:replacement-library-id");
-    await this.validateImportedRecord(replacement, image);
+    const nextReplacement = cloneThemeRecord(replacement);
+    nextReplacement.revision = expectedRevision + 1;
+    nextReplacement.updatedAt = new Date().toISOString();
+    await this.validateImportedRecord(nextReplacement, image);
+    const replacementFile = this.allocateManagedImageFile(
+      extensionOf(nextReplacement.backgroundFile!),
+    );
+    nextReplacement.backgroundFile = replacementFile;
+    nextReplacement.json = {
+      ...nextReplacement.json,
+      image: replacementFile,
+    };
+    await this.validateImportedRecord(nextReplacement, image);
     const before = this.captureState();
     const previous = this.index.themes[index];
     const previousImage = this.backgrounds.get(libraryId);
+    const checkpoint = this.checkpointFor(libraryId);
+    if (checkpoint) await this.validateCheckpoint(checkpoint);
+    const checkpointImage = checkpoint
+      ? await this.readCheckpointBackground(checkpoint)
+      : undefined;
+    const replacementFileBefore =
+      previous.backgroundFile !== replacementFile
+        ? this.managedStore.readFile(managedThemeFile(replacementFile))
+        : previousImage;
+    let persistAttempted = false;
     try {
       this.managedStore.writeFileAtomic(
-        managedThemeFile(replacement.backgroundFile!),
+        managedThemeFile(replacementFile),
         image,
       );
       this.backgrounds.set(libraryId, Buffer.from(image));
-      this.index.themes[index] = replacement;
+      this.index.themes[index] = nextReplacement;
+      this.removeCheckpointFromIndex(libraryId);
+      persistAttempted = true;
       await this.persist();
+      if (
+        previous.backgroundFile &&
+        previous.backgroundFile !== replacementFile
+      )
+        this.removeExpectedManagedFile(
+          managedThemeFile(previous.backgroundFile),
+        );
+      if (checkpoint?.backgroundFile)
+        this.removeExpectedManagedFile(
+          managedThemeCheckpointFile(checkpoint.backgroundFile),
+        );
     } catch (error) {
       this.restoreState(before);
       try {
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
         if (previousImage && previous.backgroundFile)
           this.managedStore.writeFileAtomic(
             managedThemeFile(previous.backgroundFile),
             previousImage,
           );
-      } catch {
-        // Preserve the original replacement failure after best-effort rollback.
+        if (replacementFile !== previous.backgroundFile) {
+          if (replacementFileBefore)
+            this.managedStore.writeFileAtomic(
+              managedThemeFile(replacementFile),
+              replacementFileBefore,
+            );
+          else
+            this.removeManagedFileIfPresent(managedThemeFile(replacementFile));
+        }
+        if (checkpoint?.backgroundFile && checkpointImage)
+          this.managedStore.writeFileAtomic(
+            managedThemeCheckpointFile(checkpoint.backgroundFile),
+            checkpointImage,
+          );
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:replace-rollback", {
+          cause: rollbackError,
+        });
       }
       throw error;
     }
   }
 
   async addImported(record: ThemeRecord, image: Buffer): Promise<void> {
-    if (this.get(record.libraryId)) throw new Error("THEME_ID_CONFLICT");
+    if (
+      this.get(record.libraryId) ||
+      this.managedImageIds().has(record.libraryId)
+    )
+      throw new Error("THEME_ID_CONFLICT");
     await this.validateImportedRecord(record, image);
+    const importedImageId = managedImageId(record.backgroundFile!);
+    if (
+      ["png", "jpg", "webp"].some(
+        (extension) =>
+          this.managedStore.readFile(
+            managedThemeFile(`${importedImageId}.${extension}`),
+          ) !== undefined,
+      )
+    )
+      throw new Error("STORE_TAMPERED:theme-file-conflict");
+    const importedFile = managedThemeFile(record.backgroundFile!);
     const before = this.captureState();
+    let imageWriteAttempted = false;
+    let persistAttempted = false;
     try {
-      this.managedStore.writeFileAtomic(
-        managedThemeFile(record.backgroundFile!),
-        image,
-      );
+      imageWriteAttempted = true;
+      this.managedStore.writeFileAtomic(importedFile, image);
       this.backgrounds.set(record.libraryId, Buffer.from(image));
       this.index.themes.unshift(record);
+      persistAttempted = true;
       await this.persist();
     } catch (error) {
       this.restoreState(before);
       try {
-        this.managedStore.removeFile(managedThemeFile(record.backgroundFile!));
-      } catch {
-        // Preserve the original import failure after best-effort rollback.
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
+        if (imageWriteAttempted) this.removeManagedFileIfPresent(importedFile);
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:import-rollback", {
+          cause: rollbackError,
+        });
       }
       throw error;
     }
@@ -599,6 +826,187 @@ export class LocalThemeStore {
     const theme = this.get(libraryId);
     if (!theme) throw new Error("NOT_FOUND");
     return theme;
+  }
+
+  private checkpointFor(libraryId: string): ThemeCheckpoint | undefined {
+    return this.index.checkpoints.find(
+      (checkpoint) => checkpoint.libraryId === libraryId,
+    );
+  }
+
+  private removeCheckpointFromIndex(libraryId: string): void {
+    const index = this.index.checkpoints.findIndex(
+      (checkpoint) => checkpoint.libraryId === libraryId,
+    );
+    if (index >= 0) this.index.checkpoints.splice(index, 1);
+  }
+
+  private async prepareCheckpoint(
+    theme: ThemeRecord,
+  ): Promise<PreparedCheckpoint | undefined> {
+    if (this.checkpointFor(theme.libraryId)) return undefined;
+    let background: Buffer | undefined;
+    let backgroundFile: string | undefined;
+    if (theme.backgroundFile) {
+      await this.validateStoredImage(theme);
+      background = Buffer.from(this.backgrounds.get(theme.libraryId)!);
+      const extension = theme.backgroundFile.slice(
+        theme.backgroundFile.lastIndexOf(".") + 1,
+      );
+      backgroundFile = this.allocateManagedImageFile(extension);
+      if (!backgroundFile)
+        throw new Error("STORE_TAMPERED:checkpoint-file-conflict");
+    }
+    return {
+      checkpoint: {
+        libraryId: theme.libraryId,
+        record: cloneThemeRecord(theme),
+        backgroundFile,
+        wasLastKnownGood: this.index.lastKnownGoodLibraryId === theme.libraryId,
+        createdAt: new Date().toISOString(),
+      },
+      background,
+    };
+  }
+
+  private writePreparedCheckpoint(prepared: PreparedCheckpoint): void {
+    const { checkpoint, background } = prepared;
+    if (checkpoint.backgroundFile) {
+      if (!background) throw new Error("STORE_TAMPERED:checkpoint-image");
+      const file = managedThemeCheckpointFile(checkpoint.backgroundFile);
+      if (this.managedStore.readFile(file) !== undefined)
+        throw new Error("STORE_TAMPERED:checkpoint-file-conflict");
+      this.managedStore.writeFileAtomic(file, background);
+      const written = this.managedStore.readFile(file);
+      if (!written || !written.equals(background))
+        throw new Error("STORE_TAMPERED:checkpoint-write");
+    }
+    this.index.checkpoints.push(checkpoint);
+  }
+
+  private allocateLibraryId(): string {
+    const usedImageIds = this.managedImageIds();
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const candidate = randomUUID();
+      if (
+        !this.get(candidate) &&
+        !usedImageIds.has(candidate) &&
+        ["png", "jpg", "webp"].every(
+          (extension) =>
+            this.managedStore.readFile(
+              managedThemeFile(`${candidate}.${extension}`),
+            ) === undefined,
+        )
+      )
+        return candidate;
+    }
+    throw new Error("STORE_TAMPERED:library-id-conflict");
+  }
+
+  private allocateManagedImageFile(extension: string): string {
+    const usedImageIds = this.managedImageIds();
+    const themeIds = new Set(this.index.themes.map((theme) => theme.libraryId));
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const candidateId = randomUUID();
+      if (usedImageIds.has(candidateId) || themeIds.has(candidateId)) continue;
+      const candidate = `${candidateId}.${extension}`;
+      if (
+        ["png", "jpg", "webp"].every(
+          (entry) =>
+            this.managedStore.readFile(
+              managedThemeFile(`${candidateId}.${entry}`),
+            ) === undefined,
+        )
+      )
+        return candidate;
+    }
+    throw new Error("STORE_TAMPERED:image-id-conflict");
+  }
+
+  private managedImageIds(): Set<string> {
+    return new Set(
+      [
+        ...this.index.themes.map((theme) => theme.backgroundFile),
+        ...this.index.checkpoints.map(
+          (checkpoint) => checkpoint.backgroundFile,
+        ),
+      ]
+        .filter((file): file is string => Boolean(file))
+        .map(managedImageId),
+    );
+  }
+
+  private async mutateWithCheckpoint<T>(
+    libraryId: string,
+    operation: () => T | Promise<T>,
+  ): Promise<T> {
+    const before = this.captureState();
+    let stagedCheckpointFile: string | undefined;
+    let persistAttempted = false;
+    try {
+      const prepared = await this.prepareCheckpoint(this.require(libraryId));
+      if (prepared) {
+        stagedCheckpointFile = prepared.checkpoint.backgroundFile;
+        this.writePreparedCheckpoint(prepared);
+      }
+      const result = await operation();
+      persistAttempted = true;
+      await this.persist();
+      return result;
+    } catch (error) {
+      this.restoreState(before);
+      try {
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
+        if (stagedCheckpointFile)
+          this.removeManagedFileIfPresent(
+            managedThemeCheckpointFile(stagedCheckpointFile),
+          );
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:checkpoint-rollback", {
+          cause: rollbackError,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async mutateClearingCheckpoint<T>(
+    libraryId: string,
+    operation: () => T | Promise<T>,
+  ): Promise<T> {
+    const checkpoint = this.checkpointFor(libraryId);
+    if (checkpoint) await this.validateCheckpoint(checkpoint);
+    const checkpointImage = checkpoint
+      ? await this.readCheckpointBackground(checkpoint)
+      : undefined;
+    const before = this.captureState();
+    let persistAttempted = false;
+    try {
+      const result = await operation();
+      this.removeCheckpointFromIndex(libraryId);
+      persistAttempted = true;
+      await this.persist();
+      if (checkpoint?.backgroundFile)
+        this.removeExpectedManagedFile(
+          managedThemeCheckpointFile(checkpoint.backgroundFile),
+        );
+      return result;
+    } catch (error) {
+      this.restoreState(before);
+      try {
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
+        if (checkpoint?.backgroundFile && checkpointImage)
+          this.managedStore.writeFileAtomic(
+            managedThemeCheckpointFile(checkpoint.backgroundFile),
+            checkpointImage,
+          );
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:checkpoint-clear-rollback", {
+          cause: rollbackError,
+        });
+      }
+      throw error;
+    }
   }
 
   private captureState(): {
@@ -679,21 +1087,48 @@ export class LocalThemeStore {
   }
 
   private removeUncommittedBackground(fileName: string): void {
-    const file = managedThemeFile(fileName);
+    this.removeManagedFileIfPresent(managedThemeFile(fileName));
+  }
+
+  private removeManagedFileIfPresent(
+    file: ReturnType<typeof managedThemeFile>,
+  ): void {
     if (this.managedStore.readFile(file) === undefined) return;
     this.managedStore.removeFile(file);
     if (this.managedStore.readFile(file) !== undefined)
-      throw new Error("STORE_TAMPERED:background-rollback");
+      throw new Error("STORE_TAMPERED:file-cleanup");
+  }
+
+  private removeExpectedManagedFile(
+    file: ReturnType<typeof managedThemeFile>,
+  ): void {
+    if (this.managedStore.readFile(file) === undefined)
+      throw new Error("STORE_TAMPERED:file-missing");
+    if (!this.managedStore.removeFile(file))
+      throw new Error("STORE_TAMPERED:file-cleanup");
+    if (this.managedStore.readFile(file) !== undefined)
+      throw new Error("STORE_TAMPERED:file-cleanup");
   }
 
   private async mutate<T>(operation: () => T | Promise<T>): Promise<T> {
     const before = this.captureState();
+    let persistAttempted = false;
     try {
       const result = await operation();
+      persistAttempted = true;
       await this.persist();
       return result;
     } catch (error) {
       this.restoreState(before);
+      if (persistAttempted) {
+        try {
+          await this.restorePersistedIndex(before.index);
+        } catch (rollbackError) {
+          throw new Error("STORE_TAMPERED:index-rollback", {
+            cause: rollbackError,
+          });
+        }
+      }
       throw error;
     }
   }
@@ -741,7 +1176,7 @@ export class LocalThemeStore {
       !theme.backgroundMime ||
       !theme.backgroundSha256 ||
       !Number.isSafeInteger(theme.backgroundBytes) ||
-      !isManagedBackgroundFile(theme.libraryId, theme.backgroundFile)
+      !isManagedBackgroundFileName(theme.backgroundFile)
     )
       throw new Error("UNSAFE_IMAGE:image-metadata");
     const data = this.managedStore.readFile(
@@ -759,6 +1194,47 @@ export class LocalThemeStore {
     if (cached && !cached.equals(data))
       throw new Error("UNSAFE_IMAGE:image-changed");
     this.backgrounds.set(theme.libraryId, data);
+  }
+
+  private async validateCheckpoint(checkpoint: ThemeCheckpoint): Promise<void> {
+    const current = this.get(checkpoint.libraryId);
+    if (
+      !isThemeCheckpoint(checkpoint) ||
+      !current ||
+      current.status !== "draft" ||
+      checkpoint.record.libraryId !== checkpoint.libraryId ||
+      checkpoint.record.revision >= current.revision ||
+      (checkpoint.record.status === "ready" &&
+        (!checkpoint.record.backgroundFile ||
+          checkpoint.record.fingerprint !==
+            this.fingerprint(checkpoint.record))) ||
+      (checkpoint.wasLastKnownGood && checkpoint.record.status !== "ready")
+    )
+      throw new Error("STORE_TAMPERED:checkpoint");
+    await this.readCheckpointBackground(checkpoint);
+  }
+
+  private async readCheckpointBackground(
+    checkpoint: ThemeCheckpoint,
+  ): Promise<Buffer | undefined> {
+    const record = checkpoint.record;
+    const hasBackground = record.backgroundFile !== undefined;
+    if (hasBackground !== (checkpoint.backgroundFile !== undefined))
+      throw new Error("STORE_TAMPERED:checkpoint-image");
+    if (!hasBackground) return undefined;
+    const file = managedThemeCheckpointFile(checkpoint.backgroundFile!);
+    const data = this.managedStore.readFile(file);
+    if (!data) throw new Error("STORE_TAMPERED:checkpoint-file");
+    const verified = await validateImage(data, checkpoint.backgroundFile!);
+    if (
+      verified.mime !== record.backgroundMime ||
+      verified.sha256 !== record.backgroundSha256 ||
+      verified.bytes !== record.backgroundBytes ||
+      extensionOf(checkpoint.backgroundFile!) !==
+        extensionOf(record.backgroundFile!)
+    )
+      throw new Error("STORE_TAMPERED:checkpoint-image");
+    return data;
   }
 
   private validateIndex(): void {
@@ -782,6 +1258,46 @@ export class LocalThemeStore {
       )
     )
       throw new Error("STORE_TAMPERED:index-last-known-good");
+    const checkpointIds = new Set<string>();
+    const checkpointFiles = new Set<string>();
+    const activeFiles = new Set<string>();
+    const managedImageIds = new Set<string>();
+    for (const theme of this.index.themes) {
+      if (!theme.backgroundFile) continue;
+      const imageId = managedImageId(theme.backgroundFile);
+      if (
+        activeFiles.has(theme.backgroundFile) ||
+        managedImageIds.has(imageId) ||
+        (ids.has(imageId) && imageId !== theme.libraryId)
+      )
+        throw new Error("STORE_TAMPERED:index-background");
+      activeFiles.add(theme.backgroundFile);
+      managedImageIds.add(imageId);
+    }
+    for (const checkpoint of this.index.checkpoints) {
+      if (
+        !isThemeCheckpoint(checkpoint) ||
+        checkpointIds.has(checkpoint.libraryId) ||
+        !ids.has(checkpoint.libraryId)
+      )
+        throw new Error("STORE_TAMPERED:index-checkpoint");
+      const checkpointImageId = checkpoint.backgroundFile
+        ? managedImageId(checkpoint.backgroundFile)
+        : undefined;
+      if (
+        checkpoint.backgroundFile !== undefined &&
+        (checkpointFiles.has(checkpoint.backgroundFile) ||
+          activeFiles.has(checkpoint.backgroundFile) ||
+          managedImageIds.has(checkpointImageId!) ||
+          ids.has(checkpointImageId!))
+      )
+        throw new Error("STORE_TAMPERED:index-checkpoint");
+      checkpointIds.add(checkpoint.libraryId);
+      if (checkpoint.backgroundFile) {
+        checkpointFiles.add(checkpoint.backgroundFile);
+        managedImageIds.add(checkpointImageId!);
+      }
+    }
   }
 
   private async createBuiltIns(): Promise<void> {
@@ -1062,10 +1578,39 @@ function sha256(data: Buffer): string {
   return createHash("sha256").update(data).digest("hex");
 }
 
-function isManagedBackgroundFile(libraryId: string, fileName: string): boolean {
-  return ["png", "jpg", "webp"].some(
-    (extension) => fileName === `${libraryId}.${extension}`,
+function extensionOf(fileName: string): string {
+  return fileName.slice(fileName.lastIndexOf(".") + 1).toLowerCase();
+}
+
+function cloneThemeRecord(record: ThemeRecord): ThemeRecord {
+  return JSON.parse(JSON.stringify(record)) as ThemeRecord;
+}
+
+function isThemeCheckpoint(value: unknown): value is ThemeCheckpoint {
+  if (!isRecord(value)) return false;
+  const checkpoint = value as Partial<ThemeCheckpoint>;
+  return (
+    typeof checkpoint.libraryId === "string" &&
+    isUuid(checkpoint.libraryId) &&
+    isThemeRecord(checkpoint.record) &&
+    checkpoint.record.libraryId === checkpoint.libraryId &&
+    (checkpoint.backgroundFile === undefined ||
+      (typeof checkpoint.backgroundFile === "string" &&
+        isManagedBackgroundFileName(checkpoint.backgroundFile))) &&
+    typeof checkpoint.wasLastKnownGood === "boolean" &&
+    typeof checkpoint.createdAt === "string" &&
+    Number.isFinite(Date.parse(checkpoint.createdAt))
   );
+}
+
+function isManagedBackgroundFileName(fileName: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/iu.test(
+    fileName,
+  );
+}
+
+function managedImageId(fileName: string): string {
+  return fileName.slice(0, 36).toLowerCase();
 }
 
 function isThemeRecord(value: unknown): value is ThemeRecord {
@@ -1144,7 +1689,7 @@ function isThemeRecord(value: unknown): value is ThemeRecord {
   if (
     hasBackground &&
     (typeof theme.backgroundFile !== "string" ||
-      !isManagedBackgroundFile(theme.libraryId, theme.backgroundFile) ||
+      !isManagedBackgroundFileName(theme.backgroundFile) ||
       !["image/png", "image/jpeg", "image/webp"].includes(
         theme.backgroundMime as string,
       ) ||
@@ -1209,13 +1754,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function isThemeIndex(value: unknown): value is ThemeIndex {
+function isStoredThemeIndex(value: unknown): value is StoredThemeIndex {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const index = value as Partial<ThemeIndex>;
+  const index = value as Partial<StoredThemeIndex>;
   return (
-    index.version === 1 &&
+    (index.version === 1 || index.version === 2) &&
     Array.isArray(index.themes) &&
     typeof index.paused === "boolean" &&
+    (index.version === 1
+      ? index.checkpoints === undefined || Array.isArray(index.checkpoints)
+      : Array.isArray(index.checkpoints)) &&
     (index.selectedLibraryId === undefined ||
       typeof index.selectedLibraryId === "string") &&
     (index.lastKnownGoodLibraryId === undefined ||
@@ -1223,27 +1771,33 @@ function isThemeIndex(value: unknown): value is ThemeIndex {
   );
 }
 
-function withPresentationDefaults(index: ThemeIndex): ThemeIndex {
+function withPresentationDefaults(index: StoredThemeIndex): ThemeIndex {
+  const withRecordDefaults = (theme: ThemeRecord): ThemeRecord => {
+    const legacy = theme as ThemeRecord & {
+      backgroundScope?: BackgroundScope;
+      sidebarOverlayOpacity?: number;
+    };
+    const json = isRecord(legacy.json) ? legacy.json : {};
+    return {
+      ...legacy,
+      backgroundScope:
+        legacy.backgroundScope ??
+        (json.backgroundScope as BackgroundScope | undefined) ??
+        DEFAULT_BACKGROUND_SCOPE,
+      sidebarOverlayOpacity:
+        legacy.sidebarOverlayOpacity ??
+        (json.sidebarOverlayOpacity as number | undefined) ??
+        DEFAULT_SIDEBAR_OVERLAY_OPACITY,
+    };
+  };
   return {
     ...index,
-    themes: index.themes.map((theme) => {
-      const legacy = theme as ThemeRecord & {
-        backgroundScope?: BackgroundScope;
-        sidebarOverlayOpacity?: number;
-      };
-      const json = isRecord(legacy.json) ? legacy.json : {};
-      return {
-        ...legacy,
-        backgroundScope:
-          legacy.backgroundScope ??
-          (json.backgroundScope as BackgroundScope | undefined) ??
-          DEFAULT_BACKGROUND_SCOPE,
-        sidebarOverlayOpacity:
-          legacy.sidebarOverlayOpacity ??
-          (json.sidebarOverlayOpacity as number | undefined) ??
-          DEFAULT_SIDEBAR_OVERLAY_OPACITY,
-      };
-    }),
+    version: 2,
+    themes: index.themes.map(withRecordDefaults),
+    checkpoints: (index.checkpoints ?? []).map((checkpoint) => ({
+      ...checkpoint,
+      record: withRecordDefaults(checkpoint.record),
+    })),
   };
 }
 

@@ -6,7 +6,7 @@
 
 在 `codexStyle/` 新建 Windows x64 Electron 应用：本地主题库、离线 Studio、兼容普通 ZIP 导入/导出、系统托盘和仅限本工具拥有的 Store Codex 会话注入。`../old/` 全程只读。
 
-最终需求与架构以 `.agents.md`、`REQUIREMENTS.md`、`PLAN.md` 为唯一事实源。明确不实现联网更新、在线社区、深链、外部会话控制或运行中热切换。
+最终需求与架构以 `.agents.md`、`REQUIREMENTS.md`、`PLAN.md` 为唯一事实源。联网能力仅限固定 GitHub Release 更新源；不实现在线社区、深链、外部会话控制或运行中热切换。
 
 ## 阶段状态
 
@@ -26,13 +26,15 @@
 - [x] Studio 结构化主题配置：设计 / CSS / theme.json 三面板、外观与焦点、十色变量、四类组件配方及受限表面参数。
 - [x] 配置模式 Safe CSS 生成、主进程严格 theme.json 应用、受管持久化、三件套 ZIP 往返和真实注入链路完成。
 - [x] LIVE PREVIEW 增加首页 / 对话即时切换；两个页面共享主题草稿、背景作用域、焦点、颜色和 Safe CSS，未新增持久化或 IPC 状态。
+- [x] 编辑器增加“放弃本次修改”，由受管 checkpoint 恢复最近保存或新建起点，并保留 revision 与下次启动选择语义。
+- [x] 主进程增加启动后及每 20 分钟静默更新检查；只提示新版，不自动下载，顶部更新入口改用安装语义图标与状态胶囊。
 
 ### Native secure-store 阶段
 
 - [x] 用户明确授权安装 Microsoft 官方 Build Tools 与 Windows SDK。
 - [x] 工具链实测可用：MSVC x64 `19.44.35228`、Windows SDK `10.0.26100.0`、Build Tools 2022 `17.14.37`，无需重启。
 - [x] 将固定 `%LOCALAPPDATA%\\CodexStyle` 根、预定义 managed path、根句柄生命周期、逐段 handle-relative/reparse-aware I/O、原子提交、无 Node `fs` fallback、ASAR-unpacked 和模块缺失 fail-closed 写入 `.agents.md`、`REQUIREMENTS.md`、`PLAN.md`。
-- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不放宽 IPC `v: 2`、bootstrap 握手、preload、renderer 或 `../old/`。
+- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不放宽 IPC `v: 3`、bootstrap 握手、preload、renderer 或 `../old/`。
 - [x] 已实施 native addon、main adapter、local/session 接入、构建打包和 main tests。
 - [ ] 测试工程师独立执行 native 行为测试、完整回归、构建与打包验证。
 - [ ] 高风险安全审计师独立复核 reparse/TOCTOU、原子提交、锁、模块加载和 fail-closed 证据。

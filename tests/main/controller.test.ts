@@ -15,10 +15,37 @@ vi.mock("electron", () => ({
   Tray: class Tray {},
 }));
 
-import { AppController, withoutCache } from "../../src/main/app/controller";
+import {
+  AppController,
+  trayUpdateAction,
+  withoutCache,
+} from "../../src/main/app/controller";
 import { MainOperationGate } from "../../src/main/app/operation-gate";
 
 describe("AppController", () => {
+  it("uses explicit non-actionable tray labels while an update is scheduled", () => {
+    expect(
+      trayUpdateAction({
+        configured: true,
+        status: "scheduled",
+        currentVersion: "1.3.3",
+        latestVersion: "1.4.0",
+        installOnQuit: true,
+      }),
+    ).toEqual({
+      label: "v1.4.0 已安排退出时安装",
+      enabled: false,
+    });
+    expect(
+      trayUpdateAction({
+        configured: true,
+        status: "available",
+        currentVersion: "1.3.3",
+        latestVersion: "1.4.0",
+      }),
+    ).toEqual({ label: "下载新版本 v1.4.0", enabled: true });
+  });
+
   it("opens the configured diagnostic log directory", async () => {
     const controller = Object.create(AppController.prototype) as AppController;
     const logger = {

@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type RefObject,
 } from "react";
 import {
   type ImportResult,
@@ -26,7 +27,7 @@ import { isStudioThemeColor } from "../features/studio/theme-color-input";
 
 const MAX_CSS_CHARACTERS = 262_144;
 const MAX_CSS_BYTES = 256 * 1024;
-const RENDERER_PROTOCOL_VERSION = 2;
+const RENDERER_PROTOCOL_VERSION = 3;
 const cssTextEncoder = new TextEncoder();
 
 type View = "library" | "session";
@@ -139,6 +140,10 @@ function messageForImport(result: ImportResult): string {
 function updateButtonText(update?: UpdateSnapshot): string {
   if (!update) return "检查更新";
   if (update.status === "checking") return "正在检查更新";
+  if (update.status === "available")
+    return update.latestVersion
+      ? `下载 v${update.latestVersion} 更新`
+      : "下载可用更新";
   if (update.status === "downloading")
     return `正在下载更新 ${update.progress?.percent ?? 0}%`;
   if (update.status === "downloaded") return `v${update.latestVersion} 已就绪`;
@@ -146,6 +151,34 @@ function updateButtonText(update?: UpdateSnapshot): string {
   if (update.status === "installing") return "正在启动更新安装";
   if (update.status === "unsupported") return "此版本不支持应用内更新";
   return "检查更新";
+}
+
+function updateAvailabilityHint(update?: UpdateSnapshot): string | undefined {
+  if (update?.status === "available")
+    return update.latestVersion
+      ? `有新版 v${update.latestVersion}`
+      : "有新版可用";
+  if (update?.status === "downloaded")
+    return update.latestVersion
+      ? `v${update.latestVersion} 已就绪`
+      : "新版已就绪";
+  if (update?.status === "scheduled") return "退出时更新";
+  return undefined;
+}
+
+function UpdateIcon() {
+  return (
+    <svg
+      className="update-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path className="update-icon-arrow" d="M12 3.5v11" />
+      <path className="update-icon-arrow" d="m8.5 11 3.5 3.5 3.5-3.5" />
+      <path d="M5 19.5h14" />
+    </svg>
+  );
 }
 
 function updateCardTitle(update: UpdateSnapshot): string {
@@ -210,6 +243,7 @@ export function App() {
   const [dismissedUpdateVersion, setDismissedUpdateVersion] =
     useState<string>();
   const [busy, setBusy] = useState(false);
+  const [manualUpdatePending, setManualUpdatePending] = useState(false);
   const [runtimeMismatch, setRuntimeMismatch] = useState(false);
   const selectedLibraryIdRef = useRef<string | undefined>(undefined);
   const selectedRevisionRef = useRef<number | undefined>(undefined);
@@ -312,17 +346,24 @@ export function App() {
   const readyCount =
     snapshot?.themes.filter((theme) => theme.status === "ready").length ?? 0;
   const update = snapshot?.update;
+  const manualUpdateIsChecking =
+    manualUpdatePending &&
+    !["downloading", "downloaded", "scheduled", "installing"].includes(
+      update?.status ?? "idle",
+    );
   const updateInProgress =
+    manualUpdatePending ||
     update?.status === "checking" ||
     update?.status === "downloading" ||
     update?.status === "installing";
   const updateHasBadge =
-    update?.status === "downloaded" || update?.status === "scheduled";
+    update?.status === "available" ||
+    update?.status === "downloaded" ||
+    update?.status === "scheduled";
   const showUpdateCard = Boolean(
     update &&
       [
         "checking",
-        "available",
         "downloading",
         "downloaded",
         "scheduled",
@@ -334,7 +375,10 @@ export function App() {
         update.latestVersion === dismissedUpdateVersion
       ),
   );
-  const updateButtonLabel = updateButtonText(update);
+  const updateButtonLabel = manualUpdateIsChecking
+    ? "正在检查更新"
+    : updateButtonText(update);
+  const updateHint = updateAvailabilityHint(update);
 
   const checkForUpdates = async () => {
     if (update?.status === "unsupported") {
@@ -347,6 +391,7 @@ export function App() {
       return;
     }
     try {
+      setManualUpdatePending(true);
       const next = unwrap(await bridge.requestUpdate(), report);
       if (!next) return;
       setSnapshot((current) =>
@@ -360,6 +405,8 @@ export function App() {
       }
     } catch {
       report(messageForError("update.checkFailed"));
+    } finally {
+      setManualUpdatePending(false);
     }
   };
 
@@ -466,6 +513,12 @@ export function App() {
           <span className="status-dot" />
           {sessionLabels[snapshot?.session.state ?? "NO_SESSION"]}
         </div>
+        {updateHint && (
+          <span className="update-available-hint" role="status">
+            <span aria-hidden="true" />
+            {updateHint}
+          </span>
+        )}
         <button
           className={`icon-button update-button ${updateHasBadge ? "has-update" : ""} ${updateInProgress ? "is-busy" : ""}`}
           title={updateButtonLabel}
@@ -473,7 +526,7 @@ export function App() {
           disabled={busy || updateInProgress}
           onClick={() => void checkForUpdates()}
         >
-          ↻
+          <UpdateIcon />
         </button>
         <button className="avatar-button" title="CodexStyle">
           CS
@@ -595,11 +648,14 @@ export function App() {
               aria-live="polite"
             >
               <div className="update-card-mark" aria-hidden="true">
-                {update.status === "downloaded" || update.status === "scheduled"
-                  ? "✓"
-                  : update.status === "error"
-                    ? "!"
-                    : "↻"}
+                {update.status === "downloaded" ||
+                update.status === "scheduled" ? (
+                  "✓"
+                ) : update.status === "error" ? (
+                  "!"
+                ) : (
+                  <UpdateIcon />
+                )}
               </div>
               <div className="update-card-copy">
                 <span>CODEXSTYLE UPDATE</span>
@@ -869,12 +925,14 @@ function StudioView({
   );
   const [themeJsonDirty, setThemeJsonDirty] = useState(false);
   const [themeJsonError, setThemeJsonError] = useState<string>();
+  const [discardRequested, setDiscardRequested] = useState(false);
   const previewStyleRef = useRef<HTMLStyleElement>(null);
   useEffect(() => {
     setDraft(detail);
     setThemeJsonSource(serializeThemeJson(detail));
     setThemeJsonDirty(false);
     setThemeJsonError(undefined);
+    setDiscardRequested(false);
   }, [detail.libraryId, detail.revision]);
   useEffect(() => {
     if (!themeJsonDirty) setThemeJsonSource(serializeThemeJson(draft));
@@ -911,6 +969,8 @@ function StudioView({
     draft.backgroundScope !== detail.backgroundScope ||
     draft.sidebarOverlayOpacity !== detail.sidebarOverlayOpacity ||
     structuredChanged;
+  const canDiscardChanges =
+    changed || themeJsonDirty || detail.canDiscardChanges;
   const draftPatch = buildThemePatch(draft);
   const canPersistDraft = !themeJsonDirty && colorsValid && cssContractValid;
   const persistenceDisabledReason = themeJsonDirty
@@ -932,6 +992,18 @@ function StudioView({
     setThemeJsonDirty(false);
     setThemeJsonError(undefined);
     onDetailChanged(next);
+  };
+  const discardChanges = async () => {
+    const restored = await run(() =>
+      bridge.discardChanges({
+        libraryId: detail.libraryId,
+        expectedRevision: detail.revision,
+      }),
+    );
+    if (!restored) return;
+    applyDetail(restored);
+    setDiscardRequested(false);
+    report("已放弃本次修改，主题已恢复到最近保存的状态。");
   };
   const persistAnd = async <T,>(
     action: (current: ThemeDetail) => Promise<Result<T>>,
@@ -1173,6 +1245,14 @@ function StudioView({
               {changed ? "已编辑，不能原样导出" : "导出原始正式 ZIP"}
             </button>
           )}
+          <button
+            className="secondary-button discard-button"
+            disabled={busy || !canDiscardChanges}
+            title="恢复到最近一次保存；新主题会恢复到刚创建时的默认状态"
+            onClick={() => setDiscardRequested(true)}
+          >
+            放弃本次修改
+          </button>
           <button
             className="danger-button"
             disabled={busy || selectedForNextLaunch}
@@ -1619,6 +1699,14 @@ function StudioView({
           </div>
         </div>
       </div>
+      {discardRequested && (
+        <DiscardChangesDialog
+          themeName={detail.name}
+          busy={busy}
+          onCancel={() => setDiscardRequested(false)}
+          onConfirm={() => void discardChanges()}
+        />
+      )}
     </section>
   );
 }
@@ -1634,13 +1722,16 @@ function DeleteThemeDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const dialogRef = useConfirmDialog(onCancel, !busy);
   return (
     <div className="confirm-backdrop" role="presentation">
       <div
+        ref={dialogRef}
         className="confirm-dialog panel-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-theme-title"
+        tabIndex={-1}
       >
         <span className="confirm-kicker">删除本地主题</span>
         <h2 id="delete-theme-title">确定删除“{theme.name}”吗？</h2>
@@ -1652,7 +1743,6 @@ function DeleteThemeDialog({
             className="secondary-button"
             disabled={busy}
             onClick={onCancel}
-            autoFocus
           >
             取消
           </button>
@@ -1663,6 +1753,128 @@ function DeleteThemeDialog({
       </div>
     </div>
   );
+}
+
+function DiscardChangesDialog({
+  themeName,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  themeName: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const dialogRef = useConfirmDialog(onCancel, !busy);
+  return (
+    <div className="confirm-backdrop" role="presentation">
+      <div
+        ref={dialogRef}
+        className="confirm-dialog panel-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="discard-theme-title"
+        tabIndex={-1}
+      >
+        <span className="confirm-kicker">恢复最近保存状态</span>
+        <h2 id="discard-theme-title">放弃“{themeName}”的本次修改？</h2>
+        <p>
+          颜色、样式、背景、发送图标和高级配置都会恢复。新主题会回到刚创建时的默认状态；主题本身和“下次启动”选择不会被删除。
+        </p>
+        <div className="confirm-actions">
+          <button
+            className="secondary-button"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            继续编辑
+          </button>
+          <button className="danger-button" disabled={busy} onClick={onConfirm}>
+            {busy ? "恢复中…" : "放弃并恢复"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useConfirmDialog(
+  onCancel: () => void,
+  canDismiss: boolean,
+): RefObject<HTMLDivElement | null> {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef(onCancel);
+  const dismissRef = useRef(canDismiss);
+  useEffect(() => {
+    cancelRef.current = onCancel;
+    dismissRef.current = canDismiss;
+  }, [canDismiss, onCancel]);
+  useEffect(() => {
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+    const dialog = dialogRef.current;
+    const focusable = dialog ? dialogFocusableElements(dialog) : [];
+    (focusable[0] ?? dialog)?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && dismissRef.current) {
+        event.preventDefault();
+        cancelRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const entries = dialogFocusableElements(dialogRef.current);
+      if (entries.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = entries[0];
+      const last = entries.at(-1)!;
+      const active = document.activeElement;
+      if (
+        event.shiftKey &&
+        (active === first || !dialogRef.current.contains(active))
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (
+        !event.shiftKey &&
+        (active === last || !dialogRef.current.contains(active))
+      ) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      const previousDisabled =
+        previousFocus instanceof HTMLButtonElement && previousFocus.disabled;
+      if (
+        previousFocus?.isConnected &&
+        previousFocus.tabIndex >= 0 &&
+        !previousDisabled
+      ) {
+        previousFocus.focus();
+        return;
+      }
+      document
+        .querySelector<HTMLElement>(".view-tabs .tab.active:not(:disabled)")
+        ?.focus();
+    };
+  }, []);
+  return dialogRef;
+}
+
+function dialogFocusableElements(dialog: HTMLElement): HTMLElement[] {
+  return Array.from(
+    dialog.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hidden);
 }
 
 function ImportConflict({

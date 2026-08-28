@@ -11,7 +11,7 @@ import { isThemeIconDataUrl } from "./send-icon";
 export * from "./theme-config";
 export * from "./send-icon";
 
-export const PROTOCOL_VERSION = 2 as const;
+export const PROTOCOL_VERSION = 3 as const;
 export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
@@ -85,6 +85,7 @@ export interface ThemeSummary {
 }
 
 export interface ThemeDetail extends ThemeSummary {
+  canDiscardChanges: boolean;
   themeId: string;
   description: string;
   css: string;
@@ -346,6 +347,9 @@ export interface CodexStyleApi {
   ): Promise<Result<ThemeDetail>>;
   patchDraft(
     request: Omit<z.infer<typeof PatchDraftSchema>, "v">,
+  ): Promise<Result<ThemeDetail>>;
+  discardChanges(
+    request: Omit<z.infer<typeof RevisionSchema>, "v">,
   ): Promise<Result<ThemeDetail>>;
   chooseBackground(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,

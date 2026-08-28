@@ -1,6 +1,6 @@
 # CodexStyle 交付计划与架构契约
 
-本文件连同 `REQUIREMENTS.md` 构成本轮实现的最终契约。其他历史或并行设计说明不是实现依据；冲突时以此处锁定的用户触发正式安装版自更新、严格三件套 ZIP、仅下次工具启动注入和本文件 IPC 契约为准。
+本文件连同 `REQUIREMENTS.md` 构成本轮实现的最终契约。其他历史或并行设计说明不是实现依据；冲突时以此处锁定的固定源后台检查、用户触发下载与安装、严格三件套 ZIP、仅下次工具启动注入和本文件 IPC 契约为准。
 
 ## 固定技术栈
 
@@ -35,15 +35,15 @@ src/renderer/styles/                   设计 tokens 与全局样式
 native/secure-store/                   Windows x64 N-API 源码、预定义路径表与 native 测试支撑
 ```
 
-`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:2`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
+`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:3`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
 
-公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`theme.get/createDraft/patchDraft/chooseBackground/chooseSendIcon/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`。
+公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`theme.get/createDraft/patchDraft/discardChanges/chooseBackground/chooseSendIcon/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`。
 
 主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责协议校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏遮罩使用固定 `rgb(15 23 42)`，由注入 bridge 以受控样式覆盖主题侧栏背景，防止 Safe CSS 顺序造成预览与真实结果偏差。
 
 结构化主题配置同样归属 theme domain：`appearance`、`art`、十八色 `colors` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText` 为可选兼容扩展；规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整十八色。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色处理、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是 CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
 
-`theme.patchDraft` 在普通 IPC `v:2` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/styleConfig 与高级 CSS；`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用并区分完整 `simplified`、显式降级的 `compatibility` 与未编辑正式包 `formal`；兼容导出以 v1.0.x 的 Safe CSS/十二色能力为冻结策略，不得携带六个新颜色字段或引用旧策略不认识的选择器、状态及 token。
+`theme.patchDraft` 在普通 IPC `v:3` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/styleConfig 与高级 CSS；`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用并区分完整 `simplified`、显式降级的 `compatibility` 与未编辑正式包 `formal`；兼容导出以 v1.0.x 的 Safe CSS/十二色能力为冻结策略，不得携带六个新颜色字段或引用旧策略不认识的选择器、状态及 token。
 
 ## Native secure-store 架构契约
 

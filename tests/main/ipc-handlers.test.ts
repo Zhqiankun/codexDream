@@ -31,7 +31,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("session.launch")!(trustedEvent(), {
-      v: 2,
+      v: 3,
     });
 
     expect(result).toEqual({
@@ -51,7 +51,7 @@ describe("IPC handler command boundary", () => {
 
     const result = await handlers.get("update.request")!(
       trustedEvent({ senderId: 99 }),
-      { v: 2 },
+      { v: 3 },
     );
 
     expect(result).toEqual({
@@ -67,7 +67,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.get")!(trustedEvent(), {
-      v: 2,
+      v: 3,
       libraryId: "not-a-uuid",
     });
 
@@ -88,7 +88,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.patchDraft")!(trustedEvent(), {
-      v: 2,
+      v: 3,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       patch: {
@@ -117,7 +117,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never, logger as never);
 
     await handlers.get("theme.patchDraft")!(trustedEvent(), {
-      v: 2,
+      v: 3,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       patch: {
@@ -141,7 +141,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const request = {
-      v: 2,
+      v: 3,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -161,7 +161,7 @@ describe("IPC handler command boundary", () => {
     const controller = controllerFixture();
     controller.rendererReady.mockReturnValue({
       ok: true,
-      data: { appVersion: "1.3.3", protocolVersion: 2 },
+      data: { appVersion: "1.3.3", protocolVersion: 3 },
     });
     registerIpc(controller as never);
 
@@ -183,7 +183,7 @@ describe("IPC handler command boundary", () => {
     expect(controller.getStudioSnapshot).not.toHaveBeenCalled();
     expect(bootstrap).toMatchObject({
       ok: true,
-      data: { protocolVersion: 2 },
+      data: { protocolVersion: 3 },
     });
     expect(controller.rendererReady).toHaveBeenCalledOnce();
   });
@@ -196,7 +196,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const request = {
-      v: 2,
+      v: 3,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -208,6 +208,34 @@ describe("IPC handler command boundary", () => {
       request.expectedRevision,
     );
     expect(result).toEqual({ ok: true, data: { themes: [] } });
+  });
+
+  it("validates and delegates discarding the current theme changes", async () => {
+    const controller = controllerFixture();
+    controller.discardThemeChanges.mockResolvedValue({
+      ok: true,
+      data: { revision: 5, status: "ready" },
+    });
+    registerIpc(controller as never);
+    const request = {
+      v: 3,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 4,
+    };
+
+    const result = await handlers.get("theme.discardChanges")!(
+      trustedEvent(),
+      request,
+    );
+
+    expect(controller.discardThemeChanges).toHaveBeenCalledWith(
+      request.libraryId,
+      request.expectedRevision,
+    );
+    expect(result).toEqual({
+      ok: true,
+      data: { revision: 5, status: "ready" },
+    });
   });
 
   it("returns the manual update check result from AppController", async () => {
@@ -224,7 +252,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("update.request")!(trustedEvent(), {
-      v: 2,
+      v: 3,
     });
 
     expect(result).toEqual({
@@ -254,11 +282,11 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const valid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 2,
+      v: 3,
       mode: "now",
     });
     const invalid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 2,
+      v: 3,
       mode: "silent-with-path",
       path: "C:\\untrusted.exe",
     });
@@ -289,6 +317,7 @@ function controllerFixture() {
     getTheme: vi.fn(),
     createDraft: vi.fn(),
     patchDraft: vi.fn(),
+    discardThemeChanges: vi.fn(),
     chooseBackground: vi.fn(),
     chooseSendIcon: vi.fn(),
     commitTheme: vi.fn(),
