@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.0 — 2026-08-28
+
+### English
+
+- Added independent assistant-reply text color controls while preserving native link colors and code syntax highlighting.
+- Added configurable file-change card background and text colors, including opacity, location-aware live-preview highlighting, and a compact change-card preview.
+- Added selector profile v7 support for current Codex turn-diff cards. Ordinary card text follows the theme while green additions and red deletions retain their semantic colors.
+- Expanded the normalized theme palette to eighteen colors with safe fallbacks for older saved themes, lossless current ZIP round trips, and explicit six-field downgrade behavior for v1.0.x–v1.2.x compatibility exports.
+
+> The v1.3.0 binaries are not code-signed. Windows SmartScreen may display an unknown-publisher warning. Verify `SHA256SUMS.txt` before running a downloaded artifact.
+
+### 简体中文
+
+- 新增独立的“助手回复文字”颜色配置，同时保留原生链接颜色和代码语法高亮。
+- 新增“文件变更背景、文件变更文字”配置，支持透明度、按位置高亮的实时预览，以及紧凑的变更卡片预览。
+- selector profile 升级至 v7，适配当前 Codex 文件变更卡片；普通卡片文字跟随主题，绿色新增数和红色删除数继续保留语义色。
+- 将规范化主题配色扩展至十八色；旧主题安全回退，当前主题 ZIP 无损往返，面向 v1.0.x–v1.2.x 的兼容导出会明确降级六个新字段。
+
+> v1.3.0 构建产物尚未进行代码签名，Windows SmartScreen 可能显示“未知发布者”。运行下载文件前请核对 `SHA256SUMS.txt`。
+
 ## v1.2.0 — 2026-08-27
 
 ### English
