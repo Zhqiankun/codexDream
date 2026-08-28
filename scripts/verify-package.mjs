@@ -17,6 +17,28 @@ const nativeAddon = resolve(
 const metadata = JSON.parse(
   readFileSync(resolve(root, "package.json"), "utf8"),
 );
+const presetCatalogPath = resolve(root, "resources", "presets", "catalog.json");
+const presetCatalogBytes = readFileSync(presetCatalogPath);
+const presetCatalog = JSON.parse(presetCatalogBytes.toString("utf8"));
+const presetThemes = Array.isArray(presetCatalog.themes)
+  ? presetCatalog.themes
+  : [];
+if (
+  presetCatalog.schemaVersion !== 1 ||
+  typeof presetCatalog.packId !== "string" ||
+  presetThemes.length !== 13 ||
+  presetThemes.some(
+    (theme) =>
+      !isRecord(theme) ||
+      typeof theme.image !== "string" ||
+      !/^[a-z0-9][a-z0-9.-]{0,79}\.(?:png|jpg|webp)$/u.test(theme.image) ||
+      typeof theme.imageSha256 !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(theme.imageSha256),
+  )
+) {
+  console.error("Package verification failed; preset catalog is invalid.");
+  process.exit(1);
+}
 if (
   typeof metadata.version !== "string" ||
   !/^\d+\.\d+\.\d+$/u.test(metadata.version)
@@ -51,6 +73,8 @@ const required = [
   "resources/icon.png",
   "resources/tray-icon.png",
   "resources/tray-icon@2x.png",
+  "resources/presets/catalog.json",
+  ...presetThemes.map((theme) => `resources/presets/${theme.image}`),
   "release/win-unpacked/resources/app.asar",
   "release/win-unpacked/resources/icon.png",
   "release/win-unpacked/resources/native/secure_store.node",
@@ -223,7 +247,8 @@ try {
   const native = require(nativeAddon);
   if (typeof native.open !== "function") throw new Error("invalid export");
   const asar = require("@electron/asar");
-  const entries = asar.listPackage(resolve(unpacked, "resources", "app.asar"));
+  const asarPath = resolve(unpacked, "resources", "app.asar");
+  const entries = asar.listPackage(asarPath);
   if (
     !entries.some(
       (entry) =>
@@ -232,6 +257,25 @@ try {
     )
   )
     throw new Error("electron-updater runtime missing");
+  const packagedCatalog = asar.extractFile(
+    asarPath,
+    asarLookupPath("resources/presets/catalog.json"),
+  );
+  if (!packagedCatalog.equals(presetCatalogBytes))
+    throw new Error("preset catalog changed during packaging");
+  for (const theme of presetThemes) {
+    const entry = `resources/presets/${theme.image}`;
+    if (
+      !entries.some(
+        (candidate) => candidate.replaceAll("\\", "/") === `/${entry}`,
+      )
+    )
+      throw new Error(`preset asset missing: ${theme.image}`);
+    const bytes = asar.extractFile(asarPath, asarLookupPath(entry));
+    const hash = createHash("sha256").update(bytes).digest("hex");
+    if (hash !== theme.imageSha256)
+      throw new Error(`preset asset hash changed: ${theme.image}`);
+  }
 } catch (error) {
   console.error(
     `Package verification failed; packaged runtime validation failed: ${String(error)}`,
@@ -252,6 +296,10 @@ function peMachine(path) {
   )
     return 0;
   return bytes.readUInt16LE(peOffset + 4);
+}
+
+function asarLookupPath(entry) {
+  return entry.replaceAll("/", "\\");
 }
 
 function parseYamlObject(path, label) {

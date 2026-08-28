@@ -47,6 +47,7 @@ export interface ThemeIndex {
   selectedLibraryId?: string;
   lastKnownGoodLibraryId?: string;
   paused: boolean;
+  installedPresetPacks: string[];
   themes: ThemeRecord[];
   checkpoints: ThemeCheckpoint[];
 }
@@ -132,7 +133,13 @@ export function toDetail(
 }
 
 export function createDefaultIndex(): ThemeIndex {
-  return { version: 2, paused: false, themes: [], checkpoints: [] };
+  return {
+    version: 2,
+    paused: false,
+    installedPresetPacks: [],
+    themes: [],
+    checkpoints: [],
+  };
 }
 
 /**

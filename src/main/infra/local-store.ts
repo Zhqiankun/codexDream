@@ -30,6 +30,11 @@ import {
 import { validateSafeCss } from "./safe-css";
 import sharp from "sharp";
 import { validateImage } from "./image";
+import type {
+  BundledPresetSource,
+  PreparedBundledPresetPack,
+  PreparedBundledPresetTheme,
+} from "./bundled-presets";
 import {
   MANAGED_FILES,
   SecureManagedStore,
@@ -47,6 +52,7 @@ interface StoredThemeIndex {
   selectedLibraryId?: string;
   lastKnownGoodLibraryId?: string;
   paused: boolean;
+  installedPresetPacks?: string[];
   themes: ThemeRecord[];
   checkpoints?: ThemeCheckpoint[];
 }
@@ -73,6 +79,8 @@ interface PreparedCheckpoint {
 
 const DEFAULT_CSS = `[data-ds-part="root"] {\n  background-color: #111827;\n  color: #e5e7eb;\n}\n[data-ds-part="sidebar"] {\n  background-color: #0f172a;\n  border-color: #334155;\n}\n[data-ds-part="composer"]:hover {\n  background-color: #334155;\n}`;
 const MAX_CSS_BYTES = 256 * 1024;
+const MAX_INSTALLED_PRESET_PACKS = 32;
+const PRESET_PACK_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,79}$/u;
 
 export class LocalThemeStore {
   readonly root: string;
@@ -80,7 +88,10 @@ export class LocalThemeStore {
   private index: ThemeIndex = createDefaultIndex();
   private backgrounds = new Map<string, Buffer>();
 
-  constructor(root: string) {
+  constructor(
+    root: string,
+    private readonly bundledPresetSources: readonly BundledPresetSource[] = [],
+  ) {
     this.root = root;
     this.managedStore = SecureManagedStore.open(root);
   }
@@ -133,6 +144,7 @@ export class LocalThemeStore {
     if (this.index.themes.length === 0) {
       await this.createBuiltIns();
     }
+    await this.installBundledPresetPacks();
   }
 
   snapshot(
@@ -1238,6 +1250,15 @@ export class LocalThemeStore {
   }
 
   private validateIndex(): void {
+    if (
+      this.index.installedPresetPacks.length > MAX_INSTALLED_PRESET_PACKS ||
+      new Set(this.index.installedPresetPacks).size !==
+        this.index.installedPresetPacks.length ||
+      this.index.installedPresetPacks.some(
+        (packId) => !PRESET_PACK_ID_PATTERN.test(packId),
+      )
+    )
+      throw new Error("STORE_TAMPERED:index-preset-packs");
     const ids = new Set<string>();
     for (const theme of this.index.themes) {
       if (!isThemeRecord(theme) || ids.has(theme.libraryId))
@@ -1298,6 +1319,135 @@ export class LocalThemeStore {
         managedImageIds.add(checkpointImageId!);
       }
     }
+  }
+
+  private async installBundledPresetPacks(): Promise<void> {
+    for (const source of this.bundledPresetSources) {
+      if (this.index.installedPresetPacks.includes(source.packId)) continue;
+      if (!PRESET_PACK_ID_PATTERN.test(source.packId))
+        throw new Error("BUNDLED_PRESET_PACK_INVALID:pack-id");
+      const pack = await source.load();
+      if (pack.packId !== source.packId)
+        throw new Error("BUNDLED_PRESET_PACK_INVALID:pack-id");
+      await this.installBundledPresetPack(pack);
+    }
+  }
+
+  private async installBundledPresetPack(
+    pack: PreparedBundledPresetPack,
+  ): Promise<void> {
+    if (this.index.installedPresetPacks.includes(pack.packId)) return;
+    if (this.index.installedPresetPacks.length >= MAX_INSTALLED_PRESET_PACKS)
+      throw new Error("BUNDLED_PRESET_PACK_INVALID:pack-limit");
+
+    const before = this.captureState();
+    const stagedFiles: string[] = [];
+    let persistAttempted = false;
+    try {
+      for (const preset of pack.themes) {
+        const record = this.createBundledPresetRecord(preset);
+        const duplicate = this.index.themes.find(
+          (theme) =>
+            theme.status === "ready" &&
+            theme.fingerprint === record.fingerprint &&
+            this.fingerprint(theme) === record.fingerprint,
+        );
+        if (duplicate) continue;
+        if (this.index.themes.some((theme) => theme.themeId === preset.themeId))
+          throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-id-conflict");
+        if (!isThemeRecord(record))
+          throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-record");
+
+        const file = managedThemeFile(record.backgroundFile!);
+        if (this.managedStore.readFile(file) !== undefined)
+          throw new Error("STORE_TAMPERED:preset-file-conflict");
+        stagedFiles.push(record.backgroundFile!);
+        this.managedStore.writeFileAtomic(file, preset.imageBytes);
+        const written = this.managedStore.readFile(file);
+        if (!written || !written.equals(preset.imageBytes))
+          throw new Error("STORE_TAMPERED:preset-file-write");
+        this.backgrounds.set(record.libraryId, Buffer.from(written));
+        this.index.themes.push(record);
+      }
+
+      this.index.installedPresetPacks.push(pack.packId);
+      persistAttempted = true;
+      await this.persist();
+    } catch (error) {
+      this.restoreState(before);
+      try {
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
+        for (const fileName of stagedFiles)
+          this.removeManagedFileIfPresent(managedThemeFile(fileName));
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:preset-pack-rollback", {
+          cause: rollbackError,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private createBundledPresetRecord(
+    preset: PreparedBundledPresetTheme,
+  ): ThemeRecord {
+    const libraryId = this.allocateLibraryId();
+    const backgroundFile = this.allocateManagedImageFile(
+      preset.imageInfo.extension,
+    );
+    const configuration: ThemeConfiguration = {
+      appearance: preset.appearance,
+      art: { ...preset.art },
+      colors: { ...preset.colors },
+      styleConfig: {
+        ...preset.style,
+        recipes: { ...preset.style.recipes },
+      },
+    };
+    const css = generateConfiguredCss(configuration.styleConfig);
+    const validation = validateSafeCss(css);
+    if (!validation.valid || validation.empty)
+      throw new Error("BUNDLED_PRESET_PACK_INVALID:css");
+    const now = new Date().toISOString();
+    const record: ThemeRecord = {
+      libraryId,
+      themeId: preset.themeId,
+      name: preset.name,
+      description: preset.description,
+      css,
+      backgroundScope: preset.backgroundScope,
+      sidebarOverlayOpacity: preset.sidebarOverlayOpacity,
+      backgroundFile,
+      backgroundMime: preset.imageInfo.mime,
+      backgroundSha256: preset.imageInfo.sha256,
+      backgroundBytes: preset.imageInfo.bytes,
+      json: writeThemeConfiguration(
+        {
+          schemaVersion: 1,
+          id: preset.themeId,
+          name: preset.name,
+          description: preset.description,
+          image: backgroundFile,
+          backgroundScope: preset.backgroundScope,
+          sidebarOverlayOpacity: preset.sidebarOverlayOpacity,
+        },
+        configuration,
+      ),
+      status: "ready",
+      revision: 1,
+      updatedAt: now,
+      fingerprint: "",
+      packageFormat: "simplified",
+      signed: false,
+      validation: {
+        css: "valid",
+        image: "valid",
+        package: "ready",
+        warnings: [],
+      },
+    };
+    record.fingerprint = this.fingerprint(record);
+    return record;
   }
 
   private async createBuiltIns(): Promise<void> {
@@ -1767,7 +1917,16 @@ function isStoredThemeIndex(value: unknown): value is StoredThemeIndex {
     (index.selectedLibraryId === undefined ||
       typeof index.selectedLibraryId === "string") &&
     (index.lastKnownGoodLibraryId === undefined ||
-      typeof index.lastKnownGoodLibraryId === "string")
+      typeof index.lastKnownGoodLibraryId === "string") &&
+    (index.installedPresetPacks === undefined ||
+      (Array.isArray(index.installedPresetPacks) &&
+        index.installedPresetPacks.length <= MAX_INSTALLED_PRESET_PACKS &&
+        index.installedPresetPacks.every(
+          (packId) =>
+            typeof packId === "string" && PRESET_PACK_ID_PATTERN.test(packId),
+        ) &&
+        new Set(index.installedPresetPacks).size ===
+          index.installedPresetPacks.length))
   );
 }
 
@@ -1793,6 +1952,7 @@ function withPresentationDefaults(index: StoredThemeIndex): ThemeIndex {
   return {
     ...index,
     version: 2,
+    installedPresetPacks: [...(index.installedPresetPacks ?? [])],
     themes: index.themes.map(withRecordDefaults),
     checkpoints: (index.checkpoints ?? []).map((checkpoint) => ({
       ...checkpoint,

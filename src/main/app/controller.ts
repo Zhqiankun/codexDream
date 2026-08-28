@@ -32,6 +32,7 @@ import { MainOperationBusyError, MainOperationGate } from "./operation-gate";
 import { UpdateService } from "./update-service";
 import { ElectronUpdaterGateway } from "../infra/electron-updater-gateway";
 import type { MainLogger } from "../infra/main-logger";
+import { createBundledPresetSource } from "../infra/bundled-presets";
 
 const STUDIO_STARTUP_TIMEOUT_MS = 10_000;
 const STUDIO_RETRY_DELAY_MS = 250;
@@ -74,7 +75,9 @@ export class AppController {
         () => this.broadcast(),
       );
     const localAppData = process.env.LOCALAPPDATA || app.getPath("userData");
-    this.store = new LocalThemeStore(join(localAppData, "CodexStyle"));
+    this.store = new LocalThemeStore(join(localAppData, "CodexStyle"), [
+      createBundledPresetSource(bundledPresetPath()),
+    ]);
     this.session = new CodexSessionService(
       this.platform,
       async () => {
@@ -969,6 +972,11 @@ function resourcePath(fileName: string): string {
   return app.isPackaged
     ? join(process.resourcesPath, fileName)
     : join(app.getAppPath(), "resources", fileName);
+}
+
+function bundledPresetPath(): string {
+  const applicationRoot = app.isPackaged ? app.getAppPath() : process.cwd();
+  return join(applicationRoot, "resources", "presets");
 }
 
 function isLibraryId(value: string): boolean {

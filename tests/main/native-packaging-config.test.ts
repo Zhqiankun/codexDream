@@ -45,6 +45,7 @@ describe("native secure-store packaging", () => {
     expect(builderConfig).toMatch(
       /from: resources\/tray-icon\.png\s*[\s\S]*to: tray-icon\.png/u,
     );
+    expect(builderConfig).toContain("resources/presets/**");
     expect(builderConfig).toMatch(/target: nsis[\s\S]*target: zip/u);
     expect(builderConfig).toContain("include: resources/installer.nsh");
     expect(builderConfig).toContain("provider: generic");
@@ -79,6 +80,8 @@ describe("native secure-store packaging", () => {
     expect(verifyScript).toContain('"release/latest.yml"');
     expect(verifyScript).toContain(".exe.blockmap");
     expect(verifyScript).toContain('createHash("sha512")');
+    expect(verifyScript).toContain('"resources/presets/catalog.json"');
+    expect(verifyScript).toContain("preset asset hash changed");
     expect(manifestScript).toContain("releases/download/");
     expect(manifestScript).toContain("v${metadata.version}/${installerName}");
     expect(releaseWorkflow).toContain("release/latest.yml");

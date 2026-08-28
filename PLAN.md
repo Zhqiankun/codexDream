@@ -45,6 +45,8 @@ native/secure-store/                   Windows x64 N-API 源码、预定义路�
 
 `theme.patchDraft` 在普通 IPC `v:3` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/styleConfig 与高级 CSS；`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用并区分完整 `simplified`、显式降级的 `compatibility` 与未编辑正式包 `formal`；兼容导出以 v1.0.x 的 Safe CSS/十二色能力为冻结策略，不得携带六个新颜色字段或引用旧策略不认识的选择器、状态及 token。
 
+内置图片主题包归属 main infrastructure：`resources/presets/catalog.json` 与图片作为固定 app.asar 资源，`bundled-presets.ts` 负责有界读取、严格 schema、稳定 pack/theme ID、图片格式和 SHA-256 校验。`LocalThemeStore` 只接收已验证字节，并以 v2 `installedPresetPacks` 标记执行一次批量事务；随机受管 UUID 图片、13 条 ready 记录与 pack 标记由同一次索引提交生效，现有主题状态保持不变。该能力不扩展公开 contracts、preload、IPC 或 renderer 文件访问。
+
 ## Native secure-store 架构契约
 
 ### 边界与依赖
@@ -128,6 +130,8 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 11. 颜色语义与预览定位：颜色面板按可见区域分组并以页面位置命名，默认隐藏内部 token 字段名，高级显示只作为排障入口；悬停与键盘聚焦通过 renderer 本地状态标记预览目标，不进入主题契约、IPC 或持久化。助手回复文字、用户消息文字、文件变更卡片背景/文字、顶部栏背景和顶部栏文字由独立颜色 token 驱动；顶部栏背景默认完全透明。真实注入只作用于版本化 selector profile 已登记的顶部栏、消息和文件变更卡片节点，不扩大任意 DOM 选择范围。
 
 12. 正式安装版自更新：以 `UpdateService` 持有检查、下载、进度、取消、已下载、延后安装和安装失败状态；infra adapter 独占 `electron-updater`，固定 generic GitHub Release 源并显式关闭隐式下载/退出安装。NSIS 写入安装标记，开发版与 ZIP fail closed。renderer 只接收无路径的进度快照；立即安装或退出时安装都必须先经 controller operation gate 清理本工具拥有的 Codex 会话。Actions 发布并验证同构建的安装包、blockmap、`latest.yml` 和校验和。
+
+13. 内置图片主题包：将 13 张用户提供图片以 ASCII 资源名和严格 catalog 打入 app.asar；main 在首次需要时逐张有界校验全部资产，避免同时解码大图造成启动内存峰值，再由 secure-store 批量追加 ready 主题并记录稳定 pack ID。验收覆盖已有库升级、二次启动不重复、删除不复活、图片/manifest 篡改、写入失败全回滚、包内文件与哈希，以及不新增 renderer/IPC 路径边界。
 
 ## 验证命令
 

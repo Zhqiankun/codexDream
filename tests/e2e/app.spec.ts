@@ -36,6 +36,32 @@ test("starts the real Electron shell with native storage and completes a local w
     const page = await application.firstWindow();
     await expect(page.getByText("Midnight Copper").first()).toBeVisible();
     await expect(page.getByText("Paper Light").first()).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const result = await globalThis.window.codexStyle.getSnapshot();
+          return result.ok
+            ? result.data.themes.map((theme) => theme.name)
+            : undefined;
+        }),
+      )
+      .toEqual(
+        expect.arrayContaining([
+          "赤金信念",
+          "银辉侧影",
+          "森语慢生活",
+          "墨锋",
+          "樱粉猫眸",
+          "白熊暖茶",
+          "霆闪善逸",
+          "云海孤侠",
+          "好运爆棚",
+          "做大做强",
+          "暖橙豚豚",
+          "百元绯影",
+          "晴绿线条小狗",
+        ]),
+      );
 
     await page.getByRole("button", { name: "＋ 新建主题" }).click();
     await expect(page.locator('input[value="新主题"]')).toBeVisible();
@@ -59,7 +85,7 @@ test("starts the real Electron shell with native storage and completes a local w
       globalThis.window.codexStyle.getSnapshot(),
     );
     expect(snapshot.ok).toBe(true);
-    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(3);
+    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(16);
 
     const logDirectory = await application.evaluate(({ app }) =>
       app.getPath("logs"),

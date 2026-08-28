@@ -6,6 +6,7 @@ directories:
 files:
   - out/**
   - package.json
+  - resources/presets/**
 asar: true
 extraResources:
   - from: native/secure-store/build/Release/secure_store.node

@@ -9,6 +9,7 @@ const required = [
   "src/main/app/controller.ts",
   "src/main/domain/theme.ts",
   "src/main/infra/local-store.ts",
+  "src/main/infra/bundled-presets.ts",
   "src/main/infra/theme-zip.ts",
   "src/main/infra/safe-css.ts",
   "src/main/infra/electron-updater-gateway.ts",
@@ -79,6 +80,9 @@ requireMarkers(controller, "window-security", [
   'loadURL("app://studio/index.html")',
   'protocol.handle("app"',
   "await this.session.pause()",
+  "createBundledPresetSource",
+  "bundledPresetPath()",
+  "app.isPackaged ? app.getAppPath() : process.cwd()",
 ]);
 if (/loadURL\(this\.devRendererUrl/u.test(controller))
   failures.push("window-loads-dev-server-directly");
@@ -187,6 +191,16 @@ requireMarkers(store, "store-contract", [
   "recoverJournal",
   "reclaimStaleLock",
   "STORE_TAMPERED",
+  "installedPresetPacks",
+  "installBundledPresetPack",
+]);
+
+const bundledPresets = source("src/main/infra/bundled-presets.ts");
+requireMarkers(bundledPresets, "bundled-presets", [
+  "readImageFileBounded",
+  "validateImage",
+  "imageSha256",
+  "BUNDLED_PRESET_PACK_INVALID",
 ]);
 
 const cdp = source("src/main/session/cdp-client.ts");
