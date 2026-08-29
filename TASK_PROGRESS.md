@@ -31,6 +31,7 @@
 - [x] 13 张用户提供图片已分别形成内置主题预设；主进程严格校验并一次性原子追加，已有主题及选择状态不被覆盖。
 - [x] v1.3.6 预设透明度、无覆盖 catalog v2 迁移、主题库缩略图、顶部启动主题选择及旧版兼容导出移除已完成。
 - [x] v1.3.7 二十六色契约已接通：会话标题、首页标题/快捷卡片、命令/编辑/思考摘要均有独立颜色、双页面预览定位和 selector profile `/8` 真实注入；catalog v3 可从 v1 或 v2 安全迁移，用户编辑与删除语义保持。
+- [x] v1.3.8 ownership 升级兼容热修复：v1.3.6 写入的合法 selector profile `/7` 按过期会话恢复，不再阻断启动；当前 `/8` 运行时验证和未知状态 fail-closed 边界保持不变。
 
 ### Native secure-store 阶段
 
@@ -59,6 +60,8 @@
 - `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；本轮以 `v1.3.6` 为基线，`v1.3.7` 改动将在验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-29 `v1.3.8` 热修复候选：本机失败记录经只读核对为 ownership v1 + selector profile `/7`，与 v1.3.7 漏列最近前代 profile 的根因完全吻合。解析集合改为由当前版本自动、有界生成 `1..current`；动态单测覆盖 `/1` 至 `/7` 全部历史值，畸形值和 `/9` 继续拒绝。隔离 Electron E2E 在启动前通过 native secure-store 预置上一代 ownership，应用成功打开并报告 `ORPHANED`，随后主题读取与本地写入均通过。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、188 项主进程测试、52 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.8-x64.exe` 为 121,763,305 字节，SHA-256 `3eaf062abb3e9404ab37166b0304b05f30a2c564dc0c1077544f982db210618f`；便携包 `CodexStyle-1.3.8-x64.zip` 为 164,879,286 字节，SHA-256 `c4651817f80fbe05c1fa84cbc0832214dbc2c88c5852d9ad6cbb644e44662cfb`。
 
 - 2026-08-29 `v1.3.7` 发布候选：结构化配色扩展到 26 项，selector profile `/8` 同时覆盖当前会话标签外层容器与选中 tab、首页标题/快捷卡片及命令/编辑/思考活动摘要；13 套 catalog v3 预设均含 26 色和 v1/v2 两代精确 fingerprint，从两代前置 pack 原位迁移、编辑保留与删除不复活均通过回归。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、186 项主进程测试、52 项 renderer 测试、7 项集成测试和 1 项沙箱外隔离 Electron E2E 全部通过；`npm run package:win` 与 `npm run verify:package` 通过。安装包 `CodexStyle-1.3.7-x64.exe` 为 121,763,083 字节，SHA-256 `e4e1802b8277d960748f629833ab1cd23edee156c5e12ef9d49430915694dbcd`；便携包 `CodexStyle-1.3.7-x64.zip` 为 164,879,304 字节，SHA-256 `5972828561f7edab780f3b26617c865421a5f6ef2d82057a8270dcff217c3641`。
 

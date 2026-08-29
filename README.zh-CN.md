@@ -59,15 +59,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.7`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.8`：
 
-- `CodexStyle-1.3.7-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.7-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.8-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.8-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.7` 为当前会话标题、首页标题/快捷卡片以及命令/编辑/思考摘要增加独立颜色，并补齐 LIVE PREVIEW 定位与已核对的 selector profile `/8` 真实注入。catalog v3 可从 v1 或 v2 直接升级未编辑壁纸预设，用户改过或删过的预设保持不动。直接覆盖原安装即可，无需卸载；能够正常打开的 v1.3.1 及以上安装版可使用应用内更新。ZIP 便携版仍需手动更新。
+`v1.3.8` 修复从 v1.3.6 升级且 ownership 仍记录 selector profile `/7` 时无法启动的问题。合法历史记录现在进入安全的“上次会话待确认”恢复状态；真实注入仍只接受 `/8`，未知记录继续拒绝。该版本包含 v1.3.7 的全部颜色、预览、选择器和 catalog v3 改进。直接覆盖原安装即可，无需卸载或重启电脑；受此问题影响的 v1.3.7 无法打开应用内更新，需从 Releases 手动安装 v1.3.8。
 
 ## 运行要求
 

@@ -139,7 +139,7 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 15. 标题、首页与活动颜色：保持 `theme-config.ts` 为唯一跨层颜色契约，将颜色从十八色扩展为二十六色；selector profile `/8` 仅登记当前会话 tab、首页主标题、首页快捷卡片和 `group/activity-header` 活动摘要四类已核对节点。payload 通过独立 token bridge 覆盖背景、主文字和次要文字；renderer 使用相同变量和 `data-ds-part` 构造首页/对话预览，并在聚焦颜色项时自动切换对应页面。catalog v3 为 13 套图片主题补齐新颜色，并保存 v1/v2 两代精确 fingerprint，确保跨版本升级仍不覆盖用户编辑或复活删除项。
 
-16. Ownership 升级兼容热修复：`PersistedSelectorProfile` 与白名单补齐 `/7`，使 v1.3.6 留下的完整 ownership 状态在 v1.3.7+ 启动时进入既有 `ORPHANED` 流程，而不是阻断应用初始化。动态测试覆盖所有历史 profile 并单独证明未知值仍 fail closed；不删除 ownership 文件、不放宽当前 profile 的 runtime 身份验证，也不修改主题或用户数据。
+16. Ownership 升级兼容热修复：从当前 profile 版本自动、有界生成 `1..current` 持久化解析集合，使 v1.3.6 留下的完整 `/7` ownership 状态在 v1.3.7+ 启动时进入既有 `ORPHANED` 流程，而不是阻断应用初始化。动态测试覆盖所有历史 profile，并单独证明畸形值及 `current + 1` 仍 fail closed；不删除 ownership 文件、不放宽当前 profile 的 runtime 身份验证，也不修改主题或用户数据。
 
 ## 验证命令
 

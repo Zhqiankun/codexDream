@@ -59,15 +59,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.7` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.8` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.7-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.7-x64.zip` — portable archive.
+- `CodexStyle-1.3.8-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.8-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.7` adds independent colors for the selected conversation tab, home headline/cards, and command/edit/thinking summaries, with matching Live Preview targets and verified selector-profile `/8` injection. Catalog v3 upgrades untouched wallpaper presets directly from v1 or v2 while preserving user-edited or deleted presets. Install over the existing copy—no uninstall is required. Installed v1.3.1+ builds that open normally can update in-app. The portable ZIP remains manual-update only.
+`v1.3.8` fixes startup when upgrading from v1.3.6 with a valid selector-profile `/7` ownership record. Historical records now enter safe orphaned-session recovery; runtime injection still requires `/8`, and unknown records remain rejected. It includes all v1.3.7 color, preview, selector, and catalog-v3 improvements. Install over the existing copy—no uninstall or computer restart is required. Because v1.3.7 cannot open in this state, affected users must install v1.3.8 manually from Releases.
 
 ## Requirements
 

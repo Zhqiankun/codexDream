@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.8 — 2026-08-29
+
+### English
+
+- Fixed startup after upgrading from v1.3.6 when a valid ownership record still contains selector profile `/7`. The record now enters the existing orphaned-session recovery state instead of being misclassified as `STORE_TAMPERED:ownership-state`.
+- Kept the security boundary intact: historical profiles are accepted only for parsing stale ownership state. Runtime identity verification and injection still require the current `/8` profile, while unknown or malformed records remain fail-closed.
+- Replaced both the hand-maintained persisted-profile whitelist and its predecessor tests with a bounded `1..current` range derived from the current profile version, preventing the latest historical profile from being omitted during future upgrades.
+
+> v1.3.8 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved.
+
+### 简体中文
+
+- 修复从 v1.3.6 升级后，合法 ownership 记录仍携带 selector profile `/7` 时无法启动的问题。该记录现在进入既有的“上次会话待确认”恢复状态，不再被误判为 `STORE_TAMPERED:ownership-state`。
+- 安全边界保持不变：历史 profile 只用于解析过期 ownership 状态；运行时身份验证与注入仍只接受当前 `/8`，未知或畸形记录继续 fail closed。
+- 将手写的持久化 profile 白名单及前代测试列表都改为按当前版本有界生成 `1..current`，防止以后升级时再次漏掉最近一代。
+
+> SignPath Foundation 申请仍在审核，v1.3.8 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。
+
 ## v1.3.7 — 2026-08-29
 
 ### English
