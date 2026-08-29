@@ -34,21 +34,21 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 - 旧的内部主题或 ZIP 缺少上述字段时按 `backgroundScope: "window"`、`sidebarOverlayOpacity: 75` 读取；新建、编辑和简化导出必须显式写入这两个字段。
 - 修改任一展示配置都按普通主题编辑处理：递增 revision、退回 draft、使正式导入项变为已编辑并只能导出简化 ZIP。
 - `appearance` 只能为 `auto | light | dark`。`art` 包含 `focusX/focusY`（`0..1`）、`safeArea`（`none | left | right`）和 `taskMode`（`ambient | full | off`）。背景焦点必须立即改变预览与真实注入的图片定位。
-- `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前 v1 可选扩展为 `sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText`。main 读取旧主题时必须补全缺失扩展：助手回复文字、用户消息文字和文件变更文字继承正文色，文件变更背景继承次级面板色，顶部栏文字继承说明文字，顶部栏背景默认为完全透明；再将规范化后的十八色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
+- `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前 v1 可选扩展为 `sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted`。main 读取旧主题时必须补全缺失扩展：消息与首页主要文字继承正文色，文件变更与首页卡片背景继承次级面板色，顶部栏及命令/思考次要文字继承说明文字，会话标题优先继承顶部栏颜色，顶部栏、会话标题和命令/思考背景默认完全透明；再将规范化后的二十六色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
 - `style` 包含 `mode`、四个配方开关和受限表面参数。`mode: "configured"` 时，sidebar、composer、message、dialog 配方以及 blur、radius、borderWidth、shadow 由结构化配置确定，并通过唯一共享生成器产生非空 `theme.css`；用户无需手改 CSS。`mode: "advanced"` 时保留既有 Safe CSS 源码编辑和验证能力。
 - 新主题默认使用配置模式；旧内部主题和未声明 `style` 的导入包按高级模式读取，禁止迁移时覆盖原 CSS。两种模式都必须在 commit、导出、选择和注入前通过相同 Safe CSS 校验。
 - Studio 提供“设计 / CSS / theme.json”三个面板。theme.json 源码只能在显式“校验并应用”后进入主题记录；其字段、大小、图片引用和配置范围由 main 复验，未应用的文本不得进入预览、ZIP 或注入。
-- Studio 的颜色面板默认按“页面与窗口 / 对话与输入 / 操作与状态 / 文字与边界”展示用户可理解的作用位置，不把 `accentAlt` 等内部字段名作为主标签；显式切换到高级显示后才展示原始字段名。鼠标悬停或键盘聚焦任一颜色项时，LIVE PREVIEW 必须标出该项实际影响的区域，且预览映射必须与真实注入消费者一致。
+- Studio 的颜色面板默认按“页面与窗口 / 对话与输入 / 标题与首页 / 命令与思考 / 操作与状态 / 文字与边界”展示用户可理解的作用位置，不把 `accentAlt` 等内部字段名作为主标签；显式切换到高级显示后才展示原始字段名。鼠标悬停或键盘聚焦任一颜色项时，LIVE PREVIEW 必须自动切到存在该目标的首页或对话页并标出实际影响区域，且预览映射必须与真实注入消费者一致。
 - 普通设计与 CSS 编辑只提供一个“保存主题”入口；该入口按 revision 先持久化变更再提交 ready，不再暴露容易混淆的“应用草稿”按钮。theme.json 仍保留独立的“校验并应用”，因为未验证源码不得进入普通保存流程。
 - 左侧主题列表单击只打开编辑，双击已保存主题将其选择为下次启动主题；草稿双击只提示先保存，不发生隐式提交。删除主题必须经明确确认，当前下次启动主题、last-known-good 主题或存在工具拥有会话时禁止删除；成功删除同时移除受管背景资产。
-- 应用可携带经审核的图片主题包。包内 `catalog.json` 使用稳定 `packId` 和稳定主题 ID，声明每张图片的 SHA-256、完整十八色、外观、焦点、画面、表面配置及背景范围；main 必须在写入该预设包前严格校验目录字段、图片格式、尺寸和哈希，renderer、preload 与 IPC 不接收资源路径或图片字节。
-- v2 主题索引允许持久化有界且唯一的 `installedPresetPacks`。未安装主题包应在一次 store-owned 事务内追加 ready 主题、复制图片并提交 pack 标记，不改变已有主题、revision、选择项、last-known-good、暂停状态或 checkpoint；失败必须恢复旧索引并清理已暂存图片。后继主题包可声明被替代 pack 与每个旧主题的精确 fingerprint，只原位升级仍保持旧指纹且没有 checkpoint 的内置主题；用户改过或删过的主题必须保持原样且不得复活。
+- 应用可携带经审核的图片主题包。包内 `catalog.json` 使用稳定 `packId` 和稳定主题 ID，声明每张图片的 SHA-256、完整二十六色、外观、焦点、画面、表面配置及背景范围；main 必须在写入该预设包前严格校验目录字段、图片格式、尺寸和哈希，renderer、preload 与 IPC 不接收资源路径或图片字节。
+- v2 主题索引允许持久化有界且唯一的 `installedPresetPacks`。未安装主题包应在一次 store-owned 事务内追加 ready 主题、复制图片并提交 pack 标记，不改变已有主题、revision、选择项、last-known-good、暂停状态或 checkpoint；失败必须恢复旧索引并清理已暂存图片。后继主题包可声明多个被替代 pack 与每个旧主题的有界精确 fingerprint 列表，只原位升级仍保持任一已声明旧指纹且没有 checkpoint 的内置主题；用户改过或删过的主题必须保持原样且不得复活。
 
 ### 主题 ZIP
 
 - 普通 `.zip`，文件位于根目录或唯一一层目录。
 - 恰好包含非空 `theme.json`、非空 `theme.css` 和 `theme.json.image` 指向的一张 PNG/JPEG/WebP。
-- “导出主题 ZIP”使用同样的三件套，并在 `theme.json` 中完整保留当前十八色及其他展示配置，供当前版本无损往返。Studio、preload 与 IPC 不再提供旧版兼容降级导出；历史十色或十二色 ZIP 仍按既有兼容默认值安全导入。
+- “导出主题 ZIP”使用同样的三件套，并在 `theme.json` 中完整保留当前二十六色及其他展示配置，供当前版本无损往返。Studio、preload 与 IPC 不再提供旧版兼容降级导出；历史十色、十二色或十八色 ZIP 仍按既有兼容默认值安全导入。
 
 ### 正式旧包
 
@@ -63,7 +63,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 - `theme.json` 兼容导入不超过 1 MiB，新建/正式包及 Studio 源码编辑不超过 64 KiB；CSS 不超过 256 KiB。
 - 图片不超过 10 MiB，宽高各不超过 16384，总像素不超过 5000 万，并校验媒体魔数和实际解码。
 - 拒绝绝对路径、路径穿越、重复路径、链接/reparse、嵌套归档、Windows 保留名、未知文件、歧义根目录、加密项和压缩滥用。
-- Safe CSS 固定为 `dreamskin-safe-css/1`：最多 128 条规则、512 个声明、14 个登记 `data-ds-part`，仅允许 `hover`/`focus-visible`/`focus-within` 和白名单属性、变量与值；拒绝 `@`、`url()`、转义、注释和未知语法。
+- Safe CSS 固定为 `dreamskin-safe-css/1`：最多 128 条规则、512 个声明、19 个登记 `data-ds-part`，仅允许 `hover`/`focus-visible`/`focus-within` 和白名单属性、变量与值；拒绝 `@`、`url()`、转义、注释和未知语法。
 - 导入、commit、选择、注入前均复验；任何失败均 fail closed。
 
 ## 冲突与事务
@@ -119,7 +119,7 @@ preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑�
 11. 在写入、flush、rename 和恢复各失败点，重启后只能读到完整旧状态或完整新状态；`state/themes/transactions/lock/ownership` 均遵守相同根句柄和逐段校验规则。
 12. 打包后的 `.node` 位于 ASAR unpacked 资源并可在无 Build Tools 的普通用户环境加载；删除该文件会稳定 fail closed。用户选择的外部导出 ZIP 仍可按原契约创建，且不能借此访问 managed path。
 13. 全窗口模式下背景覆盖根区域并透过配置的侧栏遮罩可见；仅内容区模式下背景只覆盖主内容区域。相同主题配置在 LIVE PREVIEW 和真实 Codex 注入中使用相同作用域与遮罩规则。
-14. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和十八色配色在设计面板可配置，保存、重开、完整主题 ZIP 往返后配置不丢失；助手回复文字、用户消息文字、文件变更卡片背景/文字、顶部栏透明背景与顶部栏文字在 LIVE PREVIEW 和真实 Codex 注入中一致，焦点、颜色变量和 color-scheme 同样一致。
+14. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和二十六色配色在设计面板可配置，保存、重开、完整主题 ZIP 往返后配置不丢失；助手回复、用户消息、文件变更卡片、顶部栏、当前会话标题、首页标题与快捷卡片、命令/编辑/思考摘要均有独立背景或文字控制，并在 LIVE PREVIEW 和真实 Codex 注入中一致，焦点、颜色变量和 color-scheme 同样一致。
 15. 配置模式下启停四个样式配方或调整 blur/radius/border/shadow 会立即更新预览，并由共享生成器写入合法非空 theme.css；无需编辑源码。高级模式继续支持现有 CSS，旧主题不会被自动改写。
 16. theme.json 面板可校验并应用合法源码；语法错误、未知字段、越界值或图片引用变化会被拒绝且不改变 revision、预览、选择或已持久化主题。
 17. LIVE PREVIEW 可在“首页”和“对话”之间即时切换；两个页面复用同一主题根、侧栏、背景作用域、焦点、画面处理、颜色变量和 Safe CSS，切换只影响预览内容，不修改草稿或 revision。
@@ -128,6 +128,6 @@ preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑�
 20. 非法颜色在 renderer 明确标注且不能提交；IPC 校验失败日志只包含安全字段路径与错误码。覆盖安装后新旧 renderer/main 混用时显示完全退出并重启的明确提示，不允许继续编辑或保存。
 21. 主进程日志按日生成并自动清理，用户可从工作台打开日志目录；日志内容与保留策略符合上述隐私边界，日志基础设施故障不影响应用启动和安全状态。
 22. 普通编辑区提供“保存主题”和“放弃本次修改”两个明确操作，并自动保持 patch-before-commit 的 revision 顺序；放弃操作恢复最近 commit 或新建起点，不删除主题、不改变下次启动选择。高级 JSON 的独立校验边界不变。
-23. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、十八色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。
+23. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、二十六色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。
 24. 当前 v2 内置图片主题包包含 13 个一图一主题的 ready 记录；页面背景色与侧栏/弹窗面板色使用 20% alpha，左侧栏遮罩字段为 20%，边框与分隔线使用 10% alpha。侧栏遮罩应把该百分比作为最终 alpha，而不是与面板颜色已有 alpha 相乘；面板颜色必须在 LIVE PREVIEW 与真实注入中按声明值消费而不再额外稀释。全新主题库得到原有 2 个基础主题加 13 个图片主题；从 v1 主题包升级时只原位迁移精确未编辑项，保留 library ID、选择与图片，用户编辑或删除项不覆盖、不复活。catalog、任一图片或持久化步骤失败时主题库保持原状，安装包中的 catalog 与 13 张图片逐项通过 SHA-256 校验。
 25. 下次启动主题选择卡位于编辑器与预览之前；左侧主题列表对真实背景图显示受控 `app://theme-asset` 缩略图，对透明占位或无自定义背景的主题显示页面背景色。列表不得获得文件路径，图片延迟解码；Studio 只提供完整主题 ZIP 与未编辑正式原包导出，不显示旧版兼容 ZIP 操作。

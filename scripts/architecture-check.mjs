@@ -197,7 +197,7 @@ requireMarkers(store, "store-contract", [
   "installedPresetPacks",
   "installBundledPresetPack",
   "replacesInstalledPack",
-  "previousFingerprint",
+  "previousFingerprints",
 ]);
 
 const bundledPresets = source("src/main/infra/bundled-presets.ts");
@@ -206,7 +206,7 @@ requireMarkers(bundledPresets, "bundled-presets", [
   "validateImage",
   "imageSha256",
   "replacesPackIds",
-  "previousFingerprint",
+  "previousFingerprints",
   "BUNDLED_PRESET_PACK_INVALID",
 ]);
 
@@ -215,6 +215,8 @@ requireMarkers(rendererApp, "theme-library-layout", [
   "backgroundThumbnailUrl",
   "backgroundColor",
   "top-apply-card",
+  "HOME_COLOR_TARGETS",
+  "mock-activity",
 ]);
 if (rendererApp.includes("导出旧版兼容 ZIP"))
   failures.push("renderer-exposes-legacy-compatible-export");
@@ -244,6 +246,9 @@ requireMarkers(themePayload, "theme-payload", [
   "data-codexstyle-owner",
   "data-codexstyle-part",
   "data-codexstyle-style",
+  "threadTabBridge",
+  "homeCardBridge",
+  "activityBridge",
 ]);
 if (/window\[stateKey\].*cleanup|\.cleanup\?\./u.test(themePayload))
   failures.push("theme-payload-invokes-page-cleanup");

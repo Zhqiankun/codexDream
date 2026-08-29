@@ -36,10 +36,21 @@ type PreviewPage = "home" | "conversation";
 const CONVERSATION_COLOR_TARGETS = new Set<PreviewColorTarget>([
   "assistantPanel",
   "assistantMessageText",
+  "activityBackground",
+  "activityMuted",
+  "activityText",
   "changeCardBackground",
   "changeCardText",
   "highlight",
+  "threadTabBackground",
+  "threadTabText",
   "userMessageText",
+]);
+
+const HOME_COLOR_TARGETS = new Set<PreviewColorTarget>([
+  "homeCardBackground",
+  "homeCardText",
+  "homeTitleText",
 ]);
 
 const sessionLabels: Record<SessionState, string> = {
@@ -929,6 +940,7 @@ function StudioView({
       setPreviewColorTarget(target);
       if (target && CONVERSATION_COLOR_TARGETS.has(target))
         setPreviewPage("conversation");
+      else if (target && HOME_COLOR_TARGETS.has(target)) setPreviewPage("home");
     },
     [],
   );
@@ -1132,12 +1144,20 @@ function StudioView({
     "--preview-background": draft.colors.background,
     "--preview-panel": draft.colors.panel,
     "--preview-sidebar-text": draft.colors.sidebarText,
+    "--preview-thread-tab-background": draft.colors.threadTabBackground,
+    "--preview-thread-tab-text": draft.colors.threadTabText,
+    "--preview-home-title-text": draft.colors.homeTitleText,
+    "--preview-home-card-background": draft.colors.homeCardBackground,
+    "--preview-home-card-text": draft.colors.homeCardText,
     "--preview-panel-alt": draft.colors.panelAlt,
     "--preview-assistant-panel": draft.colors.assistantPanel,
     "--preview-assistant-message-text": draft.colors.assistantMessageText,
     "--preview-user-message-text": draft.colors.userMessageText,
     "--preview-change-card-background": draft.colors.changeCardBackground,
     "--preview-change-card-text": draft.colors.changeCardText,
+    "--preview-activity-background": draft.colors.activityBackground,
+    "--preview-activity-text": draft.colors.activityText,
+    "--preview-activity-muted": draft.colors.activityMuted,
     "--preview-top-bar-background": draft.colors.topBarBackground,
     "--preview-top-bar-text": draft.colors.topBarText,
     "--preview-accent": draft.colors.accent,
@@ -1154,6 +1174,11 @@ function StudioView({
     "--ds-theme-color-background": draft.colors.background,
     "--ds-theme-color-panel": draft.colors.panel,
     "--ds-theme-color-sidebar-text": draft.colors.sidebarText,
+    "--ds-theme-color-thread-tab-background": draft.colors.threadTabBackground,
+    "--ds-theme-color-thread-tab-text": draft.colors.threadTabText,
+    "--ds-theme-color-home-title-text": draft.colors.homeTitleText,
+    "--ds-theme-color-home-card-background": draft.colors.homeCardBackground,
+    "--ds-theme-color-home-card-text": draft.colors.homeCardText,
     "--ds-theme-color-panel-alt": draft.colors.panelAlt,
     "--ds-theme-color-assistant-panel": draft.colors.assistantPanel,
     "--ds-theme-color-assistant-message-text":
@@ -1162,6 +1187,9 @@ function StudioView({
     "--ds-theme-color-change-card-background":
       draft.colors.changeCardBackground,
     "--ds-theme-color-change-card-text": draft.colors.changeCardText,
+    "--ds-theme-color-activity-background": draft.colors.activityBackground,
+    "--ds-theme-color-activity-text": draft.colors.activityText,
+    "--ds-theme-color-activity-muted": draft.colors.activityMuted,
     "--ds-theme-color-top-bar-background": draft.colors.topBarBackground,
     "--ds-theme-color-top-bar-text": draft.colors.topBarText,
     "--ds-theme-color-accent": draft.colors.accent,
@@ -1505,7 +1533,14 @@ function StudioView({
                       />
                     )}
                   <div className="mock-toolbar" data-ds-part="header">
-                    <span className="mock-toolbar-title">
+                    <span
+                      className="mock-toolbar-title"
+                      data-ds-part={
+                        previewPage === "conversation"
+                          ? "thread-tab"
+                          : undefined
+                      }
+                    >
                       {previewPage === "conversation" ? "▱ 主题会话  ···" : ""}
                     </span>
                     <span className="mock-toolbar-actions" aria-hidden="true">
@@ -1519,7 +1554,7 @@ function StudioView({
                           <span className="mock-home-mark" aria-hidden="true">
                             &gt;_
                           </span>
-                          <h3>
+                          <h3 data-ds-part="home-title">
                             你想让我们在 <u>CodexStyle</u> 中构建什么？
                           </h3>
                         </div>
@@ -1527,16 +1562,16 @@ function StudioView({
                           className="mock-home-suggestions"
                           aria-label="任务建议"
                         >
-                          <span>
+                          <span data-ds-part="home-card">
                             <i>⌕</i>探索并理解代码
                           </span>
-                          <span>
+                          <span data-ds-part="home-card">
                             <i>⌁</i>构建新功能、应用或工具
                           </span>
-                          <span>
+                          <span data-ds-part="home-card">
                             <i>↻</i>审查代码并提出修改建议
                           </span>
-                          <span>
+                          <span data-ds-part="home-card">
                             <i>♙</i>修复问题和失败
                           </span>
                         </div>
@@ -1590,6 +1625,24 @@ function StudioView({
                           先看看主题预览吧
                         </div>
                         <div className="mock-turn-meta">用时 5 秒　›</div>
+                        <div
+                          className="mock-activity"
+                          data-ds-part="activity"
+                          aria-label="命令与思考预览"
+                        >
+                          <span>
+                            <strong>⌁ 已编辑 2 个文件</strong>
+                            <small>App.tsx · global.css</small>
+                          </span>
+                          <span>
+                            <strong>› 运行命令</strong>
+                            <small>npm test</small>
+                          </span>
+                          <span>
+                            <strong>… 思考中</strong>
+                            <small>分析主题注入目标</small>
+                          </span>
+                        </div>
                         <div
                           className="mock-message"
                           data-ds-part="message"

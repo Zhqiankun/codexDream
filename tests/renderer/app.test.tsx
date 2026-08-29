@@ -39,12 +39,20 @@ const theme: ThemeDetail = {
     background: "#181818",
     panel: "#282828",
     sidebarText: "#ffffff",
+    threadTabBackground: "rgba(40, 40, 40, 0.88)",
+    threadTabText: "#f5d38a",
+    homeTitleText: "#f8fafc",
+    homeCardBackground: "rgba(45, 45, 45, 0.9)",
+    homeCardText: "#f1f5f9",
     panelAlt: "#2d2d2d",
     assistantPanel: "#2d2d2d",
     assistantMessageText: "#ffffff",
     userMessageText: "#ffffff",
     changeCardBackground: "#2d2d2d",
     changeCardText: "#ffffff",
+    activityBackground: "rgba(20, 20, 20, 0.72)",
+    activityText: "#dbeafe",
+    activityMuted: "#94a3b8",
     topBarBackground: "rgba(0, 0, 0, 0)",
     topBarText: "rgba(255, 255, 255, .498)",
     accent: "#f59e0b",
@@ -208,6 +216,14 @@ describe("Studio renderer", () => {
     );
     expect(document.querySelector(".mock-code")).not.toHaveAttribute(
       "data-ds-part",
+    );
+    expect(screen.getByLabelText("命令与思考预览")).toHaveAttribute(
+      "data-ds-part",
+      "activity",
+    );
+    expect(document.querySelector(".mock-toolbar-title")).toHaveAttribute(
+      "data-ds-part",
+      "thread-tab",
     );
     expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
       "已编辑 2 个文件",
@@ -676,6 +692,13 @@ describe("Studio renderer", () => {
       "data-ds-part",
       "composer",
     );
+    expect(document.querySelector(".mock-home h3")).toHaveAttribute(
+      "data-ds-part",
+      "home-title",
+    );
+    expect(
+      document.querySelectorAll('[data-ds-part="home-card"]'),
+    ).toHaveLength(4);
     expect(document.querySelector(".mock-background")).toHaveAttribute(
       "src",
       theme.backgroundUrl,
@@ -894,6 +917,20 @@ describe("Studio renderer", () => {
     expect(screen.getByRole("textbox", { name: "顶部栏文字颜色" })).toHaveValue(
       "rgba(255, 255, 255, .498)",
     );
+    const extendedColors = {
+      会话标题背景颜色: "rgba(34, 51, 68, 0.55)",
+      会话标题文字颜色: "#f0c060",
+      首页标题文字颜色: "#aabbcc",
+      首页快捷卡片背景颜色: "rgba(51, 68, 85, 0.66)",
+      首页快捷卡片文字颜色: "#ddeeff",
+      命令与思考背景颜色: "rgba(17, 34, 51, 0.44)",
+      命令与思考文字颜色: "#bbddff",
+      命令与思考次要文字颜色: "#789abc",
+    } as const;
+    for (const [name, value] of Object.entries(extendedColors))
+      fireEvent.change(screen.getByRole("textbox", { name }), {
+        target: { value },
+      });
 
     const background = document.querySelector(
       ".mock-codex > .mock-background",
@@ -927,6 +964,30 @@ describe("Studio renderer", () => {
     expect(preview.style.getPropertyValue("--preview-top-bar-text")).toBe(
       "rgba(255, 255, 255, .498)",
     );
+    expect(
+      preview.style.getPropertyValue("--preview-thread-tab-background"),
+    ).toBe("rgba(34, 51, 68, 0.55)");
+    expect(preview.style.getPropertyValue("--preview-thread-tab-text")).toBe(
+      "#f0c060",
+    );
+    expect(preview.style.getPropertyValue("--preview-home-title-text")).toBe(
+      "#aabbcc",
+    );
+    expect(
+      preview.style.getPropertyValue("--preview-home-card-background"),
+    ).toBe("rgba(51, 68, 85, 0.66)");
+    expect(preview.style.getPropertyValue("--preview-home-card-text")).toBe(
+      "#ddeeff",
+    );
+    expect(
+      preview.style.getPropertyValue("--preview-activity-background"),
+    ).toBe("rgba(17, 34, 51, 0.44)");
+    expect(preview.style.getPropertyValue("--preview-activity-text")).toBe(
+      "#bbddff",
+    );
+    expect(preview.style.getPropertyValue("--preview-activity-muted")).toBe(
+      "#789abc",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
@@ -945,6 +1006,14 @@ describe("Studio renderer", () => {
             changeCardText: "#c4d5e6",
             topBarBackground: "rgba(18, 52, 86, 0.48)",
             topBarText: "rgba(255, 255, 255, .498)",
+            threadTabBackground: "rgba(34, 51, 68, 0.55)",
+            threadTabText: "#f0c060",
+            homeTitleText: "#aabbcc",
+            homeCardBackground: "rgba(51, 68, 85, 0.66)",
+            homeCardText: "#ddeeff",
+            activityBackground: "rgba(17, 34, 51, 0.44)",
+            activityText: "#bbddff",
+            activityMuted: "#789abc",
           }),
         }),
       }),
@@ -958,6 +1027,8 @@ describe("Studio renderer", () => {
 
     expect(screen.getByText("页面与窗口")).toBeInTheDocument();
     expect(screen.getByText("对话与输入")).toBeInTheDocument();
+    expect(screen.getByText("标题与首页")).toBeInTheDocument();
+    expect(screen.getByText("命令与思考")).toBeInTheDocument();
     expect(screen.getByText("操作与状态")).toBeInTheDocument();
     expect(screen.getByText("文字与边界")).toBeInTheDocument();
     expect(screen.getByText("权限状态与发送按钮")).toBeInTheDocument();
@@ -968,6 +1039,8 @@ describe("Studio renderer", () => {
     fireEvent.click(screen.getByRole("button", { name: "高级" }));
     expect(screen.getByText("accentAlt")).toBeInTheDocument();
     expect(screen.getByText("topBarBackground")).toBeInTheDocument();
+    expect(screen.getByText("homeTitleText")).toBeInTheDocument();
+    expect(screen.getByText("activityMuted")).toBeInTheDocument();
 
     const preview = document.querySelector(".mock-codex") as HTMLElement;
     const userMessageText = screen.getByRole("textbox", {
@@ -987,6 +1060,12 @@ describe("Studio renderer", () => {
     });
     const muted = screen.getByRole("textbox", {
       name: "输入占位与说明文字颜色",
+    });
+    const homeTitleText = screen.getByRole("textbox", {
+      name: "首页标题文字颜色",
+    });
+    const activityText = screen.getByRole("textbox", {
+      name: "命令与思考文字颜色",
     });
     fireEvent.change(muted, { target: { value: "#4a90e2" } });
     expect(preview.style.getPropertyValue("--preview-muted")).toBe("#4a90e2");
@@ -1043,6 +1122,20 @@ describe("Studio renderer", () => {
     expect(preview).toHaveAttribute(
       "data-preview-color-target",
       "changeCardText",
+    );
+
+    fireEvent.focus(homeTitleText);
+    expect(preview).toHaveAttribute("data-preview-page", "home");
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "homeTitleText",
+    );
+
+    fireEvent.focus(activityText);
+    expect(preview).toHaveAttribute("data-preview-page", "conversation");
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "activityText",
     );
   });
 

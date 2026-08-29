@@ -1802,7 +1802,16 @@ input.opacity-range {
 }
 .mock-toolbar-title {
   min-height: 1em;
+  padding: 5px 7px;
+  border: 1px solid var(--preview-line, #2b3853);
+  border-radius: 3px;
+  background: var(--preview-thread-tab-background, transparent);
+  color: var(--preview-thread-tab-text, var(--preview-top-bar-text, #f0f4fb));
   font-weight: 500;
+}
+.mock-toolbar-title:empty {
+  padding: 0;
+  border-color: transparent;
 }
 .mock-toolbar-actions {
   color: var(--preview-top-bar-text, #8592ab);
@@ -1849,7 +1858,7 @@ input.opacity-range {
 .mock-home h3 {
   max-width: 500px;
   margin: 0;
-  color: var(--preview-text, #f4f7ff);
+  color: var(--preview-home-title-text, var(--preview-text, #f4f7ff));
   font-size: clamp(14px, 2.8cqw, 22px);
   font-weight: 500;
   line-height: 1.25;
@@ -1907,6 +1916,39 @@ input.opacity-range {
   color: var(--preview-muted, #91a9ce);
   font-family: "Cascadia Code", monospace;
   font-size: 7px;
+}
+.mock-activity {
+  display: grid;
+  gap: 1px;
+  padding: 4px 6px;
+  border: 1px solid var(--preview-line, #354363);
+  border-radius: var(--preview-radius, 7px);
+  background: var(--preview-activity-background, transparent);
+  color: var(--preview-activity-text, var(--preview-muted, #91a9ce));
+  font-size: 6.5px;
+}
+.mock-activity > span {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 1px;
+}
+.mock-activity strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mock-activity small {
+  overflow: hidden;
+  color: var(--preview-activity-muted, var(--preview-muted, #91a9ce));
+  font-size: 5.7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mock-change-card {
   overflow: hidden;
@@ -2032,12 +2074,11 @@ input.opacity-range {
   padding: 9px 8px;
   border: 1px solid color-mix(in srgb, var(--preview-line) 80%, transparent);
   border-radius: 8px;
-  background: color-mix(
-    in srgb,
-    var(--preview-panel, #18233c) 68%,
-    transparent
+  background: var(
+    --preview-home-card-background,
+    color-mix(in srgb, var(--preview-panel, #18233c) 68%, transparent)
   );
-  color: var(--preview-text, #dce6f6);
+  color: var(--preview-home-card-text, var(--preview-text, #dce6f6));
   font-size: clamp(6.5px, 1.1cqw, 10px);
   line-height: 1.35;
   text-align: left;
@@ -2205,6 +2246,16 @@ input.opacity-range {
 .mock-codex[data-preview-color-target="background"] .mock-main,
 .mock-codex[data-preview-color-target="panel"] :is(.mock-sidebar, .mock-dialog),
 .mock-codex[data-preview-color-target="sidebarText"] .mock-sidebar,
+.mock-codex[data-preview-color-target="threadTabBackground"]
+  .mock-toolbar-title,
+.mock-codex[data-preview-color-target="threadTabText"] .mock-toolbar-title,
+.mock-codex[data-preview-color-target="homeTitleText"] .mock-home h3,
+.mock-codex[data-preview-color-target="homeCardBackground"]
+  .mock-home-suggestions
+  span,
+.mock-codex[data-preview-color-target="homeCardText"]
+  .mock-home-suggestions
+  span,
 .mock-codex[data-style-mode="configured"][data-recipe-composer="true"][data-preview-color-target="panelAlt"]
   .mock-composer,
 .mock-codex[data-style-mode="configured"][data-recipe-message="true"][data-preview-color-target="panelAlt"]
@@ -2214,6 +2265,9 @@ input.opacity-range {
 .mock-codex[data-preview-color-target="userMessageText"] .mock-user-message,
 .mock-codex[data-preview-color-target="changeCardBackground"] .mock-change-card,
 .mock-codex[data-preview-color-target="changeCardText"] .mock-change-card,
+.mock-codex[data-preview-color-target="activityBackground"] .mock-activity,
+.mock-codex[data-preview-color-target="activityText"] .mock-activity,
+.mock-codex[data-preview-color-target="activityMuted"] .mock-activity,
 .mock-codex[data-preview-color-target="topBarBackground"]
   :is(.mock-titlebar, .mock-toolbar),
 .mock-codex[data-preview-color-target="topBarText"]

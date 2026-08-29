@@ -41,11 +41,11 @@ native/secure-store/                   Windows x64 N-API 源码、预定义路�
 
 主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责协议校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏遮罩使用固定 `rgb(15 23 42)`，由注入 bridge 以受控样式覆盖主题侧栏背景，防止 Safe CSS 顺序造成预览与真实结果偏差。
 
-结构化主题配置同样归属 theme domain：`appearance`、`art`、十八色 `colors` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText` 为可选兼容扩展；规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整十八色。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色处理、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是 CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
+结构化主题配置同样归属 theme domain：`appearance`、`art`、二十六色 `colors` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted` 为可选兼容扩展；规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整二十六色。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色处理、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是 CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
 
 `theme.patchDraft` 在普通 IPC `v:3` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/styleConfig 与高级 CSS；`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
 
-内置图片主题包归属 main infrastructure：`resources/presets/catalog.json` 与图片作为固定 app.asar 资源，`bundled-presets.ts` 负责有界读取、严格 schema、稳定 pack/theme ID、图片格式和 SHA-256 校验。`LocalThemeStore` 只接收已验证字节，并以 v2 `installedPresetPacks` 标记执行一次批量事务；catalog v2 通过 `replacesPackIds` 与旧 fingerprint 只升级未编辑内置项，删除或编辑过的项跳过。随机受管 UUID 图片、ready 记录与 pack 标记由同一次索引提交生效。`ThemeSummary` 仅新增页面背景色与 main 生成的受控缩略图 URL，不暴露文件路径、字节或新 IPC 方法。
+内置图片主题包归属 main infrastructure：`resources/presets/catalog.json` 与图片作为固定 app.asar 资源，`bundled-presets.ts` 负责有界读取、严格 schema、稳定 pack/theme ID、图片格式和 SHA-256 校验。`LocalThemeStore` 只接收已验证字节，并以 v2 `installedPresetPacks` 标记执行一次批量事务；catalog v3 通过 `replacesPackIds` 与有界 `previousFingerprints` 列表兼容从 catalog v1 或 v2 直接升级，只迁移未编辑内置项，删除或编辑过的项跳过。随机受管 UUID 图片、ready 记录与 pack 标记由同一次索引提交生效。`ThemeSummary` 仅新增页面背景色与 main 生成的受控缩略图 URL，不暴露文件路径、字节或新 IPC 方法。
 
 ## Native secure-store 架构契约
 
@@ -125,15 +125,17 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 9. 多页面 LIVE PREVIEW：预览根继续由 Studio 草稿唯一驱动，页面状态仅保留在 renderer 内；首页与对话共享背景、侧栏、结构化变量和 Safe CSS 注入，不扩展 IPC、主题数据或持久化边界。
 
-10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、十八色和透明磨砂表面提供实际消费者。
+10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、二十六色和透明磨砂表面提供实际消费者。
 
-11. 颜色语义与预览定位：颜色面板按可见区域分组并以页面位置命名，默认隐藏内部 token 字段名，高级显示只作为排障入口；悬停与键盘聚焦通过 renderer 本地状态标记预览目标，不进入主题契约、IPC 或持久化。助手回复文字、用户消息文字、文件变更卡片背景/文字、顶部栏背景和顶部栏文字由独立颜色 token 驱动；顶部栏背景默认完全透明。真实注入只作用于版本化 selector profile 已登记的顶部栏、消息和文件变更卡片节点，不扩大任意 DOM 选择范围。
+11. 颜色语义与预览定位：颜色面板按可见区域分组并以页面位置命名，默认隐藏内部 token 字段名，高级显示只作为排障入口；悬停与键盘聚焦通过 renderer 本地状态标记预览目标，不进入主题契约、IPC 或持久化。助手回复文字、用户消息文字、文件变更卡片、顶部栏、当前会话标题、首页标题/快捷卡片和命令/编辑/思考摘要由独立颜色 token 驱动；顶部栏背景默认完全透明。真实注入只作用于版本化 selector profile 已登记节点，不扩大任意 DOM 选择范围。
 
 12. 正式安装版自更新：以 `UpdateService` 持有检查、下载、进度、取消、已下载、延后安装和安装失败状态；infra adapter 独占 `electron-updater`，固定 generic GitHub Release 源并显式关闭隐式下载/退出安装。NSIS 写入安装标记，开发版与 ZIP fail closed。renderer 只接收无路径的进度快照；立即安装或退出时安装都必须先经 controller operation gate 清理本工具拥有的 Codex 会话。Actions 发布并验证同构建的安装包、blockmap、`latest.yml` 和校验和。
 
 13. 内置图片主题包：将 13 张用户提供图片以 ASCII 资源名和严格 catalog 打入 app.asar；main 在首次需要时逐张有界校验全部资产，避免同时解码大图造成启动内存峰值，再由 secure-store 批量追加 ready 主题并记录稳定 pack ID。验收覆盖已有库升级、二次启动不重复、删除不复活、图片/manifest 篡改、写入失败全回滚、包内文件与哈希，以及不新增 renderer/IPC 路径边界。
 
 14. 预设迁移与 Studio 布局：catalog v2 将页面背景与 panel alpha 固定为 20%、侧栏遮罩固定为最终 20%、line alpha 固定为 10%，main/preview 以 relative-color 绝对 alpha 并保留 `color-mix` fallback，避免透明 panel 被二次相乘；旧 pack 仅在 fingerprint 精确匹配且无 checkpoint 时原位迁移。下次启动选择卡移动到编辑器上方，主题摘要返回背景色与受控缩略图 URL，renderer 对真实图片使用 lazy thumbnail、对透明占位回退背景色。旧版兼容 ZIP 从导出枚举、写入分支和 Studio 删除，完整 ZIP 与旧包导入保持。
+
+15. 标题、首页与活动颜色：保持 `theme-config.ts` 为唯一跨层颜色契约，将颜色从十八色扩展为二十六色；selector profile `/8` 仅登记当前会话 tab、首页主标题、首页快捷卡片和 `group/activity-header` 活动摘要四类已核对节点。payload 通过独立 token bridge 覆盖背景、主文字和次要文字；renderer 使用相同变量和 `data-ds-part` 构造首页/对话预览，并在聚焦颜色项时自动切换对应页面。catalog v3 为 13 套图片主题补齐新颜色，并保存 v1/v2 两代精确 fingerprint，确保跨版本升级仍不覆盖用户编辑或复活删除项。
 
 ## 验证命令
 
@@ -153,7 +155,7 @@ npm run verify:package
 
 native 阶段还必须在 Visual Studio x64 开发环境中实际编译 addon，并覆盖：根及每一层 junction/symlink/reparse、非法 managed path、句柄关闭/替换、并发锁、写入/flush/rename 崩溃点、journal/backup 恢复、Node `fs` fallback 静态禁用、`.node` 缺失/错架构、ASAR-unpacked 布局，以及外部导出 ZIP 不受 managed root 限制但不能反向访问保护域。
 
-完整主题 ZIP 必须覆盖当前十八色与结构化配置的无损往返；历史十色或十二色 ZIP 只验证安全导入与默认值补全，不再生成面向旧客户端的降级包。实机 smoke 的实际版本、命令、截图/日志和未验证项必须记录。
+完整主题 ZIP 必须覆盖当前二十六色与结构化配置的无损往返；历史十色、十二色或十八色 ZIP 只验证安全导入与默认值补全，不再生成面向旧客户端的降级包。实机 smoke 的实际版本、命令、截图/日志和未验证项必须记录。
 
 ## 风险与完成门槛
 

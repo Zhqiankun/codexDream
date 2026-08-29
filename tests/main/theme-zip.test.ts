@@ -63,10 +63,18 @@ describe("theme zip compatibility", () => {
       colors: {
         ...configuration.colors,
         accent: "#336699",
+        threadTabBackground: "rgba(21, 22, 23, 0.6)",
+        threadTabText: "#cab123",
+        homeTitleText: "#aabbcc",
+        homeCardBackground: "rgba(31, 32, 33, 0.7)",
+        homeCardText: "#ddeeff",
         assistantMessageText: "rgba(101, 102, 103, 0.8)",
         userMessageText: "rgba(12, 34, 56, 0.72)",
         changeCardBackground: "rgba(61, 62, 63, 0.64)",
         changeCardText: "#fedcba",
+        activityBackground: "rgba(41, 42, 43, 0.5)",
+        activityText: "#bedace",
+        activityMuted: "#789abc",
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
       },
@@ -87,10 +95,18 @@ describe("theme zip compatibility", () => {
       art: { focusX: 0.31, safeArea: "left" },
       colors: {
         accent: "#336699",
+        threadTabBackground: "rgba(21, 22, 23, 0.6)",
+        threadTabText: "#cab123",
+        homeTitleText: "#aabbcc",
+        homeCardBackground: "rgba(31, 32, 33, 0.7)",
+        homeCardText: "#ddeeff",
         assistantMessageText: "rgba(101, 102, 103, 0.8)",
         userMessageText: "rgba(12, 34, 56, 0.72)",
         changeCardBackground: "rgba(61, 62, 63, 0.64)",
         changeCardText: "#fedcba",
+        activityBackground: "rgba(41, 42, 43, 0.5)",
+        activityText: "#bedace",
+        activityMuted: "#789abc",
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
       },
@@ -112,10 +128,18 @@ describe("theme zip compatibility", () => {
       .png()
       .toBuffer();
     const {
+      threadTabBackground: _threadTabBackground,
+      threadTabText: _threadTabText,
+      homeTitleText: _homeTitleText,
+      homeCardBackground: _homeCardBackground,
+      homeCardText: _homeCardText,
       assistantMessageText: _assistantMessageText,
       userMessageText: _userMessageText,
       changeCardBackground: _changeCardBackground,
       changeCardText: _changeCardText,
+      activityBackground: _activityBackground,
+      activityText: _activityText,
+      activityMuted: _activityMuted,
       topBarBackground: _topBarBackground,
       topBarText: _topBarText,
       ...previousColors
@@ -147,6 +171,14 @@ describe("theme zip compatibility", () => {
     expect(colors.userMessageText).toBe(previousColors.text);
     expect(colors.changeCardBackground).toBe(previousColors.panelAlt);
     expect(colors.changeCardText).toBe(previousColors.text);
+    expect(colors.threadTabBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(colors.threadTabText).toBe(previousColors.muted);
+    expect(colors.homeTitleText).toBe(previousColors.text);
+    expect(colors.homeCardBackground).toBe(previousColors.panelAlt);
+    expect(colors.homeCardText).toBe(previousColors.text);
+    expect(colors.activityBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(colors.activityText).toBe(previousColors.muted);
+    expect(colors.activityMuted).toBe(previousColors.muted);
     expect(colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
     expect(colors.topBarText).toBe(previousColors.muted);
   });

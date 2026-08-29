@@ -107,6 +107,58 @@ const colorGroups: ReadonlyArray<{
     ],
   },
   {
+    title: "标题与首页",
+    hint: "会话标签、欢迎标题与快捷操作",
+    fields: [
+      {
+        key: "threadTabBackground",
+        label: "会话标题背景",
+        hint: "顶部当前会话标签",
+      },
+      {
+        key: "threadTabText",
+        label: "会话标题文字",
+        hint: "会话名称、图标与更多操作",
+      },
+      {
+        key: "homeTitleText",
+        label: "首页标题文字",
+        hint: "“我们应该做些什么”标题",
+      },
+      {
+        key: "homeCardBackground",
+        label: "首页快捷卡片背景",
+        hint: "探索、构建、审查与修复卡片",
+      },
+      {
+        key: "homeCardText",
+        label: "首页快捷卡片文字",
+        hint: "快捷操作标题与说明",
+      },
+    ],
+  },
+  {
+    title: "命令与思考",
+    hint: "编辑文件、运行命令与思考状态",
+    fields: [
+      {
+        key: "activityBackground",
+        label: "命令与思考背景",
+        hint: "活动摘要与折叠状态背景",
+      },
+      {
+        key: "activityText",
+        label: "命令与思考文字",
+        hint: "编辑、读取、运行与思考动作",
+      },
+      {
+        key: "activityMuted",
+        label: "命令与思考次要文字",
+        hint: "文件名、命令详情与辅助状态",
+      },
+    ],
+  },
+  {
     title: "操作与状态",
     hint: "按钮、焦点与选择反馈",
     fields: [
@@ -497,7 +549,7 @@ function DesignPanel({
         )}
 
         {section === "colors" && (
-          <StudioSection title="主题颜色" meta="18 项 · 均支持透明度">
+          <StudioSection title="主题颜色" meta="26 项 · 均支持透明度">
             <div className="color-panel-toolbar">
               <div className="color-panel-guidance">
                 <p>

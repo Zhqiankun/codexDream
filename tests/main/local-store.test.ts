@@ -555,10 +555,20 @@ describe("local theme store", () => {
         text: colors.text,
         muted: colors.muted,
       });
+      delete colors.sidebarText;
+      delete colors.threadTabBackground;
+      delete colors.threadTabText;
+      delete colors.homeTitleText;
+      delete colors.homeCardBackground;
+      delete colors.homeCardText;
+      delete colors.assistantPanel;
       delete colors.assistantMessageText;
       delete colors.userMessageText;
       delete colors.changeCardBackground;
       delete colors.changeCardText;
+      delete colors.activityBackground;
+      delete colors.activityText;
+      delete colors.activityMuted;
       delete colors.topBarBackground;
       delete colors.topBarText;
       theme.fingerprint = themeFingerprint(theme as never);
@@ -573,10 +583,20 @@ describe("local theme store", () => {
     for (const theme of reloaded.listRecords()) {
       const detail = reloaded.getDetail(theme.libraryId, "app://theme-asset")!;
       const fallback = expected.get(theme.libraryId)!;
+      expect(detail.colors.sidebarText).toBe("#ffffff");
+      expect(detail.colors.threadTabBackground).toBe("rgba(0, 0, 0, 0)");
+      expect(detail.colors.threadTabText).toBe(fallback.muted);
+      expect(detail.colors.homeTitleText).toBe(fallback.text);
+      expect(detail.colors.homeCardBackground).toBe(fallback.panelAlt);
+      expect(detail.colors.homeCardText).toBe(fallback.text);
+      expect(detail.colors.assistantPanel).toBe(fallback.panelAlt);
       expect(detail.colors.assistantMessageText).toBe(fallback.text);
       expect(detail.colors.userMessageText).toBe(fallback.text);
       expect(detail.colors.changeCardBackground).toBe(fallback.panelAlt);
       expect(detail.colors.changeCardText).toBe(fallback.text);
+      expect(detail.colors.activityBackground).toBe("rgba(0, 0, 0, 0)");
+      expect(detail.colors.activityText).toBe(fallback.muted);
+      expect(detail.colors.activityMuted).toBe(fallback.muted);
       expect(detail.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
       expect(detail.colors.topBarText).toBe(fallback.muted);
     }

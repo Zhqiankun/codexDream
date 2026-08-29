@@ -85,6 +85,11 @@ test("starts the real Electron shell with native storage and completes a local w
         colors: {
           background: "rgba(111, 18, 13, 0.2)",
           panel: "rgba(136, 24, 18, 0.2)",
+          threadTabBackground: "rgba(136, 24, 18, 0.2)",
+          homeTitleText: "#fff6dc",
+          homeCardBackground: "rgba(136, 24, 18, 0.2)",
+          activityBackground: "rgba(136, 24, 18, 0.2)",
+          activityText: "#fff6dc",
           line: "rgba(255, 212, 56, 0.1)",
         },
       },

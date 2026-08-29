@@ -14,8 +14,9 @@ import {
 } from "../../contracts";
 import { readImageFileBounded, validateImage, type ImageInfo } from "./image";
 
-export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v2";
-export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v1";
+export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v3";
+export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v2";
+export const FIRST_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v1";
 
 export interface BundledPresetTheme {
   presetId: string;
@@ -24,7 +25,7 @@ export interface BundledPresetTheme {
   description: string;
   image: string;
   imageSha256: string;
-  previousFingerprint: string;
+  previousFingerprints: string[];
   backgroundScope: BackgroundScope;
   sidebarOverlayOpacity: number;
   appearance: Exclude<ThemeAppearance, "auto">;
@@ -50,7 +51,7 @@ export interface BundledPresetSource {
 }
 
 interface CatalogManifest {
-  schemaVersion: 2;
+  schemaVersion: 3;
   packId: string;
   replacesPackIds: string[];
   themes: BundledPresetTheme[];
@@ -74,7 +75,7 @@ const THEME_KEYS = new Set([
   "description",
   "image",
   "imageSha256",
-  "previousFingerprint",
+  "previousFingerprints",
   "backgroundScope",
   "sidebarOverlayOpacity",
   "appearance",
@@ -116,6 +117,7 @@ export function createBundledPresetSource(
             throw new Error("BUNDLED_PRESET_PACK_INVALID:image-hash");
           themes.push({
             ...theme,
+            previousFingerprints: [...theme.previousFingerprints],
             art: { ...theme.art },
             colors: { ...theme.colors },
             style: {
@@ -168,7 +170,7 @@ async function readCatalog(path: string): Promise<CatalogManifest> {
   if (!isRecord(parsed) || hasUnknownKeys(parsed, MANIFEST_KEYS))
     throw new Error("BUNDLED_PRESET_PACK_INVALID:catalog-schema");
   if (
-    parsed.schemaVersion !== 2 ||
+    parsed.schemaVersion !== 3 ||
     !ID_PATTERN.test(String(parsed.packId ?? "")) ||
     !Array.isArray(parsed.replacesPackIds) ||
     parsed.replacesPackIds.length > 8 ||
@@ -197,7 +199,7 @@ async function readCatalog(path: string): Promise<CatalogManifest> {
     "image",
   );
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     packId: parsed.packId as string,
     replacesPackIds: [...(parsed.replacesPackIds as string[])],
     themes,
@@ -219,8 +221,15 @@ function parseTheme(value: unknown): BundledPresetTheme {
     value.image.includes("..") ||
     typeof value.imageSha256 !== "string" ||
     !SHA256_PATTERN.test(value.imageSha256) ||
-    typeof value.previousFingerprint !== "string" ||
-    !SHA256_PATTERN.test(value.previousFingerprint) ||
+    !Array.isArray(value.previousFingerprints) ||
+    value.previousFingerprints.length < 1 ||
+    value.previousFingerprints.length > 8 ||
+    value.previousFingerprints.some(
+      (fingerprint) =>
+        typeof fingerprint !== "string" || !SHA256_PATTERN.test(fingerprint),
+    ) ||
+    new Set(value.previousFingerprints).size !==
+      value.previousFingerprints.length ||
     (value.backgroundScope !== "content" &&
       value.backgroundScope !== "window") ||
     typeof value.sidebarOverlayOpacity !== "number" ||
@@ -250,7 +259,7 @@ function parseTheme(value: unknown): BundledPresetTheme {
     description: value.description,
     image: value.image,
     imageSha256: value.imageSha256,
-    previousFingerprint: value.previousFingerprint,
+    previousFingerprints: [...(value.previousFingerprints as string[])],
     backgroundScope: value.backgroundScope,
     sidebarOverlayOpacity: value.sidebarOverlayOpacity,
     appearance: value.appearance,

@@ -1424,14 +1424,15 @@ export class LocalThemeStore {
     record: ThemeRecord,
     preset: PreparedBundledPresetTheme,
   ): boolean {
+    const actualFingerprint = this.fingerprint(record);
     return (
       record.status === "ready" &&
       record.packageFormat === "simplified" &&
       !record.signed &&
       record.importedFormal === undefined &&
       record.backgroundSha256 === preset.imageInfo.sha256 &&
-      record.fingerprint === preset.previousFingerprint &&
-      this.fingerprint(record) === preset.previousFingerprint &&
+      record.fingerprint === actualFingerprint &&
+      preset.previousFingerprints.includes(actualFingerprint) &&
       !this.index.checkpoints.some(
         (checkpoint) => checkpoint.libraryId === record.libraryId,
       )

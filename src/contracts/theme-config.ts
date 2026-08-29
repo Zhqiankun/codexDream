@@ -21,12 +21,20 @@ export interface ThemeColors {
   background: string;
   panel: string;
   sidebarText: string;
+  threadTabBackground: string;
+  threadTabText: string;
+  homeTitleText: string;
+  homeCardBackground: string;
+  homeCardText: string;
   panelAlt: string;
   assistantPanel: string;
   assistantMessageText: string;
   userMessageText: string;
   changeCardBackground: string;
   changeCardText: string;
+  activityBackground: string;
+  activityText: string;
+  activityMuted: string;
   topBarBackground: string;
   topBarText: string;
   accent: string;
@@ -67,12 +75,20 @@ export const THEME_COLOR_KEYS = [
   "background",
   "panel",
   "sidebarText",
+  "threadTabBackground",
+  "threadTabText",
+  "homeTitleText",
+  "homeCardBackground",
+  "homeCardText",
   "panelAlt",
   "assistantPanel",
   "assistantMessageText",
   "userMessageText",
   "changeCardBackground",
   "changeCardText",
+  "activityBackground",
+  "activityText",
+  "activityMuted",
   "topBarBackground",
   "topBarText",
   "accent",
@@ -86,11 +102,19 @@ export const THEME_COLOR_KEYS = [
 
 const OPTIONAL_THEME_COLOR_KEYS = new Set<keyof ThemeColors>([
   "sidebarText",
+  "threadTabBackground",
+  "threadTabText",
+  "homeTitleText",
+  "homeCardBackground",
+  "homeCardText",
   "assistantPanel",
   "assistantMessageText",
   "userMessageText",
   "changeCardBackground",
   "changeCardText",
+  "activityBackground",
+  "activityText",
+  "activityMuted",
   "topBarBackground",
   "topBarText",
 ]);
@@ -110,12 +134,20 @@ export const DEFAULT_THEME_COLORS: ThemeColors = {
   background: "#181818",
   panel: "#282828",
   sidebarText: "#ffffff",
+  threadTabBackground: "rgba(0, 0, 0, 0)",
+  threadTabText: "rgba(255, 255, 255, .498)",
+  homeTitleText: "#ffffff",
+  homeCardBackground: "#2d2d2d",
+  homeCardText: "#ffffff",
   panelAlt: "#2d2d2d",
   assistantPanel: "#2d2d2d",
   assistantMessageText: "#ffffff",
   userMessageText: "#ffffff",
   changeCardBackground: "#2d2d2d",
   changeCardText: "#ffffff",
+  activityBackground: "rgba(0, 0, 0, 0)",
+  activityText: "rgba(255, 255, 255, .498)",
+  activityMuted: "rgba(255, 255, 255, .498)",
   topBarBackground: "rgba(0, 0, 0, 0)",
   topBarText: "rgba(255, 255, 255, .498)",
   accent: "#ffffff",
@@ -211,6 +243,29 @@ export function normalizeThemeColors(
   if (!isThemeColor(source.assistantPanel) && isThemeColor(source.panelAlt)) {
     result.assistantPanel = source.panelAlt;
   }
+  if (
+    !isThemeColor(source.threadTabBackground) &&
+    isThemeColor(source.topBarBackground)
+  ) {
+    result.threadTabBackground = source.topBarBackground;
+  }
+  if (!isThemeColor(source.threadTabText)) {
+    if (isThemeColor(source.topBarText))
+      result.threadTabText = source.topBarText;
+    else if (isThemeColor(source.muted)) result.threadTabText = source.muted;
+  }
+  if (!isThemeColor(source.homeTitleText) && isThemeColor(source.text)) {
+    result.homeTitleText = source.text;
+  }
+  if (
+    !isThemeColor(source.homeCardBackground) &&
+    isThemeColor(source.panelAlt)
+  ) {
+    result.homeCardBackground = source.panelAlt;
+  }
+  if (!isThemeColor(source.homeCardText) && isThemeColor(source.text)) {
+    result.homeCardText = source.text;
+  }
   if (!isThemeColor(source.assistantMessageText) && isThemeColor(source.text)) {
     result.assistantMessageText = source.text;
   }
@@ -225,6 +280,12 @@ export function normalizeThemeColors(
   }
   if (!isThemeColor(source.changeCardText) && isThemeColor(source.text)) {
     result.changeCardText = source.text;
+  }
+  if (!isThemeColor(source.activityText) && isThemeColor(source.muted)) {
+    result.activityText = source.muted;
+  }
+  if (!isThemeColor(source.activityMuted) && isThemeColor(source.muted)) {
+    result.activityMuted = source.muted;
   }
   if (!isThemeColor(source.topBarText) && isThemeColor(source.muted)) {
     result.topBarText = source.muted;

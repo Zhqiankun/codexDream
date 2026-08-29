@@ -42,6 +42,19 @@ describe("structured theme configuration", () => {
     expect(legacy.styleConfig.mode).toBe("advanced");
     expect(legacy.colors.accent).toBe("#ff00aa");
     expect(legacy.colors.sidebarText).toBe(DEFAULT_THEME_COLORS.sidebarText);
+    expect(legacy.colors.threadTabBackground).toBe(
+      DEFAULT_THEME_COLORS.threadTabBackground,
+    );
+    expect(legacy.colors.threadTabText).toBe(
+      DEFAULT_THEME_COLORS.threadTabText,
+    );
+    expect(legacy.colors.homeTitleText).toBe(
+      DEFAULT_THEME_COLORS.homeTitleText,
+    );
+    expect(legacy.colors.homeCardBackground).toBe(
+      DEFAULT_THEME_COLORS.homeCardBackground,
+    );
+    expect(legacy.colors.homeCardText).toBe(DEFAULT_THEME_COLORS.homeCardText);
     expect(legacy.colors.assistantPanel).toBe(
       DEFAULT_THEME_COLORS.assistantPanel,
     );
@@ -57,16 +70,31 @@ describe("structured theme configuration", () => {
     expect(legacy.colors.changeCardText).toBe(
       DEFAULT_THEME_COLORS.changeCardText,
     );
+    expect(legacy.colors.activityBackground).toBe(
+      DEFAULT_THEME_COLORS.activityBackground,
+    );
+    expect(legacy.colors.activityText).toBe(DEFAULT_THEME_COLORS.activityText);
+    expect(legacy.colors.activityMuted).toBe(
+      DEFAULT_THEME_COLORS.activityMuted,
+    );
     expect(legacy.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
     expect(legacy.colors.topBarText).toBe(DEFAULT_THEME_COLORS.topBarText);
 
     const {
       sidebarText: _sidebarText,
+      threadTabBackground: _threadTabBackground,
+      threadTabText: _threadTabText,
+      homeTitleText: _homeTitleText,
+      homeCardBackground: _homeCardBackground,
+      homeCardText: _homeCardText,
       assistantPanel: _assistantPanel,
       assistantMessageText: _assistantMessageText,
       userMessageText: _userMessageText,
       changeCardBackground: _changeCardBackground,
       changeCardText: _changeCardText,
+      activityBackground: _activityBackground,
+      activityText: _activityText,
+      activityMuted: _activityMuted,
       topBarBackground: _topBarBackground,
       topBarText: _topBarText,
       ...legacyColors
@@ -106,6 +134,24 @@ describe("structured theme configuration", () => {
     expect(normalizedCurrentTheme.colors.userMessageText).toBe("#123456");
     expect(normalizedCurrentTheme.colors.changeCardBackground).toBe("#445566");
     expect(normalizedCurrentTheme.colors.changeCardText).toBe("#123456");
+    expect(normalizedCurrentTheme.colors.threadTabBackground).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    expect(normalizedCurrentTheme.colors.threadTabText).toBe(
+      "rgba(10, 20, 30, 0.5)",
+    );
+    expect(normalizedCurrentTheme.colors.homeTitleText).toBe("#123456");
+    expect(normalizedCurrentTheme.colors.homeCardBackground).toBe("#445566");
+    expect(normalizedCurrentTheme.colors.homeCardText).toBe("#123456");
+    expect(normalizedCurrentTheme.colors.activityBackground).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    expect(normalizedCurrentTheme.colors.activityText).toBe(
+      "rgba(10, 20, 30, 0.5)",
+    );
+    expect(normalizedCurrentTheme.colors.activityMuted).toBe(
+      "rgba(10, 20, 30, 0.5)",
+    );
     expect(normalizedCurrentTheme.colors.topBarBackground).toBe(
       "rgba(0, 0, 0, 0)",
     );
@@ -123,6 +169,15 @@ describe("structured theme configuration", () => {
     );
     expect(tokens.get("--ds-theme-color-accent")).toBe("#336699");
     expect(tokens.get("--ds-theme-color-sidebar-text")).toBe("#ffffff");
+    expect(tokens.get("--ds-theme-color-thread-tab-background")).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    expect(tokens.get("--ds-theme-color-thread-tab-text")).toBe(
+      "rgba(255, 255, 255, .498)",
+    );
+    expect(tokens.get("--ds-theme-color-home-title-text")).toBe("#ffffff");
+    expect(tokens.get("--ds-theme-color-home-card-background")).toBe("#2d2d2d");
+    expect(tokens.get("--ds-theme-color-home-card-text")).toBe("#ffffff");
     expect(tokens.get("--ds-theme-color-assistant-panel")).toBe("#2d2d2d");
     expect(tokens.get("--ds-theme-color-assistant-message-text")).toBe(
       "#ffffff",
@@ -132,6 +187,15 @@ describe("structured theme configuration", () => {
       "#2d2d2d",
     );
     expect(tokens.get("--ds-theme-color-change-card-text")).toBe("#ffffff");
+    expect(tokens.get("--ds-theme-color-activity-background")).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    expect(tokens.get("--ds-theme-color-activity-text")).toBe(
+      "rgba(255, 255, 255, .498)",
+    );
+    expect(tokens.get("--ds-theme-color-activity-muted")).toBe(
+      "rgba(255, 255, 255, .498)",
+    );
     expect(tokens.get("--ds-theme-color-top-bar-background")).toBe(
       "rgba(0, 0, 0, 0)",
     );

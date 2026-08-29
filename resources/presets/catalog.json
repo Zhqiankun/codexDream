@@ -1,7 +1,10 @@
 {
-  "schemaVersion": 2,
-  "packId": "user-wallpapers-2026-08-29-v2",
-  "replacesPackIds": ["user-wallpapers-2026-08-29-v1"],
+  "schemaVersion": 3,
+  "packId": "user-wallpapers-2026-08-29-v3",
+  "replacesPackIds": [
+    "user-wallpapers-2026-08-29-v1",
+    "user-wallpapers-2026-08-29-v2"
+  ],
   "themes": [
     {
       "presetId": "red-belief",
@@ -10,7 +13,6 @@
       "description": "深红底色与赤金强调的沉稳主题。",
       "image": "red-belief.png",
       "imageSha256": "5247a5d4aa383dbf61c09d7d9d80844428748d61de22c569bfb7d648883a8138",
-      "previousFingerprint": "1aaa6631398ef45f535b3a389abae6d68c1d458cc250679802c9ef0609af9c9d",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "dark",
@@ -24,12 +26,20 @@
         "background": "rgba(111, 18, 13, 0.2)",
         "panel": "rgba(136, 24, 18, 0.2)",
         "sidebarText": "#fff1c4",
+        "threadTabBackground": "rgba(136, 24, 18, 0.2)",
+        "threadTabText": "#e9c69c",
+        "homeTitleText": "#fff6dc",
+        "homeCardBackground": "rgba(136, 24, 18, 0.2)",
+        "homeCardText": "#fff6dc",
         "panelAlt": "#9c2118",
         "assistantPanel": "#8c1d16",
         "assistantMessageText": "#fff6dc",
         "userMessageText": "#fff6dc",
         "changeCardBackground": "rgba(156, 33, 24, 0.92)",
         "changeCardText": "#fff6dc",
+        "activityBackground": "rgba(136, 24, 18, 0.2)",
+        "activityText": "#fff6dc",
+        "activityMuted": "#e0b28a",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#e9c69c",
         "accent": "#ffd438",
@@ -53,7 +63,11 @@
         "radius": 14,
         "borderWidth": 1,
         "shadow": "strong"
-      }
+      },
+      "previousFingerprints": [
+        "1aaa6631398ef45f535b3a389abae6d68c1d458cc250679802c9ef0609af9c9d",
+        "77be9104521dd63adbc818fb0693c9cabbb16392c35f0417ead40c3326f1f434"
+      ]
     },
     {
       "presetId": "silver-profile",
@@ -62,7 +76,6 @@
       "description": "黑白光影与低干扰深色表面。",
       "image": "silver-profile.jpg",
       "imageSha256": "c04fda69dddf554d6be7d847194e4317941f45ca53f25b324572d4ca0098ea80",
-      "previousFingerprint": "c50d09c920871da81bd19e2627590fa704c74f98db8d76a8d7230864aa8c526b",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "dark",
@@ -76,12 +89,20 @@
         "background": "rgba(7, 7, 7, 0.2)",
         "panel": "rgba(21, 21, 21, 0.2)",
         "sidebarText": "#f2f2f2",
+        "threadTabBackground": "rgba(21, 21, 21, 0.2)",
+        "threadTabText": "#a7a7a7",
+        "homeTitleText": "#f5f5f5",
+        "homeCardBackground": "rgba(21, 21, 21, 0.2)",
+        "homeCardText": "#f5f5f5",
         "panelAlt": "#242424",
         "assistantPanel": "#1f1f1f",
         "assistantMessageText": "#f5f5f5",
         "userMessageText": "#f5f5f5",
         "changeCardBackground": "rgba(36, 36, 36, 0.92)",
         "changeCardText": "#f5f5f5",
+        "activityBackground": "rgba(21, 21, 21, 0.2)",
+        "activityText": "#f5f5f5",
+        "activityMuted": "#a7a7a7",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#a7a7a7",
         "accent": "#d99aaa",
@@ -105,7 +126,11 @@
         "radius": 14,
         "borderWidth": 1,
         "shadow": "strong"
-      }
+      },
+      "previousFingerprints": [
+        "c50d09c920871da81bd19e2627590fa704c74f98db8d76a8d7230864aa8c526b",
+        "4c94c75f2b857f27796585311c1d0654c9e23207e98b5da383c0791215170e8f"
+      ]
     },
     {
       "presetId": "forest-slow-life",
@@ -114,7 +139,6 @@
       "description": "清新草绿与暖橙点缀的轻盈主题。",
       "image": "forest-slow-life.jpg",
       "imageSha256": "bf191746eb7cc1c58124b42b9fc64da40de11572d272eb435e59300ab91b05fa",
-      "previousFingerprint": "8238bbc4a7995648c4bf5dd415ffb4f0732fc690dd66d1a842473235f061d7a6",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -128,12 +152,20 @@
         "background": "rgba(87, 152, 100, 0.2)",
         "panel": "rgba(220, 236, 211, 0.2)",
         "sidebarText": "#244b33",
+        "threadTabBackground": "rgba(220, 236, 211, 0.2)",
+        "threadTabText": "#4d6d56",
+        "homeTitleText": "#173625",
+        "homeCardBackground": "rgba(220, 236, 211, 0.2)",
+        "homeCardText": "#173625",
         "panelAlt": "#f0f7e9",
         "assistantPanel": "#edf6e7",
         "assistantMessageText": "#173625",
         "userMessageText": "#173625",
         "changeCardBackground": "rgba(240, 247, 233, 0.92)",
         "changeCardText": "#173625",
+        "activityBackground": "rgba(220, 236, 211, 0.2)",
+        "activityText": "#173625",
+        "activityMuted": "#5e7c65",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#4d6d56",
         "accent": "#e9794b",
@@ -157,7 +189,11 @@
         "radius": 18,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "8238bbc4a7995648c4bf5dd415ffb4f0732fc690dd66d1a842473235f061d7a6",
+        "bef1fae8e3ee45f33ff14d3865979e5e231bb975bc5712e18ca065022d0951af"
+      ]
     },
     {
       "presetId": "ink-swordsman",
@@ -166,7 +202,6 @@
       "description": "水墨留白与克制灰阶的清朗主题。",
       "image": "ink-swordsman.jpg",
       "imageSha256": "71a03b53fd2711b1d57e05ef781d8a9aad156ca48530e167e3e51b86291d6a0d",
-      "previousFingerprint": "166890843c9e00757b4d39d94debbe980c60b0f8520e67a44179f61d05cc3432",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -180,12 +215,20 @@
         "background": "rgba(217, 218, 220, 0.2)",
         "panel": "rgba(236, 237, 239, 0.2)",
         "sidebarText": "#2a2a2d",
+        "threadTabBackground": "rgba(236, 237, 239, 0.2)",
+        "threadTabText": "#6d7075",
+        "homeTitleText": "#17171a",
+        "homeCardBackground": "rgba(236, 237, 239, 0.2)",
+        "homeCardText": "#17171a",
         "panelAlt": "#fafafa",
         "assistantPanel": "#f3f3f4",
         "assistantMessageText": "#17171a",
         "userMessageText": "#17171a",
         "changeCardBackground": "rgba(250, 250, 250, 0.92)",
         "changeCardText": "#17171a",
+        "activityBackground": "rgba(236, 237, 239, 0.2)",
+        "activityText": "#17171a",
+        "activityMuted": "#6d7075",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#6d7075",
         "accent": "#9e3e5e",
@@ -209,7 +252,11 @@
         "radius": 10,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "166890843c9e00757b4d39d94debbe980c60b0f8520e67a44179f61d05cc3432",
+        "9a794b1bea99cf385391a0d71c1ca2e226c3994eb490a02634945dd9fe16dd38"
+      ]
     },
     {
       "presetId": "sakura-cat",
@@ -218,7 +265,6 @@
       "description": "樱粉背景与青蓝猫眸强调色。",
       "image": "sakura-cat.jpg",
       "imageSha256": "c7cb5c2474d47ffff852652ab0e6b048184ecb713b4ef4f9bb6c5528a2dc69ab",
-      "previousFingerprint": "922ff331e35c36c441f6224b7952909b0f0e22845ca8421ef127acc26e9f5607",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -232,12 +278,20 @@
         "background": "rgba(242, 183, 202, 0.2)",
         "panel": "rgba(250, 220, 230, 0.2)",
         "sidebarText": "#3b4d55",
+        "threadTabBackground": "rgba(250, 220, 230, 0.2)",
+        "threadTabText": "#6d7478",
+        "homeTitleText": "#33484d",
+        "homeCardBackground": "rgba(250, 220, 230, 0.2)",
+        "homeCardText": "#33484d",
         "panelAlt": "#fff8fa",
         "assistantPanel": "#fff4f7",
         "assistantMessageText": "#33484d",
         "userMessageText": "#33484d",
         "changeCardBackground": "rgba(255, 248, 250, 0.92)",
         "changeCardText": "#33484d",
+        "activityBackground": "rgba(250, 220, 230, 0.2)",
+        "activityText": "#33484d",
+        "activityMuted": "#74848b",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#6d7478",
         "accent": "#24aec2",
@@ -261,7 +315,11 @@
         "radius": 20,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "922ff331e35c36c441f6224b7952909b0f0e22845ca8421ef127acc26e9f5607",
+        "a8757e52a5d0ec02ee2c62e9a94b1aa82fcacf2f4f12aa7645e0a3d3a280ca8e"
+      ]
     },
     {
       "presetId": "white-bear",
@@ -270,7 +328,6 @@
       "description": "极简白色空间与暖茶色点缀。",
       "image": "white-bear.jpg",
       "imageSha256": "d157056977e42089f7902d25189c9813d5baeea749cc9266b9da488791d8e5be",
-      "previousFingerprint": "b8a393e7fa361e4a64f922ff64bbbbc99595938af2b17f03dd22d33b5452b897",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -284,12 +341,20 @@
         "background": "rgba(238, 238, 232, 0.2)",
         "panel": "rgba(248, 246, 238, 0.2)",
         "sidebarText": "#252525",
+        "threadTabBackground": "rgba(248, 246, 238, 0.2)",
+        "threadTabText": "#74726c",
+        "homeTitleText": "#1a1a1a",
+        "homeCardBackground": "rgba(248, 246, 238, 0.2)",
+        "homeCardText": "#1a1a1a",
         "panelAlt": "#ffffff",
         "assistantPanel": "#fffcf5",
         "assistantMessageText": "#1a1a1a",
         "userMessageText": "#1a1a1a",
         "changeCardBackground": "rgba(255, 255, 255, 0.94)",
         "changeCardText": "#1a1a1a",
+        "activityBackground": "rgba(248, 246, 238, 0.2)",
+        "activityText": "#1a1a1a",
+        "activityMuted": "#77746e",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#74726c",
         "accent": "#d49760",
@@ -313,7 +378,11 @@
         "radius": 18,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "b8a393e7fa361e4a64f922ff64bbbbc99595938af2b17f03dd22d33b5452b897",
+        "89f51c4709f76abfe80a7d2b95415a4b465a493db61185e3d0564119c625ca50"
+      ]
     },
     {
       "presetId": "thunder-swordsman",
@@ -322,7 +391,6 @@
       "description": "黑金底色与雷光橙黄的高对比主题。",
       "image": "thunder-swordsman.jpg",
       "imageSha256": "799578b7d1b4a521db83caf175e3ac05b045e1d96ad9a601fa14fbc68812b178",
-      "previousFingerprint": "bc9759c91ca73ec15bbfea1a0a2ba0565cdb224295df26e752acd37156952b14",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "dark",
@@ -336,12 +404,20 @@
         "background": "rgba(4, 4, 4, 0.2)",
         "panel": "rgba(22, 17, 10, 0.2)",
         "sidebarText": "#fff2cc",
+        "threadTabBackground": "rgba(22, 17, 10, 0.2)",
+        "threadTabText": "#d4b589",
+        "homeTitleText": "#fff3d7",
+        "homeCardBackground": "rgba(22, 17, 10, 0.2)",
+        "homeCardText": "#fff3d7",
         "panelAlt": "#25170d",
         "assistantPanel": "#20140c",
         "assistantMessageText": "#fff3d7",
         "userMessageText": "#fff3d7",
         "changeCardBackground": "rgba(37, 23, 13, 0.92)",
         "changeCardText": "#fff3d7",
+        "activityBackground": "rgba(22, 17, 10, 0.2)",
+        "activityText": "#fff3d7",
+        "activityMuted": "#b9a17f",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#d4b589",
         "accent": "#ff9c16",
@@ -365,7 +441,11 @@
         "radius": 14,
         "borderWidth": 1,
         "shadow": "strong"
-      }
+      },
+      "previousFingerprints": [
+        "bc9759c91ca73ec15bbfea1a0a2ba0565cdb224295df26e752acd37156952b14",
+        "d0b22f2900e312935d1ac8d500adf7d200d4226996aace57a0df34aed10729f7"
+      ]
     },
     {
       "presetId": "cloud-swordsman",
@@ -374,7 +454,6 @@
       "description": "云雾蓝灰与山水留白的古风主题。",
       "image": "cloud-swordsman.jpg",
       "imageSha256": "6bee3cee46f3f93f305c5a2cff8a1d3ebba9eb7ff963d368a7c6c2ebdaf23703",
-      "previousFingerprint": "e67c7dfdf5a5a8b933417f1a295c36f128603f96bca9bd2c3746440426f83aaa",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -388,12 +467,20 @@
         "background": "rgba(120, 151, 169, 0.2)",
         "panel": "rgba(215, 228, 234, 0.2)",
         "sidebarText": "#173043",
+        "threadTabBackground": "rgba(215, 228, 234, 0.2)",
+        "threadTabText": "#536d7b",
+        "homeTitleText": "#142a3a",
+        "homeCardBackground": "rgba(215, 228, 234, 0.2)",
+        "homeCardText": "#142a3a",
         "panelAlt": "#eef4f7",
         "assistantPanel": "#e8f0f4",
         "assistantMessageText": "#142a3a",
         "userMessageText": "#142a3a",
         "changeCardBackground": "rgba(238, 244, 247, 0.92)",
         "changeCardText": "#142a3a",
+        "activityBackground": "rgba(215, 228, 234, 0.2)",
+        "activityText": "#142a3a",
+        "activityMuted": "#58717e",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#536d7b",
         "accent": "#2d5f7a",
@@ -417,7 +504,11 @@
         "radius": 14,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "e67c7dfdf5a5a8b933417f1a295c36f128603f96bca9bd2c3746440426f83aaa",
+        "36efe2abff26c5ca4ef75d1cc8717b6c741902c98a68296d945a78340973388e"
+      ]
     },
     {
       "presetId": "lucky-cats",
@@ -426,7 +517,6 @@
       "description": "奶油暖黄与活泼粉橙的好运主题。",
       "image": "lucky-cats.jpg",
       "imageSha256": "20e72c12714cbaaef4f320d1065a7d71504c3c2bd0dc5e1e3df757c584e4936b",
-      "previousFingerprint": "cdc6c80a52bf70e3ee604dd92699e0110672b06dd55dd6aac3229ca02150d0c8",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -440,12 +530,20 @@
         "background": "rgba(243, 221, 170, 0.2)",
         "panel": "rgba(247, 234, 204, 0.2)",
         "sidebarText": "#4d3837",
+        "threadTabBackground": "rgba(247, 234, 204, 0.2)",
+        "threadTabText": "#7e6663",
+        "homeTitleText": "#4b3738",
+        "homeCardBackground": "rgba(247, 234, 204, 0.2)",
+        "homeCardText": "#4b3738",
         "panelAlt": "#fff9e8",
         "assistantPanel": "#fff4d4",
         "assistantMessageText": "#4b3738",
         "userMessageText": "#4b3738",
         "changeCardBackground": "rgba(255, 249, 232, 0.92)",
         "changeCardText": "#4b3738",
+        "activityBackground": "rgba(247, 234, 204, 0.2)",
+        "activityText": "#4b3738",
+        "activityMuted": "#826b68",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#7e6663",
         "accent": "#e7a700",
@@ -469,7 +567,11 @@
         "radius": 18,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "cdc6c80a52bf70e3ee604dd92699e0110672b06dd55dd6aac3229ca02150d0c8",
+        "a06c00e350406d73aec14975dbad887b3ed538788f338f4e522e3dca1ad68115"
+      ]
     },
     {
       "presetId": "grow-strong",
@@ -478,7 +580,6 @@
       "description": "明快草绿与橙色强调的励志主题。",
       "image": "grow-strong.jpg",
       "imageSha256": "50714fd5d4d54acfdc2b3fc44ca32c67da994044267ce0c8eccb7c066b3c2ece",
-      "previousFingerprint": "bc85dba3b4e50d4f0fd1193c1a7bfe1d8683dac9d6658d7246ae57ae92ab3d0e",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -492,12 +593,20 @@
         "background": "rgba(99, 170, 114, 0.2)",
         "panel": "rgba(216, 235, 217, 0.2)",
         "sidebarText": "#173620",
+        "threadTabBackground": "rgba(216, 235, 217, 0.2)",
+        "threadTabText": "#4a7054",
+        "homeTitleText": "#10281b",
+        "homeCardBackground": "rgba(216, 235, 217, 0.2)",
+        "homeCardText": "#10281b",
         "panelAlt": "#f7fff8",
         "assistantPanel": "#edf8ee",
         "assistantMessageText": "#10281b",
         "userMessageText": "#10281b",
         "changeCardBackground": "rgba(247, 255, 248, 0.92)",
         "changeCardText": "#10281b",
+        "activityBackground": "rgba(216, 235, 217, 0.2)",
+        "activityText": "#10281b",
+        "activityMuted": "#54745c",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#4a7054",
         "accent": "#f47c18",
@@ -521,7 +630,11 @@
         "radius": 14,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "bc85dba3b4e50d4f0fd1193c1a7bfe1d8683dac9d6658d7246ae57ae92ab3d0e",
+        "bdba24c7921d3677778dbcb7c77fcfbfcd7f59c2f54955fc769d278942e7b774"
+      ]
     },
     {
       "presetId": "warm-tuntun",
@@ -530,7 +643,6 @@
       "description": "暖橙角色与柔和室内光线主题。",
       "image": "warm-tuntun.jpg",
       "imageSha256": "9ee3fb195db76ba122e5febb2c15723928ac75c871bc5214a4c9076fce59dd1d",
-      "previousFingerprint": "09f87c523d593f7e2e55d0af4e7c072a45487b9b62b6279ca7e3d3b4d3cbc88e",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -544,12 +656,20 @@
         "background": "rgba(231, 199, 184, 0.2)",
         "panel": "rgba(245, 227, 213, 0.2)",
         "sidebarText": "#533728",
+        "threadTabBackground": "rgba(245, 227, 213, 0.2)",
+        "threadTabText": "#85665c",
+        "homeTitleText": "#4b302d",
+        "homeCardBackground": "rgba(245, 227, 213, 0.2)",
+        "homeCardText": "#4b302d",
         "panelAlt": "#fff3e9",
         "assistantPanel": "#ffe9d2",
         "assistantMessageText": "#4b302d",
         "userMessageText": "#4b302d",
         "changeCardBackground": "rgba(255, 243, 233, 0.92)",
         "changeCardText": "#4b302d",
+        "activityBackground": "rgba(245, 227, 213, 0.2)",
+        "activityText": "#4b302d",
+        "activityMuted": "#86675e",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#85665c",
         "accent": "#f28a2c",
@@ -573,7 +693,11 @@
         "radius": 18,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "09f87c523d593f7e2e55d0af4e7c072a45487b9b62b6279ca7e3d3b4d3cbc88e",
+        "ff34685e65a72a035f06098dfcc4210f2881dc00d4e0a7725c9afe755e227272"
+      ]
     },
     {
       "presetId": "hundred-yuan",
@@ -582,7 +706,6 @@
       "description": "绯红纸币纹理与通透浅色面板。",
       "image": "hundred-yuan.jpg",
       "imageSha256": "75cc2f0eb2c5dda00b9b81cb3a4a72c1b6c5a8382f38c480b609b5650534b776",
-      "previousFingerprint": "5e8cc24ce9a98fde55e726ddf63449aa732575471449240b42a37bd5ecd87482",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -596,12 +719,20 @@
         "background": "rgba(231, 170, 186, 0.2)",
         "panel": "rgba(245, 217, 224, 0.2)",
         "sidebarText": "#5a2030",
+        "threadTabBackground": "rgba(245, 217, 224, 0.2)",
+        "threadTabText": "#8d6070",
+        "homeTitleText": "#55192a",
+        "homeCardBackground": "rgba(245, 217, 224, 0.2)",
+        "homeCardText": "#55192a",
         "panelAlt": "#fff7f8",
         "assistantPanel": "#fceaf0",
         "assistantMessageText": "#55192a",
         "userMessageText": "#55192a",
         "changeCardBackground": "rgba(255, 247, 248, 0.92)",
         "changeCardText": "#55192a",
+        "activityBackground": "rgba(245, 217, 224, 0.2)",
+        "activityText": "#55192a",
+        "activityMuted": "#8a5b6a",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#8d6070",
         "accent": "#be2e58",
@@ -625,7 +756,11 @@
         "radius": 16,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "5e8cc24ce9a98fde55e726ddf63449aa732575471449240b42a37bd5ecd87482",
+        "70749079a0103edc6ebae3422b06584d1090299380e55242e2daf5cd1bb1b2de"
+      ]
     },
     {
       "presetId": "line-dogs",
@@ -634,7 +769,6 @@
       "description": "晴绿底色与手绘线条角色主题。",
       "image": "line-dogs.jpg",
       "imageSha256": "aae78c800bfcf8751ff9bc8fbd825de4e729d8fe14d45ceab25e6b646790873d",
-      "previousFingerprint": "7bebf9606bc0d24d9c309c96c9920843ca87e24221d06da223c40147db6c8b01",
       "backgroundScope": "window",
       "sidebarOverlayOpacity": 20,
       "appearance": "light",
@@ -648,12 +782,20 @@
         "background": "rgba(104, 173, 118, 0.2)",
         "panel": "rgba(216, 236, 217, 0.2)",
         "sidebarText": "#244c31",
+        "threadTabBackground": "rgba(216, 236, 217, 0.2)",
+        "threadTabText": "#5d7e66",
+        "homeTitleText": "#244c31",
+        "homeCardBackground": "rgba(216, 236, 217, 0.2)",
+        "homeCardText": "#244c31",
         "panelAlt": "#f1fff3",
         "assistantPanel": "#eaf8ec",
         "assistantMessageText": "#244c31",
         "userMessageText": "#244c31",
         "changeCardBackground": "rgba(241, 255, 243, 0.92)",
         "changeCardText": "#244c31",
+        "activityBackground": "rgba(216, 236, 217, 0.2)",
+        "activityText": "#244c31",
+        "activityMuted": "#64816c",
         "topBarBackground": "rgba(0, 0, 0, 0)",
         "topBarText": "#5d7e66",
         "accent": "#e6b919",
@@ -677,7 +819,11 @@
         "radius": 18,
         "borderWidth": 1,
         "shadow": "soft"
-      }
+      },
+      "previousFingerprints": [
+        "7bebf9606bc0d24d9c309c96c9920843ca87e24221d06da223c40147db6c8b01",
+        "d77c7b3577ed5c608f661227a22ffb735c3a70b0ca7225c919cc701329f17242"
+      ]
     }
   ]
 }

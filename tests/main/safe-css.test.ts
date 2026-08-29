@@ -4,10 +4,10 @@ import { validateSafeCss } from "../../src/main/infra/safe-css";
 describe("safe css policy", () => {
   it("accepts registered parts and allowed pseudo states", () => {
     const result = validateSafeCss(
-      '[data-ds-part="root"] { color: #f8fafc; } [data-ds-part="sidebar"] { color: var(--ds-theme-color-sidebar-text); } [data-ds-part="titlebar"] { background-color: var(--ds-theme-color-top-bar-background); color: var(--ds-theme-color-top-bar-text); } [data-ds-part="header"]:hover { background-color: #334155; } [data-ds-part="message"] { color: var(--ds-theme-color-assistant-message-text); } [data-ds-part="change-card"] { background-color: var(--ds-theme-color-change-card-background); color: var(--ds-theme-color-change-card-text); } [data-ds-part="composer"]:focus-within { border-color: var(--ds-theme-color-accent-alt); }',
+      '[data-ds-part="root"] { color: #f8fafc; } [data-ds-part="sidebar"] { color: var(--ds-theme-color-sidebar-text); } [data-ds-part="titlebar"] { background-color: var(--ds-theme-color-top-bar-background); color: var(--ds-theme-color-top-bar-text); } [data-ds-part="header"]:hover { background-color: #334155; } [data-ds-part="thread-tab"] { background-color: var(--ds-theme-color-thread-tab-background); color: var(--ds-theme-color-thread-tab-text); } [data-ds-part="home-title"] { color: var(--ds-theme-color-home-title-text); } [data-ds-part="home-card"] { background-color: var(--ds-theme-color-home-card-background); color: var(--ds-theme-color-home-card-text); } [data-ds-part="message"] { color: var(--ds-theme-color-assistant-message-text); } [data-ds-part="change-card"] { background-color: var(--ds-theme-color-change-card-background); color: var(--ds-theme-color-change-card-text); } [data-ds-part="activity"] { background-color: var(--ds-theme-color-activity-background); color: var(--ds-theme-color-activity-text); border-color: var(--ds-theme-color-activity-muted); } [data-ds-part="composer"]:focus-within { border-color: var(--ds-theme-color-accent-alt); }',
     );
     expect(result.valid).toBe(true);
-    expect(result.ruleCount).toBe(7);
+    expect(result.ruleCount).toBe(11);
   });
 
   it("rejects network, at-rules, arbitrary selectors, and important", () => {

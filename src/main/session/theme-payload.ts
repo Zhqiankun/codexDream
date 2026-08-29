@@ -163,6 +163,15 @@ export function buildThemePayload(
       const topBarSelector = ':is([data-ds-part="titlebar"], [data-ds-part="header"])[data-codexstyle-owner="' + config.marker + '"]';
       const topBarBridge = '\\n' + topBarSelector + ' { background-color: var(--ds-theme-color-top-bar-background) !important; color: var(--ds-theme-color-top-bar-text) !important; }' +
         '\\n' + topBarSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-top-bar-text) !important; }';
+      const threadTabSelector = '[data-ds-part="thread-tab"][data-codexstyle-owner="' + config.marker + '"]';
+      const threadTabBridge = '\\n' + threadTabSelector + ' { background-color: var(--ds-theme-color-thread-tab-background) !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-thread-tab-text) !important; }' +
+        '\\n' + threadTabSelector + ' :where(a, button, label, p, small, strong, span, svg, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-thread-tab-text) !important; }';
+      const homeTitleSelector = '[data-ds-part="home-title"][data-codexstyle-owner="' + config.marker + '"]';
+      const homeTitleBridge = '\\n' + homeTitleSelector + ' { color: var(--ds-theme-color-home-title-text) !important; }' +
+        '\\n' + homeTitleSelector + ' :where(a, code, em, span, strong, [class*="text-"]) { color: var(--ds-theme-color-home-title-text) !important; }';
+      const homeCardSelector = '[data-ds-part="home-card"][data-codexstyle-owner="' + config.marker + '"]';
+      const homeCardBridge = '\\n' + homeCardSelector + ' { background-color: var(--ds-theme-color-home-card-background) !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-home-card-text) !important; }' +
+        '\\n' + homeCardSelector + ' :where(a, button, code, em, label, p, small, strong, span, [class*="text-"]) { color: var(--ds-theme-color-home-card-text) !important; }';
       const userMessageSelector = '[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="' + config.marker + '"]';
       const userMessageTextBridge = '\\n' + userMessageSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
         '\\n' + userMessageSelector + ' :where(a, code, em, p, span, strong) { color: var(--ds-theme-color-user-message-text) !important; }';
@@ -172,6 +181,10 @@ export function buildThemePayload(
       const changeCardSelector = '[data-ds-part="change-card"][data-codexstyle-owner="' + config.marker + '"]';
       const changeCardBridge = '\\n' + changeCardSelector + ' { --codex-diffs-surface-override: var(--ds-theme-color-change-card-background) !important; background-color: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }' +
         '\\n' + changeCardSelector + ' :where(button, [class~="text-default"], [class~="text-secondary"]) { color: var(--ds-theme-color-change-card-text) !important; }';
+      const activitySelector = '[data-ds-part="activity"][data-codexstyle-owner="' + config.marker + '"]';
+      const activityBridge = '\\n' + activitySelector + ' { background-color: var(--ds-theme-color-activity-background) !important; border-radius: var(--ds-theme-surface-radius); box-shadow: inset 0 0 0 1px var(--ds-theme-color-line); color: var(--ds-theme-color-activity-text) !important; }' +
+        '\\n' + activitySelector + ' :where(a, button, code, em, p, span, strong, svg) { color: var(--ds-theme-color-activity-text) !important; }' +
+        '\\n' + activitySelector + ' :where(small, [class*="text-secondary"], [class*="text-tertiary"], [class*="text-text/"], [class*="text-codex-description"]) { color: var(--ds-theme-color-activity-muted) !important; }';
       const composerSelector = '[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]';
       const composerToolbarSelector = '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"]';
       const composerPlaceholderSelector = composerSelector + ' :where([data-placeholder], [aria-placeholder])';
@@ -211,7 +224,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-background); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };
