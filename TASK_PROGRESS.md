@@ -32,13 +32,14 @@
 - [x] v1.3.6 预设透明度、无覆盖 catalog v2 迁移、主题库缩略图、顶部启动主题选择及旧版兼容导出移除已完成。
 - [x] v1.3.7 二十六色契约已接通：会话标题、首页标题/快捷卡片、命令/编辑/思考摘要均有独立颜色、双页面预览定位和 selector profile `/8` 真实注入；catalog v3 可从 v1 或 v2 安全迁移，用户编辑与删除语义保持。
 - [x] v1.3.8 ownership 升级兼容热修复：v1.3.6 写入的合法 selector profile `/7` 按过期会话恢复，不再阻断启动；当前 `/8` 运行时验证和未知状态 fail-closed 边界保持不变。
+- [x] v1.3.9 会话标签与首页标题真实 DOM 修复完成；selector profile `/9` 覆盖当前 Codex 的标签表面变量与标题结构，首页四张快捷卡片可分别使用颜色/透明度或本地图片并随主题 ZIP 往返。
 
 ### Native secure-store 阶段
 
 - [x] 用户明确授权安装 Microsoft 官方 Build Tools 与 Windows SDK。
 - [x] 工具链实测可用：MSVC x64 `19.44.35228`、Windows SDK `10.0.26100.0`、Build Tools 2022 `17.14.37`，无需重启。
 - [x] 将固定 `%LOCALAPPDATA%\\CodexStyle` 根、预定义 managed path、根句柄生命周期、逐段 handle-relative/reparse-aware I/O、原子提交、无 Node `fs` fallback、ASAR-unpacked 和模块缺失 fail-closed 写入 `.agents.md`、`REQUIREMENTS.md`、`PLAN.md`。
-- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不放宽 IPC `v: 3`、bootstrap 握手、preload、renderer 或 `../old/`。
+- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不放宽 IPC `v: 4`、bootstrap 握手、preload、renderer 或 `../old/`。
 - [x] 已实施 native addon、main adapter、local/session 接入、构建打包和 main tests。
 - [ ] 测试工程师独立执行 native 行为测试、完整回归、构建与打包验证。
 - [ ] 高风险安全审计师独立复核 reparse/TOCTOU、原子提交、锁、模块加载和 fail-closed 证据。
@@ -57,9 +58,11 @@
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
 - 当前用户安装的 Store 包：`OpenAI.Codex 26.825.4187.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其当前会话标签、首页卡片和活动摘要标记，未修改 Store 包。
-- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；本轮以 `v1.3.6` 为基线，`v1.3.7` 改动将在验证后统一提交并打标签。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前发布基线为 `v1.3.8`，本轮 `v1.3.9` 改动将在完整验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-29 `v1.3.9` 发布候选：只读核对 Store Codex `26.825.4187.0` 的打包 DOM，确认白色会话标签由 `group/tab` 表面内联 `--app-shell-tab-background` 驱动，首页标题实际为 `data-feature="game-source"` / `group/title` 而非标题标签。selector profile 升级到 `/9` 并增加同构 payload 测试；四张首页卡片新增独立颜色/图片契约，图片由 main 压缩为单项不超过 48 KiB 的 WebP Data URL，旧主题补全、受管存储、三件套 ZIP、IPC/preload、Studio 与真实注入链路均已覆盖。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、193 项主进程测试、53 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.9-x64.exe` 为 121,767,417 字节，SHA-256 `77d0b923e3d1ed3eb97786a569561220a7530aab6d8c8ec146663956860292e8`；便携包 `CodexStyle-1.3.9-x64.zip` 为 164,885,161 字节，SHA-256 `ae23ce69c5988a5d8d9f144b7796308ee44cfc91b24e29b9ab4ce61703c3db91`。
 
 - 2026-08-29 `v1.3.8` 热修复候选：本机失败记录经只读核对为 ownership v1 + selector profile `/7`，与 v1.3.7 漏列最近前代 profile 的根因完全吻合。解析集合改为由当前版本自动、有界生成 `1..current`；动态单测覆盖 `/1` 至 `/7` 全部历史值，畸形值和 `/9` 继续拒绝。隔离 Electron E2E 在启动前通过 native secure-store 预置上一代 ownership，应用成功打开并报告 `ORPHANED`，随后主题读取与本地写入均通过。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、188 项主进程测试、52 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.8-x64.exe` 为 121,763,305 字节，SHA-256 `3eaf062abb3e9404ab37166b0304b05f30a2c564dc0c1077544f982db210618f`；便携包 `CodexStyle-1.3.8-x64.zip` 为 164,879,286 字节，SHA-256 `c4651817f80fbe05c1fa84cbc0832214dbc2c88c5852d9ad6cbb644e44662cfb`。
 

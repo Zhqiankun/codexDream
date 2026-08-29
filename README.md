@@ -46,7 +46,7 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 ## Highlights
 
 - Live 16:9 previews for the Codex home and conversation views.
-- Thirteen bundled wallpaper presets plus twenty-six independent colors, including selected conversation tabs, home titles/cards, command/edit/thinking summaries, message surfaces, and the surrounding workspace. Bundled presets are appended once and never overwrite an existing local theme.
+- Thirteen bundled wallpaper presets plus twenty-six independent colors, including selected conversation tabs, home titles/cards, command/edit/thinking summaries, message surfaces, and the surrounding workspace. Each of the four home suggestion cards can also use its own color or local image. Bundled presets are appended once and never overwrite an existing local theme.
 - Validated background-image and custom-icon imports with clear size and format guidance.
 - Local theme library with lossless current-theme ZIP export. Historical ten-, twelve-, and eighteen-color ZIPs remain importable, while the lossy legacy export option has been removed.
 - Background-aware library thumbnails, with the next-launch theme control placed above the editor for quicker selection.
@@ -59,15 +59,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.8` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.9` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.8-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.8-x64.zip` — portable archive.
+- `CodexStyle-1.3.9-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.9-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.8` fixes startup when upgrading from v1.3.6 with a valid selector-profile `/7` ownership record. Historical records now enter safe orphaned-session recovery; runtime injection still requires `/8`, and unknown records remain rejected. It includes all v1.3.7 color, preview, selector, and catalog-v3 improvements. Install over the existing copy—no uninstall or computer restart is required. Because v1.3.7 cannot open in this state, affected users must install v1.3.8 manually from Releases.
+`v1.3.9` fixes the selected conversation-tab background and home-title color against Codex `26.825.4187.0`, and adds independent color/image backgrounds for all four home suggestion cards. Card images are locally resized to bounded WebP thumbnails and travel inside the existing three-file theme ZIP. Install over the existing copy—no uninstall or computer restart is required; restart the managed Codex session after choosing the updated theme.
 
 ## Requirements
 

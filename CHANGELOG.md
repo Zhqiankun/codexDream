@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.9 — 2026-08-29
+
+### English
+
+- Fixed the selected conversation-tab background in Codex `26.825.4187.0` by targeting the verified tab surface and its `--app-shell-tab-background` variable instead of only coloring the outer button.
+- Fixed the home headline color by registering the current `data-feature="game-source"` / `group/title` structure in selector profile `/9` while retaining the bounded heading fallback.
+- Added four independent home suggestion-card backgrounds. Every card can use its own color and opacity or a local PNG/JPEG/WebP image, with matching Live Preview and real Codex injection.
+- Card images are decoded in the main process, resized to a bounded WebP thumbnail, embedded in `theme.json`, and preserved by the existing three-file ZIP. Older themes default to their existing shared card color, and user-created themes or presets are not overwritten.
+
+> v1.3.9 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. Restart the managed Codex session after selecting the updated theme.
+
+### 简体中文
+
+- 修复 Codex `26.825.4187.0` 中当前会话标签背景不生效的问题：现在命中已核对的标签表面，并覆盖其实际使用的 `--app-shell-tab-background` 变量，不再只修改外层按钮。
+- 修复首页主标题颜色不生效的问题：selector profile `/9` 登记当前 `data-feature="game-source"` / `group/title` 结构，同时保留有界的标题标签兼容选择器。
+- 首页四张快捷卡片可分别使用独立颜色与透明度，或选择各自的本地 PNG/JPEG/WebP 图片；LIVE PREVIEW 与真实 Codex 注入使用同一配置。
+- 卡片图片由主进程解码并压缩为有界 WebP 缩略图，嵌入 `theme.json` 后继续随原有三件套 ZIP 往返。旧主题自动沿用原来的共享卡片颜色，不覆盖用户已有主题或预设。
+
+> SignPath Foundation 申请仍在审核，v1.3.9 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。选择更新后的主题后，请重启由 CodexStyle 管理的 Codex 会话。
+
 ## v1.3.8 — 2026-08-29
 
 ### English
