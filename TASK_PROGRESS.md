@@ -33,6 +33,7 @@
 - [x] v1.3.7 二十六色契约已接通：会话标题、首页标题/快捷卡片、命令/编辑/思考摘要均有独立颜色、双页面预览定位和 selector profile `/8` 真实注入；catalog v3 可从 v1 或 v2 安全迁移，用户编辑与删除语义保持。
 - [x] v1.3.8 ownership 升级兼容热修复：v1.3.6 写入的合法 selector profile `/7` 按过期会话恢复，不再阻断启动；当前 `/8` 运行时验证和未知状态 fail-closed 边界保持不变。
 - [x] v1.3.9 会话标签与首页标题真实 DOM 修复完成；selector profile `/9` 覆盖当前 Codex 的标签表面变量与标题结构，首页四张快捷卡片可分别使用颜色/透明度或本地图片并随主题 ZIP 往返。
+- [x] v1.3.10 响应式标题、首页 composer rail、`panelAlt` 最终透明度、LIVE PREVIEW 反向定位及主题设计页内受管 Codex 启动已完成；selector profile 升级到 `/11`。
 
 ### Native secure-store 阶段
 
@@ -61,6 +62,8 @@
 - `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前发布基线为 `v1.3.8`，本轮 `v1.3.9` 改动将在完整验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-29 `v1.3.10` 发布候选：只读 CDP 实测确认 edge-scroll 标题默认白色来自响应式 Toolbar 子表面，首页项目条来自独立 `data-composer-rail-*` controls rail；两者已加入 `/11` 精确 profile 和无映射空窗的 direct bridge。首页/对话 composer 与用户消息直接消费 `panelAlt` 最终 alpha。LIVE PREVIEW 反向定位使用事件委托、最具体区域提示、一次性请求、滚动聚焦和减少动画；Codex 启动与检查合并到主题设计页。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、196 项主进程测试、54 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.10-x64.exe` 为 121,790,793 字节，SHA-256 `4f0e3dcff15a4fc4e8d10c0c71430877c49ea0e619639726b6a681aabce7ca14`；便携包 `CodexStyle-1.3.10-x64.zip` 为 164,888,670 字节，SHA-256 `c7c9850b128dbccb7d94aa306f8e6e928a7b2387c7bceb2ae74a6c6ffe985d53`。
 
 - 2026-08-29 `v1.3.9` 发布候选：只读核对 Store Codex `26.825.4187.0` 的打包 DOM，确认白色会话标签由 `group/tab` 表面内联 `--app-shell-tab-background` 驱动，首页标题实际为 `data-feature="game-source"` / `group/title` 而非标题标签。selector profile 升级到 `/9` 并增加同构 payload 测试；四张首页卡片新增独立颜色/图片契约，图片由 main 压缩为单项不超过 48 KiB 的 WebP Data URL，旧主题补全、受管存储、三件套 ZIP、IPC/preload、Studio 与真实注入链路均已覆盖。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、193 项主进程测试、53 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.9-x64.exe` 为 121,767,417 字节，SHA-256 `77d0b923e3d1ed3eb97786a569561220a7530aab6d8c8ec146663956860292e8`；便携包 `CodexStyle-1.3.9-x64.zip` 为 164,885,161 字节，SHA-256 `ae23ce69c5988a5d8d9f144b7796308ee44cfc91b24e29b9ab4ce61703c3db91`。
 

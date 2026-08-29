@@ -45,29 +45,29 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Highlights
 
-- Live 16:9 previews for the Codex home and conversation views.
+- Live 16:9 previews for the Codex home and conversation views. Hover a configurable region to identify it, then click to open, scroll to, and focus its matching Studio control.
 - Thirteen bundled wallpaper presets plus twenty-six independent colors, including selected conversation tabs, home titles/cards, command/edit/thinking summaries, message surfaces, and the surrounding workspace. Each of the four home suggestion cards can also use its own color or local image. Bundled presets are appended once and never overwrite an existing local theme.
 - Validated background-image and custom-icon imports with clear size and format guidance.
 - Local theme library with lossless current-theme ZIP export. Historical ten-, twelve-, and eighteen-color ZIPs remain importable, while the lossy legacy export option has been removed.
 - Background-aware library thumbnails, with the next-launch theme control placed above the editor for quicker selection.
 - Optional constrained Safe CSS for advanced styling.
 - A dedicated Windows app icon, tray icon, and packaged application identity.
-- Managed Codex launch with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
+- Managed Codex launch on the theme-design page, with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
 - Local-first storage with a native Windows x64 secure-store component.
 - User-initiated verified downloads for the installed Windows build, with progress, cancellation, restart-to-install, and install-on-exit choices. Background checks read only fixed release metadata; they never download or install silently.
 - Privacy-bounded daily diagnostic logs with a 7-day retention window and a one-click **Open logs** action for troubleshooting.
 
 ## Download
 
-Download `v1.3.9` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.10` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.9-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.9-x64.zip` — portable archive.
+- `CodexStyle-1.3.10-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.10-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.9` fixes the selected conversation-tab background and home-title color against Codex `26.825.4187.0`, and adds independent color/image backgrounds for all four home suggestion cards. Card images are locally resized to bounded WebP thumbnails and travel inside the existing three-file theme ZIP. Install over the existing copy—no uninstall or computer restart is required; restart the managed Codex session after choosing the updated theme.
+`v1.3.10` fixes both responsive current-thread title surfaces and the separate home project/composer rail in Codex `26.825.4187.0`. It also adds click-to-locate Live Preview inspection and moves managed Codex launch into the theme-design page. Composer and user-message surfaces now consume the declared `panelAlt` color directly instead of reducing its opacity again. Install over the existing copy—no uninstall or computer restart is required; restart the managed Codex session after choosing the updated theme.
 
 ## Requirements
 

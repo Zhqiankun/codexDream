@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.10 — 2026-08-29
+
+### English
+
+- Added reverse Live Preview navigation: configurable regions show a scoped hover/focus highlight and label, and clicking opens Design → Colors, scrolls to the exact control, focuses it, and then releases navigation so every Studio tab remains usable.
+- Consolidated managed Codex launch, status, safety checks, pause/resume, and end-session actions into the theme-design page; the separate session page and tab are no longer required.
+- Fixed the responsive edge-scroll current-thread title used by maximized Codex windows. A verified direct bridge prevents the default white surface from flashing while React rebuilds the title node.
+- Added the separate home composer project rail to selector profile `/11`. Home and conversation composers, the home project rail, and user-message surfaces now consume the declared `panelAlt` directly instead of multiplying its opacity by another 88% or 92%.
+
+> v1.3.10 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. Restart the managed Codex session after selecting the updated theme.
+
+### 简体中文
+
+- LIVE PREVIEW 新增反向定位：可配置区域会显示精确的悬停/键盘高亮和中文提示；点击后自动打开“设计 → 颜色”、滚动到具体控件并聚焦。定位请求只消费一次，之后仍可自由切换画面、组件样式和高级配置。
+- 将 Codex 受管启动、状态、安全检查、暂停/恢复和结束会话操作合并到主题设计页，不再需要单独的会话页签。
+- 修复最大化 Codex 窗口使用的响应式当前会话标题；已核对的直接 bridge 会在 React 重建标题节点时立即覆盖默认白色表面，不再闪白。
+- selector profile `/11` 新增首页独有的 composer 项目工具条。首页/对话输入框、首页项目条和我的消息现在直接使用声明的 `panelAlt`，不再额外乘以 88% 或 92% 透明度。
+
+> SignPath Foundation 申请仍在审核，v1.3.10 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。选择更新后的主题后，请重启由 CodexStyle 管理的 Codex 会话。
+
 ## v1.3.9 — 2026-08-29
 
 ### English
