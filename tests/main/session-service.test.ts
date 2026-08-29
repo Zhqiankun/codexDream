@@ -24,6 +24,10 @@ const previousSelectorProfiles = Array.from(
   { length: currentSelectorProfileVersion - 1 },
   (_, index) => `openai-codex-shell/${index + 1}`,
 );
+const boundedFutureSelectorProfiles = [
+  `openai-codex-shell/${currentSelectorProfileVersion + 1}`,
+  "openai-codex-shell/64",
+];
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((operation) => operation()));
   vi.restoreAllMocks();
@@ -350,9 +354,44 @@ describe("CodexSessionService", () => {
     },
   );
 
+  it.each(boundedFutureSelectorProfiles)(
+    "treats the bounded future selector profile %s as orphaned instead of blocking Studio",
+    async (selectorProfile) => {
+      const managed = await createManagedRoot();
+      const store = SecureManagedStore.open(managed.root);
+      cleanup.push(async () => {
+        store.close();
+        await managed.cleanup();
+      });
+      store.ensureLayout();
+      store.writeFileAtomic(
+        MANAGED_FILES.ownership,
+        ownershipState(selectorProfile),
+      );
+      const session = new CodexSessionService(
+        {} as WindowsPlatform,
+        async () => ({ record: selectedTheme, image: Buffer.from([0]) }),
+        () => false,
+        store,
+      );
+
+      await session.restoreOrphanedState();
+
+      expect(session.snapshot()).toMatchObject({
+        state: "ORPHANED",
+        messageKey: "session.orphaned",
+        canEnd: false,
+        launchedByTool: false,
+      });
+    },
+  );
+
   it.each([
     "openai-codex-shell/unknown",
-    `openai-codex-shell/${currentSelectorProfileVersion + 1}`,
+    "openai-codex-shell/0",
+    "openai-codex-shell/01",
+    "openai-codex-shell/65",
+    "other-shell/12",
   ])(
     "still rejects selector profile %s as tampered",
     async (selectorProfile) => {

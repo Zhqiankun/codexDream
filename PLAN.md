@@ -97,7 +97,7 @@ THEMED_SESSION -> PAUSED_FUTURE -> NO_SESSION
 
 必须验证启动前 PID 基线、AUMID 启动 nonce、新 PID/开始时间/SID/精确 exe/AppX full 与 family name、字面 127.0.0.1 监听 PID、无重定向的 `/json/version` 与 `/json/list`、Browser ID、同端口 WebSocket、`app://` target 和版本化 selector profile。watcher 持有 Browser WebSocket 身份锚点。禁止直接 exe fallback、任意端口附着、按名称杀进程或控制外部会话。
 
-持久化 ownership 的解析兼容与当前会话验证必须分离：解析器有界登记所有已发布 selector profile，使合法旧记录只恢复为 `ORPHANED`；真正的 runtime 验证、重新注册和注入仍只接受 `CODEX_SELECTOR_PROFILE` 当前值。每次 profile 升版的测试表由当前版本号动态生成全部前代值，避免遗漏最近一代；未知 profile 与畸形记录继续按篡改失败。
+持久化 ownership 的解析兼容与当前会话验证必须分离：解析器接受前缀正确、数字规范且位于 `1..64` 的 profile，使合法旧记录与有界未来记录都只恢复为 `ORPHANED`；真正的 runtime 验证、重新注册和注入仍只接受 `CODEX_SELECTOR_PROFILE` 当前值。测试动态覆盖全部前代值，并显式覆盖 `current + 1`、`/64`、未知前缀、非规范数字与 `/65`；非当前 profile 永不转化为 `OwnedSession`。
 
 ## 文件所有权
 
@@ -144,6 +144,8 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 17. 当前 Codex 标题与首页卡片：对 Store Codex `26.825.4187.0` 只读核对真实 DOM 后，将 selector profile 升级到 `/9`。当前会话标签同时命中已选中按钮与 `group/tab` 表面，并覆盖实际消费的 `--app-shell-tab-background`；首页标题登记 `data-feature="game-source"` 和 `group/title`。四个 `group/home-suggestions` 卡片按受控 DOM 顺序标记 `0..3`，各自消费结构化颜色或有界 WebP。图片选择、持久化、预览、三件套 ZIP、旧主题默认补全和真实注入使用同一 theme-domain 契约。
 
 18. 响应式表面与单页工作流：selector profile `/11` 登记最大化 edge-scroll 当前会话标题及首页独立 composer rail，并为节点重建提供同一已核对选择器的直接 bridge，消除映射防抖期间的白色闪烁。配置模式对 composer、首页 rail 和用户消息直接消费 `panelAlt`。renderer 通过预览根事件委托与内部 control ID 实现悬停/键盘提示、一次性点击定位、滚动聚焦和短暂反馈，不新增主题/IPC 状态；会话启动卡合并到主题设计页，底层 controller 与 session 状态机保持不变。
+
+19. Ownership 前向解析：保留 native 受管文件与完整字段验证，把 profile 解析从“仅当前及历史版本”改为有界 `openai-codex-shell/1..64`。`restoreOrphanedState` 对任何合法非当前记录只设置 `ORPHANED`；不读取其 PID/端口重新连接，不删除记录，不关闭外部进程。`verifyOwnedIdentity` 的严格当前 profile 等值判断保持不变，以 E2E 预置 `current + 1` 记录证明 Studio 可启动，并以越界/畸形单测证明 fail-closed 边界仍在。
 
 ## 验证命令
 

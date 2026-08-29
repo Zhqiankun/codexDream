@@ -12,7 +12,7 @@ test("starts the real Electron shell with native storage and completes a local w
   const projectRoot = resolve(process.cwd());
   const localAppData = await mkdtemp(join(tmpdir(), "codexstyle-e2e-"));
   const screenshotDirectory = resolve(projectRoot, "test-results", "e2e");
-  seedPreviousOwnershipState(localAppData);
+  seedFutureOwnershipState(localAppData);
   const environment = Object.fromEntries(
     Object.entries(process.env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -229,7 +229,7 @@ test("starts the real Electron shell with native storage and completes a local w
   }
 });
 
-function seedPreviousOwnershipState(localAppData: string): void {
+function seedFutureOwnershipState(localAppData: string): void {
   const previousLocalAppData = process.env.LOCALAPPDATA;
   process.env.LOCALAPPDATA = localAppData;
   let store: SecureManagedStore | undefined;
@@ -251,7 +251,7 @@ function seedPreviousOwnershipState(localAppData: string): void {
           port: 9222,
           browserId: "browser-1",
           targetId: "target-1",
-          selectorProfile: `openai-codex-shell/${currentVersion - 1}`,
+          selectorProfile: `openai-codex-shell/${currentVersion + 1}`,
           themeLibraryId: "11111111-1111-4111-8111-111111111111",
           themeFingerprint: "a".repeat(64),
           createdAt: "2026-08-06T00:00:00.000Z",

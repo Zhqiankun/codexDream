@@ -98,7 +98,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 - 外部会话绝不受控。发现外部会话时返回 `EXTERNAL_SESSION_RUNNING`。
 - 托盘“退出”若存在已验证的工具拥有会话，先明确提示将关闭该会话；确认后才清理并优雅关闭。清理失败时工具保持运行，不强杀。
 - 崩溃恢复的内部状态仍为 `ORPHANED`，界面只显示“上次会话待确认”及用户可理解的安全说明，不使用“孤儿会话”术语，也不自动附着、关闭或注入。
-- `ownership/owned-session.json` 中由任一已发布旧 selector profile 写入且结构完整的记录必须按过期会话恢复为 `ORPHANED`，不能仅因应用升级而误报 `STORE_TAMPERED`；只有未知 profile、畸形字段或受管文件验证失败继续 fail closed。旧 profile 只允许显示过期状态，绝不能用于重新附着或注入；当前会话验证仍只接受当前 profile。
+- `ownership/owned-session.json` 中格式严格、前缀正确且 profile 版本位于有界 `1..64` 的记录，无论早于或晚于当前版本，都必须按过期会话恢复为 `ORPHANED`，不能仅因升级或降级而误报 `STORE_TAMPERED`。非当前 profile 只允许显示过期状态，绝不能用于重新附着、关闭或注入；当前会话验证仍只接受当前 profile。未知前缀、非规范数字、`0`、大于 `64`、畸形字段或受管文件验证失败继续 fail closed。
 
 ## IPC 与错误
 
@@ -135,7 +135,7 @@ preload 暴露版本化强类型方法：snapshot、主题读取/草稿/编辑�
 23. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、二十六色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。
 24. 当前 v3 内置图片主题包包含 13 个一图一主题的 ready 记录；页面背景色与侧栏/弹窗面板色使用 20% alpha，左侧栏遮罩字段为 20%，边框与分隔线使用 10% alpha。侧栏遮罩应把该百分比作为最终 alpha，而不是与面板颜色已有 alpha 相乘；面板颜色必须在 LIVE PREVIEW 与真实注入中按声明值消费而不再额外稀释。全新主题库得到原有 2 个基础主题加 13 个图片主题；从 v1 或 v2 主题包升级时只原位迁移精确未编辑项，保留 library ID、选择与图片，用户编辑或删除项不覆盖、不复活。catalog、任一图片或持久化步骤失败时主题库保持原状，安装包中的 catalog 与 13 张图片逐项通过 SHA-256 校验。
 25. 下次启动主题选择卡位于编辑器与预览之前；左侧主题列表对真实背景图显示受控 `app://theme-asset` 缩略图，对透明占位或无自定义背景的主题显示页面背景色。列表不得获得文件路径，图片延迟解码；Studio 只提供完整主题 ZIP 与未编辑正式原包导出，不显示旧版兼容 ZIP 操作。
-26. 从任一已发布旧版本覆盖安装后，合法旧 `ownership` 记录只能使启动状态进入 `ORPHANED`，Studio 必须正常打开且主题库保持不变；动态回归必须覆盖从 profile `/1` 到当前 profile 前一版的所有值，未知 profile 仍稳定返回 `STORE_TAMPERED:ownership-state`。
+26. 从旧版本升级或从新版降级时，合法且有界的非当前 `ownership` profile 只能使启动状态进入 `ORPHANED`，Studio 必须正常打开且主题库保持不变；动态回归覆盖 profile `/1` 到当前前一版，并单独覆盖 `current + 1` 与 `/64`。未知前缀、非规范版本及 `/65` 仍稳定返回 `STORE_TAMPERED:ownership-state`；runtime profile 不相等时仍禁止连接和注入。
 27. selector profile `/11` 必须命中 Codex `26.825.4187.0` 当前选中会话标签的真实表面与 `--app-shell-tab-background` 消费者、最大化 edge-scroll 当前会话标题、首页 `data-feature="game-source"` / `group/title` 标题结构，以及首页独立的 composer controls rail；仅当前选中或当前页面目标被覆盖。四张 `group/home-suggestions` 卡片按 DOM 顺序获得稳定索引，分别消费自己的颜色或有界 WebP 图片。响应式标题和首页 composer rail 在节点重建后不得闪回默认白色表面。
 28. LIVE PREVIEW 首页与对话的主要颜色消费者均可反向定位；点击“我的消息文字”和任一首页快捷卡片必须分别聚焦准确颜色项或卡片项，定位后画面、组件样式和高级配置仍可正常切换。键盘激活、减少动画和焦点反馈均有回归覆盖。
 29. Codex 受管启动、状态、安全检查、暂停/恢复与结束会话操作必须位于主题设计页；不再要求用户切换单独的“Codex 会话”页。底层身份验证、外部会话阻断和 operation gate 不得因页面合并而改变。

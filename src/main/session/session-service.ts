@@ -62,17 +62,7 @@ interface PersistedOwnedSession {
 
 type PersistedSelectorProfile = `openai-codex-shell/${number}`;
 
-const SELECTOR_PROFILE_PREFIX = "openai-codex-shell/";
-const CURRENT_SELECTOR_PROFILE_VERSION = selectorProfileVersion(
-  CODEX_SELECTOR_PROFILE,
-);
-const PERSISTED_SELECTOR_PROFILES = new Set<PersistedSelectorProfile>(
-  Array.from(
-    { length: CURRENT_SELECTOR_PROFILE_VERSION },
-    (_, index) =>
-      `${SELECTOR_PROFILE_PREFIX}${index + 1}` as PersistedSelectorProfile,
-  ),
-);
+const MAX_PERSISTED_SELECTOR_PROFILE_VERSION = 64;
 
 export interface ReadyThemePayload {
   record: ThemeRecord;
@@ -792,16 +782,24 @@ function isPersistedOwnedSession(
 function isPersistedSelectorProfile(
   value: unknown,
 ): value is PersistedSelectorProfile {
-  return (
-    typeof value === "string" &&
-    PERSISTED_SELECTOR_PROFILES.has(value as PersistedSelectorProfile)
-  );
+  if (typeof value !== "string") return false;
+  try {
+    return (
+      selectorProfileVersion(value) <= MAX_PERSISTED_SELECTOR_PROFILE_VERSION
+    );
+  } catch {
+    return false;
+  }
 }
 
 function selectorProfileVersion(value: string): number {
   const match = /^openai-codex-shell\/([1-9][0-9]*)$/u.exec(value);
   const version = Number(match?.[1]);
-  if (!Number.isSafeInteger(version) || version < 1 || version > 64)
+  if (
+    !Number.isSafeInteger(version) ||
+    version < 1 ||
+    version > MAX_PERSISTED_SELECTOR_PROFILE_VERSION
+  )
     throw new Error("INVALID_SELECTOR_PROFILE");
   return version;
 }
