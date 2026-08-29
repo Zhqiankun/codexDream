@@ -48,7 +48,8 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 - Live 16:9 previews for the Codex home and conversation views.
 - Thirteen bundled wallpaper presets plus controls for colors, opacity, background images, panel styling, shadows, corner radius, sidebar text, message surfaces, and send icons. Bundled presets are appended once and never overwrite an existing local theme.
 - Validated background-image and custom-icon imports with clear size and format guidance.
-- Local theme library with lossless current-theme ZIP export and an explicit v1.0.x–v1.2.x compatibility export. Compatibility export drops the six new color fields and rejects advanced CSS that older clients cannot read.
+- Local theme library with lossless current-theme ZIP export. Historical ten- and twelve-color ZIPs remain importable, while the lossy legacy export option has been removed.
+- Background-aware library thumbnails, with the next-launch theme control placed above the editor for quicker selection.
 - Optional constrained Safe CSS for advanced styling.
 - A dedicated Windows app icon, tray icon, and packaged application identity.
 - Managed Codex launch with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
@@ -58,15 +59,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.5` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.6` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.5-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.5-x64.zip` — portable archive.
+- `CodexStyle-1.3.6-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.6-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.5` adds thirteen curated wallpaper presets with matching palettes, appearance modes, artwork focus, and surface settings. Existing local themes, selection, pause state, and checkpoints are preserved; the preset pack is appended only once. Install it over the existing copy—no uninstall is required. Installed v1.3.1+ builds that open normally can update in-app. The portable ZIP remains manual-update only.
+`v1.3.6` refines all thirteen wallpaper presets to 20% page/panel/sidebar opacity and 10% borders, adds safe in-place migration for untouched v1 presets, shows background thumbnails in the library, moves next-launch selection above the editor, and removes legacy-compatible ZIP export. User-edited or deleted presets remain untouched. Install over the existing copy—no uninstall is required. Installed v1.3.1+ builds that open normally can update in-app. The portable ZIP remains manual-update only.
 
 ## Requirements
 
@@ -85,7 +86,7 @@ The release is currently unsigned. Windows SmartScreen may show an unknown-publi
 4. Save the theme and open **Codex Session**.
 5. Close externally launched Codex windows, select the saved theme, and choose **Launch Codex**.
 
-Use **Export theme ZIP** to preserve all current theme fields. Use **Export legacy-compatible ZIP** only when sharing with CodexStyle v1.0.x through v1.2.x. An untouched imported formal package can be rebuilt with its original formal contents intact; editing it disables original-formal export.
+Use **Export theme ZIP** to preserve all current theme fields. An untouched imported formal package can be rebuilt with its original formal contents intact; editing it disables original-formal export. CodexStyle no longer creates lossy ZIPs for v1.0.x–v1.2.x clients.
 
 CodexStyle verifies that the launched Store Codex session belongs to it before applying the selected theme. If the installed Codex build no longer matches the supported selector profile, CodexStyle stops at the compatibility boundary instead of injecting uncertain styles.
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.6 — 2026-08-29
+
+### English
+
+- Refined all thirteen bundled wallpaper presets to use literal 20% page, panel, dialog, and sidebar opacity with 10% borders/dividers. Live Preview and real injection now consume declared transparent page/panel colors directly, while sidebar opacity is applied as an absolute alpha with a compatibility fallback.
+- Added a strict catalog-v2 migration: only untouched v1 presets whose stored fingerprints still match are upgraded in place. Library IDs, artwork, selection, and existing state are retained; edited presets are preserved and deleted presets are never revived.
+- Moved next-launch theme selection above the editor and upgraded the left library to show lazy `app://` background thumbnails, with page-color fallback for transparent placeholders and the two color-only built-ins.
+- Removed legacy-compatible ZIP export from the renderer, public export schema, main service, ZIP writer, and regression suite. Full current-theme ZIP export, untouched formal-package export, and safe import of historical ten- or twelve-color ZIPs remain available.
+
+> v1.3.6 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall is required, and local themes are preserved.
+
+### 简体中文
+
+- 将 13 套内置壁纸预设统一调整为页面、面板、弹窗和侧栏最终 20% 透明度，边框与分隔线 10%。LIVE PREVIEW 与真实注入会直接消费声明的透明页面/面板色，侧栏使用绝对 alpha 并保留兼容回退。
+- 新增严格的 catalog v2 迁移：只有存储 fingerprint 仍与 v1 原始值完全一致的未编辑预设才会原位升级。library ID、图片、选择和已有状态保持不变；用户改过的预设不覆盖，删过的预设不复活。
+- 将“下次启动主题”选择移到编辑器上方；左侧主题库优先显示延迟解码的受控 `app://` 背景缩略图，透明占位和两个纯色基础主题回退为页面背景色。
+- 从 renderer、公开导出 schema、主进程服务、ZIP 写入器和回归测试中移除旧版兼容 ZIP 导出。当前完整主题 ZIP、未编辑正式原包导出，以及历史十色或十二色 ZIP 的安全导入继续保留。
+
+> SignPath Foundation 申请仍在审核，v1.3.6 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载，本地主题会保留。
+
 ## v1.3.5 — 2026-08-29
 
 ### English

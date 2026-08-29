@@ -29,6 +29,7 @@
 - [x] 编辑器增加“放弃本次修改”，由受管 checkpoint 恢复最近保存或新建起点，并保留 revision 与下次启动选择语义。
 - [x] 主进程增加启动后及每 20 分钟静默更新检查；只提示新版，不自动下载，顶部更新入口改用安装语义图标与状态胶囊。
 - [x] 13 张用户提供图片已分别形成内置主题预设；主进程严格校验并一次性原子追加，已有主题及选择状态不被覆盖。
+- [x] v1.3.6 预设透明度、无覆盖 catalog v2 迁移、主题库缩略图、顶部启动主题选择及旧版兼容导出移除已完成。
 
 ### Native secure-store 阶段
 
@@ -57,6 +58,8 @@
 - `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`，`main` 与 `origin/main` 同步；`v1.0.0` 发布改动将在验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-29 `v1.3.6` 发布候选：13 套 catalog v2 预设统一页面/面板/侧栏 20% 与边框 10%，全部旧 fingerprint 均通过原位迁移验证，编辑项与删除项保持；主题库缩略图、纯色回退、顶部选择卡和旧版兼容导出移除已由 renderer 与真实 Electron 验证。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、185 项主进程测试、52 项 renderer 测试、7 项集成测试和 1 项真实 Electron E2E 全部通过；安装包 ASAR/catalog/图片哈希与 native 布局通过校验，打包成品隔离启动得到 15 个主题、13 个 v2 预设且透明度全部正确。
 
 - 2026-08-29 `v1.3.5` 发布候选：13 套图片主题目录、一次性 pack 标记、已有库升级、删除不复活和失败全回滚均已实现。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、184 项主进程测试、51 项 renderer 测试、8 项集成测试和 1 项真实 Electron E2E 全部通过；安装包 ASAR 内 catalog 与 13 张图片逐项通过 SHA-256，打包成品以隔离数据目录启动并得到原 2 套加新 13 套主题。
 
