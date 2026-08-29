@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.11 — 2026-08-30
+
+### English
+
+- Fixed Studio startup after a newer development or portable build writes a higher selector profile into the shared managed ownership record and an older build is launched afterward.
+- Persisted ownership parsing now accepts canonical `openai-codex-shell/1..64` values and restores every non-current profile only as `ORPHANED`. It never reattaches, closes, resumes, or injects through that record.
+- Kept runtime security strict: live identity verification, future-document registration, and injection still require an exact match with the current `/11` selector profile. Unknown prefixes, non-canonical numbers, `/0`, and `/65` remain fail-closed.
+
+> v1.3.11 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved.
+
+### 简体中文
+
+- 修复新版开发版或便携版在共享受管 ownership 中写入更高 selector profile 后，再启动旧程序会阻断整个 Studio 的问题。
+- 持久 ownership 解析现在接受规范的 `openai-codex-shell/1..64`；所有非当前 profile 都只恢复为“上次会话待确认”，绝不据此重新连接、关闭、恢复或注入会话。
+- runtime 安全边界保持严格：真实身份验证、未来页面脚本注册与注入仍要求当前 `/11` profile 完全一致。未知前缀、非规范数字、`/0` 与 `/65` 继续 fail closed。
+
+> SignPath Foundation 申请仍在审核，v1.3.11 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。
+
 ## v1.3.10 — 2026-08-29
 
 ### English

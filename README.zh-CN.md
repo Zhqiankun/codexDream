@@ -59,15 +59,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.10`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.11`：
 
-- `CodexStyle-1.3.10-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.10-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.11-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.11-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.10` 修复 Codex `26.825.4187.0` 的两套响应式当前会话标题，以及首页独有的项目/输入框工具条；LIVE PREVIEW 新增点击反向定位，Codex 启动也合并到主题设计页。“输入框与我的消息”现在直接消费声明的 `panelAlt`，不再二次降低透明度。直接覆盖原安装即可，无需卸载或重启电脑；选择更新后的主题后重启由 CodexStyle 管理的 Codex 会话即可看到效果。
+`v1.3.11` 允许 Studio 读取由有界未来 selector profile 写入的完整 ownership 记录；这类记录只显示“上次会话待确认”，绝不会重新连接或注入，真实会话管理仍要求当前 profile 完全一致。该版本包含 v1.3.10 的预览反向定位、单页启动、响应式标题与首页输入框修复。直接覆盖原安装即可，无需卸载或重启电脑。
 
 ## 运行要求
 

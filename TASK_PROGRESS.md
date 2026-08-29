@@ -34,6 +34,7 @@
 - [x] v1.3.8 ownership 升级兼容热修复：v1.3.6 写入的合法 selector profile `/7` 按过期会话恢复，不再阻断启动；当前 `/8` 运行时验证和未知状态 fail-closed 边界保持不变。
 - [x] v1.3.9 会话标签与首页标题真实 DOM 修复完成；selector profile `/9` 覆盖当前 Codex 的标签表面变量与标题结构，首页四张快捷卡片可分别使用颜色/透明度或本地图片并随主题 ZIP 往返。
 - [x] v1.3.10 响应式标题、首页 composer rail、`panelAlt` 最终透明度、LIVE PREVIEW 反向定位及主题设计页内受管 Codex 启动已完成；selector profile 升级到 `/11`。
+- [x] v1.3.11 ownership 前向解析完成：合法 `1..64` 非当前 profile 仅恢复为 `ORPHANED`，runtime 连接与注入仍严格要求当前 `/11`；未知前缀、非规范值与 `/65` 继续 fail closed。
 
 ### Native secure-store 阶段
 
@@ -62,6 +63,8 @@
 - `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前发布基线为 `v1.3.8`，本轮 `v1.3.9` 改动将在完整验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-30 `v1.3.11` 发布候选：本机只读确认启动失败记录包含完整 14 字段且 profile 为 `/10`，实际启动程序却是 `D:\\codexDream\\CodexStyle\\CodexStyle.exe` v1.3.9/profile `/9`，属于新版数据被旧便携版读取的降级场景。持久 ownership 解析现接受有界 `1..64` 并只恢复 `ORPHANED`，runtime 当前 profile 严格等值检查未改。25 项 session 定向测试覆盖全部历史值、`current + 1`、`/64` 及未知/非规范/越界拒绝。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、201 项主进程测试、54 项 renderer 测试、7 项集成测试、预置未来 `/12` 的 1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.11-x64.exe` 为 121,790,715 字节，SHA-256 `f7abdaf6584f58228f7794200b838f51e06c93e002b46815d7b1de08c8e24665`；便携包 `CodexStyle-1.3.11-x64.zip` 为 164,888,602 字节，SHA-256 `ee7e2ef049790a36fcd07a6d2ea873825a77a4d3ee214a636d1265de8a272650`。
 
 - 2026-08-29 `v1.3.10` 发布候选：只读 CDP 实测确认 edge-scroll 标题默认白色来自响应式 Toolbar 子表面，首页项目条来自独立 `data-composer-rail-*` controls rail；两者已加入 `/11` 精确 profile 和无映射空窗的 direct bridge。首页/对话 composer 与用户消息直接消费 `panelAlt` 最终 alpha。LIVE PREVIEW 反向定位使用事件委托、最具体区域提示、一次性请求、滚动聚焦和减少动画；Codex 启动与检查合并到主题设计页。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、196 项主进程测试、54 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.10-x64.exe` 为 121,790,793 字节，SHA-256 `4f0e3dcff15a4fc4e8d10c0c71430877c49ea0e619639726b6a681aabce7ca14`；便携包 `CodexStyle-1.3.10-x64.zip` 为 164,888,670 字节，SHA-256 `c7c9850b128dbccb7d94aa306f8e6e928a7b2387c7bceb2ae74a6c6ffe985d53`。
 

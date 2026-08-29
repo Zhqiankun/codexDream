@@ -59,15 +59,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.10` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.11` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.10-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.10-x64.zip` — portable archive.
+- `CodexStyle-1.3.11-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.11-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.10` fixes both responsive current-thread title surfaces and the separate home project/composer rail in Codex `26.825.4187.0`. It also adds click-to-locate Live Preview inspection and moves managed Codex launch into the theme-design page. Composer and user-message surfaces now consume the declared `panelAlt` color directly instead of reducing its opacity again. Install over the existing copy—no uninstall or computer restart is required; restart the managed Codex session after choosing the updated theme.
+`v1.3.11` allows Studio to start when a complete managed ownership record was written by a newer bounded selector profile. Such records are shown only as a stale-session warning and are never reattached or injected; live session control still requires an exact current-profile match. It includes all v1.3.10 preview, single-page launch, responsive-title, and home-composer fixes. Install over the existing copy—no uninstall or computer restart is required.
 
 ## Requirements
 
