@@ -97,6 +97,8 @@ THEMED_SESSION -> PAUSED_FUTURE -> NO_SESSION
 
 必须验证启动前 PID 基线、AUMID 启动 nonce、新 PID/开始时间/SID/精确 exe/AppX full 与 family name、字面 127.0.0.1 监听 PID、无重定向的 `/json/version` 与 `/json/list`、Browser ID、同端口 WebSocket、`app://` target 和版本化 selector profile。watcher 持有 Browser WebSocket 身份锚点。禁止直接 exe fallback、任意端口附着、按名称杀进程或控制外部会话。
 
+持久化 ownership 的解析兼容与当前会话验证必须分离：解析器有界登记所有已发布 selector profile，使合法旧记录只恢复为 `ORPHANED`；真正的 runtime 验证、重新注册和注入仍只接受 `CODEX_SELECTOR_PROFILE` 当前值。每次 profile 升版的测试表由当前版本号动态生成全部前代值，避免遗漏最近一代；未知 profile 与畸形记录继续按篡改失败。
+
 ## 文件所有权
 
 - 协调员：`.agents.md`、`REQUIREMENTS.md`、`PLAN.md`。
@@ -136,6 +138,8 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 14. 预设迁移与 Studio 布局：catalog v2 将页面背景与 panel alpha 固定为 20%、侧栏遮罩固定为最终 20%、line alpha 固定为 10%，main/preview 以 relative-color 绝对 alpha 并保留 `color-mix` fallback，避免透明 panel 被二次相乘；旧 pack 仅在 fingerprint 精确匹配且无 checkpoint 时原位迁移。下次启动选择卡移动到编辑器上方，主题摘要返回背景色与受控缩略图 URL，renderer 对真实图片使用 lazy thumbnail、对透明占位回退背景色。旧版兼容 ZIP 从导出枚举、写入分支和 Studio 删除，完整 ZIP 与旧包导入保持。
 
 15. 标题、首页与活动颜色：保持 `theme-config.ts` 为唯一跨层颜色契约，将颜色从十八色扩展为二十六色；selector profile `/8` 仅登记当前会话 tab、首页主标题、首页快捷卡片和 `group/activity-header` 活动摘要四类已核对节点。payload 通过独立 token bridge 覆盖背景、主文字和次要文字；renderer 使用相同变量和 `data-ds-part` 构造首页/对话预览，并在聚焦颜色项时自动切换对应页面。catalog v3 为 13 套图片主题补齐新颜色，并保存 v1/v2 两代精确 fingerprint，确保跨版本升级仍不覆盖用户编辑或复活删除项。
+
+16. Ownership 升级兼容热修复：`PersistedSelectorProfile` 与白名单补齐 `/7`，使 v1.3.6 留下的完整 ownership 状态在 v1.3.7+ 启动时进入既有 `ORPHANED` 流程，而不是阻断应用初始化。动态测试覆盖所有历史 profile 并单独证明未知值仍 fail closed；不删除 ownership 文件、不放宽当前 profile 的 runtime 身份验证，也不修改主题或用户数据。
 
 ## 验证命令
 

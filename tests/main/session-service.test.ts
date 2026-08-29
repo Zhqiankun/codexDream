@@ -17,6 +17,13 @@ import { CODEX_SELECTOR_PROFILE } from "../../src/main/session/selector-profile"
 import { createManagedRoot } from "../fixtures/managed-root";
 
 const cleanup: Array<() => Promise<void>> = [];
+const currentSelectorProfileVersion = Number(
+  CODEX_SELECTOR_PROFILE.split("/").at(-1),
+);
+const previousSelectorProfiles = Array.from(
+  { length: currentSelectorProfileVersion - 1 },
+  (_, index) => `openai-codex-shell/${index + 1}`,
+);
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((operation) => operation()));
   vi.restoreAllMocks();
@@ -313,14 +320,7 @@ describe("CodexSessionService", () => {
     });
   });
 
-  it.each([
-    "openai-codex-shell/1",
-    "openai-codex-shell/2",
-    "openai-codex-shell/3",
-    "openai-codex-shell/4",
-    "openai-codex-shell/5",
-    "openai-codex-shell/6",
-  ])(
+  it.each(previousSelectorProfiles)(
     "treats the previous selector profile %s as orphaned instead of tampered",
     async (selectorProfile) => {
       const managed = await createManagedRoot();

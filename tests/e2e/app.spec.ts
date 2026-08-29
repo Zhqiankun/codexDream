@@ -2,11 +2,17 @@ import { _electron as electron, expect, test } from "@playwright/test";
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import {
+  MANAGED_FILES,
+  SecureManagedStore,
+} from "../../src/main/infra/secure-store";
+import { CODEX_SELECTOR_PROFILE } from "../../src/main/session/selector-profile";
 
 test("starts the real Electron shell with native storage and completes a local write", async () => {
   const projectRoot = resolve(process.cwd());
   const localAppData = await mkdtemp(join(tmpdir(), "codexstyle-e2e-"));
   const screenshotDirectory = resolve(projectRoot, "test-results", "e2e");
+  seedPreviousOwnershipState(localAppData);
   const environment = Object.fromEntries(
     Object.entries(process.env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -34,6 +40,14 @@ test("starts the real Electron shell with native storage and completes a local w
 
   try {
     const page = await application.firstWindow();
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const result = await globalThis.window.codexStyle.getSnapshot();
+          return result.ok ? result.data.session.state : undefined;
+        }),
+      )
+      .toBe("ORPHANED");
     await expect(page.getByText("Midnight Copper").first()).toBeVisible();
     await expect(page.getByText("Paper Light").first()).toBeVisible();
     await expect
@@ -186,3 +200,40 @@ test("starts the real Electron shell with native storage and completes a local w
     await rm(localAppData, { recursive: true, force: true });
   }
 });
+
+function seedPreviousOwnershipState(localAppData: string): void {
+  const previousLocalAppData = process.env.LOCALAPPDATA;
+  process.env.LOCALAPPDATA = localAppData;
+  let store: SecureManagedStore | undefined;
+  try {
+    store = SecureManagedStore.open(join(localAppData, "CodexStyle"));
+    store.ensureLayout();
+    const currentVersion = Number(CODEX_SELECTOR_PROFILE.split("/").at(-1));
+    store.writeFileAtomic(
+      MANAGED_FILES.ownership,
+      Buffer.from(
+        JSON.stringify({
+          version: 1,
+          packageFullName: "OpenAI.Codex_test",
+          packageFamilyName: "OpenAI.Codex_test",
+          executablePath: "C:\\Program Files\\WindowsApps\\ChatGPT.exe",
+          pid: 42,
+          startedAt: "2026-08-06T00:00:00.000Z",
+          nonce: "b".repeat(64),
+          port: 9222,
+          browserId: "browser-1",
+          targetId: "target-1",
+          selectorProfile: `openai-codex-shell/${currentVersion - 1}`,
+          themeLibraryId: "11111111-1111-4111-8111-111111111111",
+          themeFingerprint: "a".repeat(64),
+          createdAt: "2026-08-06T00:00:00.000Z",
+        }),
+        "utf8",
+      ),
+    );
+  } finally {
+    store?.close();
+    if (previousLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+    else process.env.LOCALAPPDATA = previousLocalAppData;
+  }
+}
