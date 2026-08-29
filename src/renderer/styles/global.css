@@ -223,7 +223,7 @@ textarea:focus-visible {
   min-height: calc(100vh - 64px);
 }
 .sidebar {
-  width: 260px;
+  width: 276px;
   border-right: 1px solid #26304a;
   padding: 26px 16px 18px;
   display: flex;
@@ -262,9 +262,9 @@ textarea:focus-visible {
 .theme-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 10px;
+  padding: 8px 9px;
   border: 1px solid transparent;
   border-radius: 9px;
   text-align: left;
@@ -280,11 +280,31 @@ textarea:focus-visible {
   color: #f5f7fb;
 }
 .theme-swatch {
-  width: 25px;
-  height: 25px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 7px;
+  position: relative;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 9px;
   flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(5, 9, 20, 0.18);
+}
+.theme-swatch.color-only::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.12),
+    transparent 58%
+  );
+}
+.theme-swatch img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 .theme-row-copy {
   min-width: 0;
@@ -551,6 +571,8 @@ h2 {
 .heading-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
 }
 .validation-chip,
@@ -1602,6 +1624,17 @@ input.opacity-range {
   border-right: 1px solid var(--preview-line, #2b3853);
   color: var(--preview-sidebar-text, #dce6f6);
 }
+.mock-codex[data-background-scope="window"] .mock-sidebar {
+  background: color-mix(
+    in srgb,
+    var(--preview-panel, #111a2d) var(--preview-sidebar-opacity, 75%),
+    transparent
+  );
+  background: rgb(
+    from var(--preview-panel, #111a2d) r g b /
+      var(--preview-sidebar-opacity, 75%)
+  );
+}
 .mock-sidebar-head {
   height: 25px;
   display: flex;
@@ -1740,7 +1773,7 @@ input.opacity-range {
   isolation: isolate;
   overflow: hidden;
   border-top-left-radius: 9px;
-  background: color-mix(in srgb, var(--preview-background) 88%, transparent);
+  background: var(--preview-background, #182236);
 }
 .mock-codex[data-background-scope="content"] .mock-main {
   background: var(--preview-background, #182236);
@@ -2133,11 +2166,7 @@ input.opacity-range {
   .mock-sidebar,
 .mock-codex[data-style-mode="configured"][data-recipe-dialog="true"]
   .mock-dialog {
-  background: color-mix(
-    in srgb,
-    var(--preview-panel, #18233c) 88%,
-    transparent
-  );
+  background: var(--preview-panel, #18233c);
 }
 .mock-codex[data-style-mode="configured"][data-recipe-message="true"]
   :is(.mock-user-message, .mock-message) {
@@ -2230,12 +2259,38 @@ input.opacity-range {
   border-radius: 9px;
   background: #18233c;
 }
+.top-apply-card {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+  border-color: #465678;
+  background:
+    linear-gradient(108deg, rgba(245, 185, 76, 0.1), transparent 42%), #172139;
+  box-shadow: 0 12px 32px rgba(4, 8, 20, 0.16);
+}
+.top-apply-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #f5b94c;
+}
+.apply-card-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.apply-card-kicker {
+  color: #f5c968;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
 .apply-card strong {
   font-size: 12px;
   color: #ecf2fd;
 }
 .apply-card p {
-  margin-top: 5px;
   color: #8794ae;
   font-size: 10px;
 }

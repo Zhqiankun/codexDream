@@ -14,7 +14,8 @@ import {
 } from "../../contracts";
 import { readImageFileBounded, validateImage, type ImageInfo } from "./image";
 
-export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v1";
+export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v2";
+export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v1";
 
 export interface BundledPresetTheme {
   presetId: string;
@@ -23,6 +24,7 @@ export interface BundledPresetTheme {
   description: string;
   image: string;
   imageSha256: string;
+  previousFingerprint: string;
   backgroundScope: BackgroundScope;
   sidebarOverlayOpacity: number;
   appearance: Exclude<ThemeAppearance, "auto">;
@@ -38,6 +40,7 @@ export interface PreparedBundledPresetTheme extends BundledPresetTheme {
 
 export interface PreparedBundledPresetPack {
   packId: string;
+  replacesPackIds: string[];
   themes: PreparedBundledPresetTheme[];
 }
 
@@ -47,8 +50,9 @@ export interface BundledPresetSource {
 }
 
 interface CatalogManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   packId: string;
+  replacesPackIds: string[];
   themes: BundledPresetTheme[];
 }
 
@@ -57,7 +61,12 @@ const MAX_PRESETS_PER_PACK = 64;
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,79}$/u;
 const IMAGE_PATTERN = /^[a-z0-9][a-z0-9.-]{0,79}\.(?:png|jpg|webp)$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
-const MANIFEST_KEYS = new Set(["schemaVersion", "packId", "themes"]);
+const MANIFEST_KEYS = new Set([
+  "schemaVersion",
+  "packId",
+  "replacesPackIds",
+  "themes",
+]);
 const THEME_KEYS = new Set([
   "presetId",
   "themeId",
@@ -65,6 +74,7 @@ const THEME_KEYS = new Set([
   "description",
   "image",
   "imageSha256",
+  "previousFingerprint",
   "backgroundScope",
   "sidebarOverlayOpacity",
   "appearance",
@@ -116,7 +126,11 @@ export function createBundledPresetSource(
             imageInfo,
           });
         }
-        return { packId, themes };
+        return {
+          packId,
+          replacesPackIds: [...manifest.replacesPackIds],
+          themes,
+        };
       } catch (error) {
         if (
           error instanceof Error &&
@@ -154,8 +168,15 @@ async function readCatalog(path: string): Promise<CatalogManifest> {
   if (!isRecord(parsed) || hasUnknownKeys(parsed, MANIFEST_KEYS))
     throw new Error("BUNDLED_PRESET_PACK_INVALID:catalog-schema");
   if (
-    parsed.schemaVersion !== 1 ||
+    parsed.schemaVersion !== 2 ||
     !ID_PATTERN.test(String(parsed.packId ?? "")) ||
+    !Array.isArray(parsed.replacesPackIds) ||
+    parsed.replacesPackIds.length > 8 ||
+    parsed.replacesPackIds.some(
+      (packId) => typeof packId !== "string" || !ID_PATTERN.test(packId),
+    ) ||
+    new Set(parsed.replacesPackIds).size !== parsed.replacesPackIds.length ||
+    parsed.replacesPackIds.includes(parsed.packId) ||
     !Array.isArray(parsed.themes) ||
     parsed.themes.length < 1 ||
     parsed.themes.length > MAX_PRESETS_PER_PACK
@@ -176,8 +197,9 @@ async function readCatalog(path: string): Promise<CatalogManifest> {
     "image",
   );
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     packId: parsed.packId as string,
+    replacesPackIds: [...(parsed.replacesPackIds as string[])],
     themes,
   };
 }
@@ -197,6 +219,8 @@ function parseTheme(value: unknown): BundledPresetTheme {
     value.image.includes("..") ||
     typeof value.imageSha256 !== "string" ||
     !SHA256_PATTERN.test(value.imageSha256) ||
+    typeof value.previousFingerprint !== "string" ||
+    !SHA256_PATTERN.test(value.previousFingerprint) ||
     (value.backgroundScope !== "content" &&
       value.backgroundScope !== "window") ||
     typeof value.sidebarOverlayOpacity !== "number" ||
@@ -226,6 +250,7 @@ function parseTheme(value: unknown): BundledPresetTheme {
     description: value.description,
     image: value.image,
     imageSha256: value.imageSha256,
+    previousFingerprint: value.previousFingerprint,
     backgroundScope: value.backgroundScope,
     sidebarOverlayOpacity: value.sidebarOverlayOpacity,
     appearance: value.appearance,

@@ -82,7 +82,10 @@ const theme: ThemeDetail = {
   revision: 2,
   updatedAt: "2026-08-06T00:00:00.000Z",
   accent: "#f59e0b",
+  backgroundColor: "#181818",
   hasBackground: true,
+  backgroundThumbnailUrl:
+    "app://theme-asset/11111111-1111-4111-8111-111111111111?v=2",
   selectedForNextLaunch: false,
   signed: false,
   packageFormat: "simplified",
@@ -98,7 +101,9 @@ const snapshot: ThemeSnapshot = {
       revision: theme.revision,
       updatedAt: theme.updatedAt,
       accent: theme.accent,
+      backgroundColor: theme.backgroundColor,
       hasBackground: true,
+      backgroundThumbnailUrl: theme.backgroundThumbnailUrl,
       selectedForNextLaunch: false,
       signed: false,
       packageFormat: "simplified",
@@ -213,6 +218,52 @@ describe("Studio renderer", () => {
     expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
       "src/renderer/styles/global.css",
     );
+  });
+
+  it("uses background thumbnails in the theme list and falls back to the page color", async () => {
+    const api = makeApi();
+    const colorOnly = {
+      ...snapshot.themes[0],
+      libraryId: "22222222-2222-4222-8222-222222222222",
+      name: "Color Only",
+      backgroundColor: "rgba(12, 34, 56, 0.2)",
+      backgroundThumbnailUrl: undefined,
+    };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, themes: [snapshot.themes[0], colorOnly] },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    const imageRow = await screen.findByRole("button", {
+      name: /Midnight Copper/u,
+    });
+    const image = imageRow.querySelector(".theme-swatch img");
+    expect(image).toHaveAttribute("src", theme.backgroundThumbnailUrl);
+    expect(image).toHaveAttribute("loading", "lazy");
+
+    const colorRow = screen.getByRole("button", { name: /Color Only/u });
+    const fallback = colorRow.querySelector(".theme-swatch");
+    expect(fallback).toHaveStyle({ background: colorOnly.backgroundColor });
+    expect(fallback?.querySelector("img")).toBeNull();
+  });
+
+  it("places next-launch theme selection above the editor workspace", async () => {
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+
+    const selection = document.querySelector(".top-apply-card");
+    const editor = document.querySelector(".editor-grid");
+    expect(selection).toBeInTheDocument();
+    expect(editor).toBeInTheDocument();
+    expect(
+      selection!.compareDocumentPosition(editor!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "导出旧版兼容 ZIP" }),
+    ).toBeNull();
   });
 
   it("opens the bounded diagnostic log directory from the top bar", async () => {
@@ -727,6 +778,9 @@ describe("Studio renderer", () => {
       { target: { value: "35" } },
     );
     expect(screen.getByText("35%")).toBeInTheDocument();
+    expect(document.querySelector(".mock-codex")).toHaveStyle({
+      "--preview-sidebar-opacity": "35%",
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
@@ -765,8 +819,8 @@ describe("Studio renderer", () => {
     expect(screen.getByRole("button", { name: "保存主题" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "导出主题 ZIP" })).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "导出旧版兼容 ZIP" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "导出旧版兼容 ZIP" }),
+    ).toBeNull();
     expect(api.patchDraft).not.toHaveBeenCalled();
     expect(api.exportZip).not.toHaveBeenCalled();
 
@@ -1190,45 +1244,6 @@ describe("Studio renderer", () => {
     await waitFor(() =>
       expect(api.commit).toHaveBeenCalledWith(
         expect.objectContaining({ expectedRevision: 3 }),
-      ),
-    );
-  });
-
-  it("exports an edited formal import through the explicit legacy compatibility path", async () => {
-    const formalTheme: ThemeDetail = {
-      ...theme,
-      packageFormat: "formal",
-      name: "Signed Copper",
-    };
-    const formalSnapshot: ThemeSnapshot = {
-      ...snapshot,
-      themes: [{ ...snapshot.themes[0], ...formalTheme }],
-    };
-    const api = makeApi();
-    api.getSnapshot.mockResolvedValue({ ok: true, data: formalSnapshot });
-    api.getTheme.mockResolvedValue({ ok: true, data: formalTheme });
-    api.patchDraft.mockResolvedValue({
-      ok: true,
-      data: { ...formalTheme, revision: 3 },
-    });
-    window.codexStyle = api;
-
-    render(<App />);
-    const nameInput = await screen.findByDisplayValue("Signed Copper");
-    fireEvent.change(nameInput, { target: { value: "Edited Copper" } });
-    expect(
-      screen.getByRole("button", { name: "已编辑，不能原样导出" }),
-    ).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "导出旧版兼容 ZIP" }));
-
-    await waitFor(() => expect(api.patchDraft).toHaveBeenCalledTimes(1));
-    await waitFor(() =>
-      expect(api.exportZip).toHaveBeenCalledWith(
-        expect.objectContaining({
-          libraryId: formalTheme.libraryId,
-          expectedRevision: 3,
-          format: "compatibility",
-        }),
       ),
     );
   });

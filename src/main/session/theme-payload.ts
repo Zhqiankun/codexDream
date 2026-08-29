@@ -146,15 +146,16 @@ export function buildThemePayload(
         : '';
       const backgroundBridge = backgroundTargets + ' { background-image: ' + backgroundImage + ' !important; background-size: cover !important; background-position: ' + (config.art.focusX * 100) + '% ' + (config.art.focusY * 100) + '% !important; background-repeat: no-repeat !important;' + backgroundAttachment + ' }';
       const mainSurfaceBridge = config.backgroundScope === "window" && config.art.taskMode !== "off"
-        ? '\\n[data-ds-part="main"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent) !important; }'
+        ? '\\n[data-ds-part="main"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-background) !important; }'
         : "";
       const edgeFadeBridge = config.backgroundScope === "window" && config.art.taskMode !== "off"
         ? '\\n[data-ds-part="main-top-fade"][data-codexstyle-owner="' + config.marker + '"] { background-color: transparent !important; background-image: none !important; }' +
           '\\n.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"] { background-color: transparent !important; background-image: none !important; }'
         : "";
-      const sidebarColor = 'color-mix(in srgb, var(--ds-theme-color-panel) ' + config.sidebarOverlayOpacity + '%, transparent)';
+      const sidebarFallbackColor = 'color-mix(in srgb, var(--ds-theme-color-panel) ' + config.sidebarOverlayOpacity + '%, transparent)';
+      const sidebarAbsoluteColor = 'rgb(from var(--ds-theme-color-panel) r g b / ' + config.sidebarOverlayOpacity + '%)';
       const sidebarBridge = config.backgroundScope === "window"
-        ? '\\n[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"] { background-color: ' + sidebarColor + ' !important; }'
+        ? '\\n[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"] { background-color: ' + sidebarFallbackColor + ' !important; background-color: ' + sidebarAbsoluteColor + ' !important; }'
         : "";
       const sidebarTextSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
       const sidebarTextBridge = '\\n' + sidebarTextSelector + ' { color: var(--ds-theme-color-sidebar-text) !important; }' +
@@ -182,7 +183,7 @@ export function buildThemePayload(
       const configuredSurfaceBridge = config.configuredRecipes
         ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-background); }' +
           (config.configuredRecipes.sidebar && config.backgroundScope === "content"
-            ? '\\n' + sidebarTextSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel) 88%, transparent) !important; }'
+            ? '\\n' + sidebarTextSelector + ' { background-color: var(--ds-theme-color-panel) !important; }'
             : '') +
           (config.configuredRecipes.composer
             ? '\\n' + composerSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 88%, transparent) !important; }' +
@@ -195,7 +196,7 @@ export function buildThemePayload(
             ? '\\n' + userMessageSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 92%, transparent) !important; }'
             : '') +
           (config.configuredRecipes.dialog
-            ? '\\n[data-ds-part="dialog"][data-codexstyle-owner="' + config.marker + '"] { background-color: color-mix(in srgb, var(--ds-theme-color-panel) 88%, transparent) !important; }'
+            ? '\\n[data-ds-part="dialog"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-panel) !important; }'
             : '')
         : '';
       const assistantMessageBridge = config.configuredRecipes?.message

@@ -80,6 +80,7 @@ interface PreparedCheckpoint {
 const DEFAULT_CSS = `[data-ds-part="root"] {\n  background-color: #111827;\n  color: #e5e7eb;\n}\n[data-ds-part="sidebar"] {\n  background-color: #0f172a;\n  border-color: #334155;\n}\n[data-ds-part="composer"]:hover {\n  background-color: #334155;\n}`;
 const MAX_CSS_BYTES = 256 * 1024;
 const MAX_INSTALLED_PRESET_PACKS = 32;
+const MAX_REPLACED_PRESET_PACKS = 8;
 const PRESET_PACK_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,79}$/u;
 
 export class LocalThemeStore {
@@ -150,10 +151,17 @@ export class LocalThemeStore {
   snapshot(
     session: ThemeSnapshot["session"],
     update: ThemeSnapshot["update"],
+    assetBase?: string,
   ): ThemeSnapshot {
     return {
       themes: this.index.themes.map((theme) =>
-        toSummary(theme, this.index.selectedLibraryId),
+        toSummary(
+          theme,
+          this.index.selectedLibraryId,
+          theme.backgroundFile && assetBase
+            ? `${assetBase}/${theme.libraryId}?v=${theme.revision}`
+            : undefined,
+        ),
       ),
       selectedLibraryId: this.index.selectedLibraryId,
       paused: this.index.paused,
@@ -1339,12 +1347,38 @@ export class LocalThemeStore {
     if (this.index.installedPresetPacks.includes(pack.packId)) return;
     if (this.index.installedPresetPacks.length >= MAX_INSTALLED_PRESET_PACKS)
       throw new Error("BUNDLED_PRESET_PACK_INVALID:pack-limit");
+    if (
+      pack.replacesPackIds.length > MAX_REPLACED_PRESET_PACKS ||
+      new Set(pack.replacesPackIds).size !== pack.replacesPackIds.length ||
+      pack.replacesPackIds.includes(pack.packId) ||
+      pack.replacesPackIds.some(
+        (packId) => !PRESET_PACK_ID_PATTERN.test(packId),
+      )
+    )
+      throw new Error("BUNDLED_PRESET_PACK_INVALID:replacement-packs");
 
     const before = this.captureState();
     const stagedFiles: string[] = [];
+    const replacesInstalledPack = pack.replacesPackIds.some((packId) =>
+      this.index.installedPresetPacks.includes(packId),
+    );
     let persistAttempted = false;
     try {
       for (const preset of pack.themes) {
+        const existing = this.index.themes.find(
+          (theme) => theme.themeId === preset.themeId,
+        );
+        if (existing) {
+          if (!replacesInstalledPack)
+            throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-id-conflict");
+          if (this.canUpgradeBundledPreset(existing, preset))
+            this.upgradeBundledPreset(existing, preset);
+          continue;
+        }
+        // A missing theme in an already-installed predecessor pack represents
+        // an explicit user deletion and must never be revived by an upgrade.
+        if (replacesInstalledPack) continue;
+
         const record = this.createBundledPresetRecord(preset);
         const duplicate = this.index.themes.find(
           (theme) =>
@@ -1353,8 +1387,6 @@ export class LocalThemeStore {
             this.fingerprint(theme) === record.fingerprint,
         );
         if (duplicate) continue;
-        if (this.index.themes.some((theme) => theme.themeId === preset.themeId))
-          throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-id-conflict");
         if (!isThemeRecord(record))
           throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-record");
 
@@ -1388,6 +1420,62 @@ export class LocalThemeStore {
     }
   }
 
+  private canUpgradeBundledPreset(
+    record: ThemeRecord,
+    preset: PreparedBundledPresetTheme,
+  ): boolean {
+    return (
+      record.status === "ready" &&
+      record.packageFormat === "simplified" &&
+      !record.signed &&
+      record.importedFormal === undefined &&
+      record.backgroundSha256 === preset.imageInfo.sha256 &&
+      record.fingerprint === preset.previousFingerprint &&
+      this.fingerprint(record) === preset.previousFingerprint &&
+      !this.index.checkpoints.some(
+        (checkpoint) => checkpoint.libraryId === record.libraryId,
+      )
+    );
+  }
+
+  private upgradeBundledPreset(
+    record: ThemeRecord,
+    preset: PreparedBundledPresetTheme,
+  ): void {
+    if (!record.backgroundFile)
+      throw new Error("BUNDLED_PRESET_PACK_INVALID:upgrade-image");
+    const configuration = this.bundledPresetConfiguration(preset);
+    const css = this.bundledPresetCss(configuration);
+    record.name = preset.name;
+    record.description = preset.description;
+    record.css = css;
+    record.backgroundScope = preset.backgroundScope;
+    record.sidebarOverlayOpacity = preset.sidebarOverlayOpacity;
+    record.json = writeThemeConfiguration(
+      {
+        schemaVersion: 1,
+        id: preset.themeId,
+        name: preset.name,
+        description: preset.description,
+        image: record.backgroundFile,
+        backgroundScope: preset.backgroundScope,
+        sidebarOverlayOpacity: preset.sidebarOverlayOpacity,
+      },
+      configuration,
+    );
+    record.revision += 1;
+    record.updatedAt = new Date().toISOString();
+    record.validation = {
+      css: "valid",
+      image: "valid",
+      package: "ready",
+      warnings: [],
+    };
+    record.fingerprint = this.fingerprint(record);
+    if (!isThemeRecord(record))
+      throw new Error("BUNDLED_PRESET_PACK_INVALID:upgraded-theme-record");
+  }
+
   private createBundledPresetRecord(
     preset: PreparedBundledPresetTheme,
   ): ThemeRecord {
@@ -1395,19 +1483,8 @@ export class LocalThemeStore {
     const backgroundFile = this.allocateManagedImageFile(
       preset.imageInfo.extension,
     );
-    const configuration: ThemeConfiguration = {
-      appearance: preset.appearance,
-      art: { ...preset.art },
-      colors: { ...preset.colors },
-      styleConfig: {
-        ...preset.style,
-        recipes: { ...preset.style.recipes },
-      },
-    };
-    const css = generateConfiguredCss(configuration.styleConfig);
-    const validation = validateSafeCss(css);
-    if (!validation.valid || validation.empty)
-      throw new Error("BUNDLED_PRESET_PACK_INVALID:css");
+    const configuration = this.bundledPresetConfiguration(preset);
+    const css = this.bundledPresetCss(configuration);
     const now = new Date().toISOString();
     const record: ThemeRecord = {
       libraryId,
@@ -1448,6 +1525,28 @@ export class LocalThemeStore {
     };
     record.fingerprint = this.fingerprint(record);
     return record;
+  }
+
+  private bundledPresetConfiguration(
+    preset: PreparedBundledPresetTheme,
+  ): ThemeConfiguration {
+    return {
+      appearance: preset.appearance,
+      art: { ...preset.art },
+      colors: { ...preset.colors },
+      styleConfig: {
+        ...preset.style,
+        recipes: { ...preset.style.recipes },
+      },
+    };
+  }
+
+  private bundledPresetCss(configuration: ThemeConfiguration): string {
+    const css = generateConfiguredCss(configuration.styleConfig);
+    const validation = validateSafeCss(css);
+    if (!validation.valid || validation.empty)
+      throw new Error("BUNDLED_PRESET_PACK_INVALID:css");
+    return css;
   }
 
   private async createBuiltIns(): Promise<void> {

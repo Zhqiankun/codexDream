@@ -70,10 +70,16 @@ export interface ThemeCheckpoint {
 const DEFAULT_ACCENT = "#8b5cf6";
 const ACCENT_PATTERN =
   /^#[0-9a-f]{3}(?:[0-9a-f]|[0-9a-f]{3}(?:[0-9a-f]{2})?)?$/iu;
+const COLOR_ONLY_BACKGROUND_HASHES = new Set([
+  // Generated 960×540 surfaces for the two built-in color-only themes.
+  "b5a40eda9deda93bf3b970b7c4b6f7a28a143eb8103209a1fd69dce5b114e939",
+  "7379acece805850591cc15158740696933126c71538a145b1e0cdb06627b0c5f",
+]);
 
 export function toSummary(
   theme: ThemeRecord,
   selectedLibraryId?: string,
+  assetUrl?: string,
 ): ThemeSummary {
   const configuration = readThemeConfiguration(theme.json);
   const accent = safeThemeAccent(
@@ -88,7 +94,10 @@ export function toSummary(
     revision: theme.revision,
     updatedAt: theme.updatedAt,
     accent,
+    backgroundColor: configuration.colors.background,
     hasBackground: Boolean(theme.backgroundFile),
+    backgroundThumbnailUrl:
+      assetUrl && hasUserSelectedBackground(theme) ? assetUrl : undefined,
     selectedForNextLaunch: theme.libraryId === selectedLibraryId,
     signed: theme.signed,
     packageFormat: theme.packageFormat,
@@ -109,7 +118,7 @@ export function toDetail(
 ): ThemeDetail {
   const configuration = readThemeConfiguration(theme.json);
   return {
-    ...toSummary(theme, selectedLibraryId),
+    ...toSummary(theme, selectedLibraryId, assetUrl),
     canDiscardChanges,
     themeId: theme.themeId,
     description: theme.description,
@@ -130,6 +139,14 @@ export function toDetail(
       warnings: [...theme.validation.warnings],
     },
   };
+}
+
+function hasUserSelectedBackground(theme: ThemeRecord): boolean {
+  return Boolean(
+    theme.backgroundFile &&
+      theme.backgroundFile !== `${theme.libraryId}.png` &&
+      !COLOR_ONLY_BACKGROUND_HASHES.has(theme.backgroundSha256 ?? ""),
+  );
 }
 
 export function createDefaultIndex(): ThemeIndex {

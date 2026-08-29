@@ -199,6 +199,7 @@ export class AppController {
     return this.store.snapshot(
       this.session.snapshot(),
       this.updateService.snapshot(),
+      "app://theme-asset",
     );
   }
 
@@ -333,7 +334,7 @@ export class AppController {
   exportTheme(
     libraryId: string,
     expectedRevision: number,
-    format: "simplified" | "compatibility" | "formal",
+    format: "simplified" | "formal",
   ): Promise<Result<ExportResult>> {
     return this.runSideEffect(() =>
       this.themeService.exportZip(libraryId, expectedRevision, format),

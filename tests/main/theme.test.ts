@@ -37,4 +37,41 @@ describe("theme summary", () => {
     const theme = { ...baseTheme, json: { accent: "#14b8a6" } };
     expect(toSummary(theme).accent).toBe("#14b8a6");
   });
+
+  it("exposes a controlled thumbnail only for a user-selected background", () => {
+    const placeholder = {
+      ...baseTheme,
+      backgroundFile: `${baseTheme.libraryId}.png`,
+    };
+    expect(
+      toSummary(placeholder, undefined, "app://theme-asset/placeholder"),
+    ).toMatchObject({
+      backgroundColor: "#181818",
+      backgroundThumbnailUrl: undefined,
+    });
+
+    const selected = {
+      ...baseTheme,
+      backgroundFile: "33333333-3333-4333-8333-333333333333.jpg",
+    };
+    expect(
+      toSummary(selected, undefined, "app://theme-asset/selected"),
+    ).toMatchObject({
+      backgroundColor: "#181818",
+      backgroundThumbnailUrl: "app://theme-asset/selected",
+    });
+
+    const generatedColorSurface = {
+      ...selected,
+      backgroundSha256:
+        "b5a40eda9deda93bf3b970b7c4b6f7a28a143eb8103209a1fd69dce5b114e939",
+    };
+    expect(
+      toSummary(
+        generatedColorSurface,
+        undefined,
+        "app://theme-asset/generated-color",
+      ).backgroundThumbnailUrl,
+    ).toBeUndefined();
+  });
 });

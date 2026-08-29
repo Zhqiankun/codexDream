@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createBundledPresetSource,
   DEFAULT_BUNDLED_PRESET_PACK_ID,
+  PREVIOUS_BUNDLED_PRESET_PACK_ID,
+  type PreparedBundledPresetTheme,
 } from "../../src/main/infra/bundled-presets";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
 import { MANAGED_FILES } from "../../src/main/infra/secure-store";
@@ -19,11 +21,131 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+const PREVIOUS_PRESET_SURFACES: Record<
+  string,
+  {
+    sidebarOverlayOpacity: number;
+    background: string;
+    panel: string;
+    line: string;
+  }
+> = {
+  "red-belief": {
+    sidebarOverlayOpacity: 74,
+    background: "#6f120d",
+    panel: "#881812",
+    line: "rgba(255, 212, 56, 0.28)",
+  },
+  "silver-profile": {
+    sidebarOverlayOpacity: 72,
+    background: "#070707",
+    panel: "#151515",
+    line: "rgba(255, 255, 255, 0.16)",
+  },
+  "forest-slow-life": {
+    sidebarOverlayOpacity: 76,
+    background: "#579864",
+    panel: "#dcecd3",
+    line: "#b4d0aa",
+  },
+  "ink-swordsman": {
+    sidebarOverlayOpacity: 82,
+    background: "#d9dadc",
+    panel: "#ecedef",
+    line: "#c1c3c6",
+  },
+  "sakura-cat": {
+    sidebarOverlayOpacity: 74,
+    background: "#f2b7ca",
+    panel: "#fadce6",
+    line: "#e6bac9",
+  },
+  "white-bear": {
+    sidebarOverlayOpacity: 82,
+    background: "#eeeee8",
+    panel: "#f8f6ee",
+    line: "#dad7cf",
+  },
+  "thunder-swordsman": {
+    sidebarOverlayOpacity: 70,
+    background: "#040404",
+    panel: "#16110a",
+    line: "rgba(255, 166, 22, 0.24)",
+  },
+  "cloud-swordsman": {
+    sidebarOverlayOpacity: 78,
+    background: "#7897a9",
+    panel: "#d7e4ea",
+    line: "#b6cbd5",
+  },
+  "lucky-cats": {
+    sidebarOverlayOpacity: 82,
+    background: "#f3ddaa",
+    panel: "#f7eacc",
+    line: "#e3c997",
+  },
+  "grow-strong": {
+    sidebarOverlayOpacity: 78,
+    background: "#63aa72",
+    panel: "#d8ebd9",
+    line: "#abd0b3",
+  },
+  "warm-tuntun": {
+    sidebarOverlayOpacity: 80,
+    background: "#e7c7b8",
+    panel: "#f5e3d5",
+    line: "#d8b8aa",
+  },
+  "hundred-yuan": {
+    sidebarOverlayOpacity: 80,
+    background: "#e7aaba",
+    panel: "#f5d9e0",
+    line: "#dda8b6",
+  },
+  "line-dogs": {
+    sidebarOverlayOpacity: 78,
+    background: "#68ad76",
+    panel: "#d8ecd9",
+    line: "#a9ceb0",
+  },
+};
+
+function previousPreset(
+  current: PreparedBundledPresetTheme,
+): PreparedBundledPresetTheme {
+  const previous = PREVIOUS_PRESET_SURFACES[current.presetId];
+  if (!previous) throw new Error(`missing predecessor: ${current.presetId}`);
+  return {
+    ...current,
+    sidebarOverlayOpacity: previous.sidebarOverlayOpacity,
+    colors: {
+      ...current.colors,
+      background: previous.background,
+      panel: previous.panel,
+      line: previous.line,
+    },
+  };
+}
+
+function previousPackSource(themes: PreparedBundledPresetTheme[]) {
+  return {
+    packId: PREVIOUS_BUNDLED_PRESET_PACK_ID,
+    async load() {
+      return {
+        packId: PREVIOUS_BUNDLED_PRESET_PACK_ID,
+        replacesPackIds: [],
+        themes,
+      };
+    },
+  };
+}
+
 describe("bundled image theme presets", () => {
   it("strictly loads all 13 catalog themes and verifies every image hash", async () => {
     const pack = await createBundledPresetSource(presetRoot).load();
 
     expect(pack.packId).toBe(DEFAULT_BUNDLED_PRESET_PACK_ID);
+    expect(pack.replacesPackIds).toEqual([PREVIOUS_BUNDLED_PRESET_PACK_ID]);
     expect(pack.themes).toHaveLength(13);
     expect(new Set(pack.themes.map((theme) => theme.themeId)).size).toBe(13);
     expect(new Set(pack.themes.map((theme) => theme.image)).size).toBe(13);
@@ -32,7 +154,11 @@ describe("bundled image theme presets", () => {
         (theme) =>
           theme.imageBytes.byteLength === theme.imageInfo.bytes &&
           theme.imageSha256 === theme.imageInfo.sha256 &&
-          theme.style.mode === "configured",
+          theme.style.mode === "configured" &&
+          theme.sidebarOverlayOpacity === 20 &&
+          theme.colors.background.endsWith(", 0.2)") &&
+          theme.colors.panel.endsWith(", 0.2)") &&
+          theme.colors.line.endsWith(", 0.1)"),
       ),
     ).toBe(true);
   });
@@ -123,6 +249,135 @@ describe("bundled image theme presets", () => {
     expect(reloaded.get(removed.libraryId)).toBeUndefined();
   });
 
+  it("upgrades all untouched predecessor presets in place without changing selection", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const currentSource = createBundledPresetSource(presetRoot);
+    const currentPack = await currentSource.load();
+    const previousThemes = currentPack.themes.map(previousPreset);
+    const previous = previousThemes[0];
+    const legacy = new LocalThemeStore(managed.root, [
+      previousPackSource(previousThemes),
+    ]);
+    await legacy.init();
+    const originals = new Map(
+      legacy
+        .listRecords()
+        .filter((theme) => theme.themeId.startsWith("builtin-"))
+        .map((theme) => [theme.themeId, theme]),
+    );
+    expect(originals.size).toBe(13);
+    for (const preset of previousThemes)
+      expect(originals.get(preset.themeId)?.fingerprint).toBe(
+        preset.previousFingerprint,
+      );
+    const original = legacy
+      .listRecords()
+      .find((theme) => theme.themeId === previous.themeId)!;
+    await legacy.select(original.libraryId, original.revision);
+    legacy.managedStore.close();
+
+    const upgraded = new LocalThemeStore(managed.root, [currentSource]);
+    await upgraded.init();
+    const migratedThemes = upgraded
+      .listRecords()
+      .filter((theme) => theme.themeId.startsWith("builtin-"));
+    expect(migratedThemes).toHaveLength(13);
+    for (const migratedTheme of migratedThemes) {
+      const predecessor = originals.get(migratedTheme.themeId)!;
+      const migratedConfiguration = readThemeConfiguration(migratedTheme.json);
+      expect(migratedTheme).toMatchObject({
+        libraryId: predecessor.libraryId,
+        revision: predecessor.revision + 1,
+        backgroundFile: predecessor.backgroundFile,
+        sidebarOverlayOpacity: 20,
+        status: "ready",
+      });
+      expect(migratedConfiguration.colors.background).toMatch(/, 0\.2\)$/u);
+      expect(migratedConfiguration.colors.panel).toMatch(/, 0\.2\)$/u);
+      expect(migratedConfiguration.colors.line).toMatch(/, 0\.1\)$/u);
+    }
+    const migrated = migratedThemes.find(
+      (theme) => theme.themeId === previous.themeId,
+    )!;
+    const configuration = readThemeConfiguration(migrated.json);
+    expect(migrated).toMatchObject({
+      libraryId: original.libraryId,
+      revision: original.revision + 1,
+      sidebarOverlayOpacity: 20,
+      status: "ready",
+    });
+    expect(configuration.colors).toMatchObject({
+      background: "rgba(111, 18, 13, 0.2)",
+      panel: "rgba(136, 24, 18, 0.2)",
+      line: "rgba(255, 212, 56, 0.1)",
+    });
+    expect(upgraded.selected()?.libraryId).toBe(original.libraryId);
+    const stored = JSON.parse(
+      upgraded.managedStore.readFile(MANAGED_FILES.index)!.toString("utf8"),
+    ) as { installedPresetPacks: string[] };
+    expect(stored.installedPresetPacks).toEqual([
+      PREVIOUS_BUNDLED_PRESET_PACK_ID,
+      DEFAULT_BUNDLED_PRESET_PACK_ID,
+    ]);
+  });
+
+  it("preserves a user-edited predecessor preset while completing the pack migration", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const currentSource = createBundledPresetSource(presetRoot);
+    const currentPack = await currentSource.load();
+    const previous = previousPreset(currentPack.themes[0]);
+    const legacy = new LocalThemeStore(managed.root, [
+      previousPackSource([previous]),
+    ]);
+    await legacy.init();
+    const original = legacy
+      .listRecords()
+      .find((theme) => theme.themeId === previous.themeId)!;
+    const edited = await legacy.patch(original.libraryId, original.revision, {
+      name: "我的赤金主题",
+    });
+    legacy.managedStore.close();
+
+    const upgraded = new LocalThemeStore(managed.root, [currentSource]);
+    await upgraded.init();
+    const preserved = upgraded.get(original.libraryId)!;
+    expect(preserved).toMatchObject({
+      name: "我的赤金主题",
+      revision: edited.revision,
+      fingerprint: edited.fingerprint,
+      status: "draft",
+    });
+    expect(upgraded.listRecords()).toHaveLength(3);
+  });
+
+  it("does not revive a predecessor preset deleted before the migration", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const currentSource = createBundledPresetSource(presetRoot);
+    const currentPack = await currentSource.load();
+    const previous = previousPreset(currentPack.themes[0]);
+    const legacy = new LocalThemeStore(managed.root, [
+      previousPackSource([previous]),
+    ]);
+    await legacy.init();
+    const original = legacy
+      .listRecords()
+      .find((theme) => theme.themeId === previous.themeId)!;
+    await legacy.delete(original.libraryId, original.revision);
+    legacy.managedStore.close();
+
+    const upgraded = new LocalThemeStore(managed.root, [currentSource]);
+    await upgraded.init();
+    expect(
+      upgraded
+        .listRecords()
+        .some((theme) => theme.themeId === previous.themeId),
+    ).toBe(false);
+    expect(upgraded.listRecords()).toHaveLength(2);
+  });
+
   it("rolls back every staged image when a pack write fails", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);
@@ -136,6 +391,7 @@ describe("bundled image theme presets", () => {
       packId: "test-pack",
       load: vi.fn(async () => ({
         packId: "test-pack",
+        replacesPackIds: [],
         themes: prepared.themes.slice(0, 2),
       })),
     };

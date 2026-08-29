@@ -93,33 +93,4 @@ describe("ThemeService", () => {
     expect(metadata.height).toBe(64);
     expect(metadata.hasAlpha).toBe(true);
   });
-
-  it("tells the user to use a full export when legacy CSS is unsupported", async () => {
-    const managed = await createManagedRoot();
-    managedCleanups.push(managed.cleanup);
-    const store = new LocalThemeStore(managed.root);
-    await store.init();
-    const theme = store.listRecords()[0]!;
-    theme.css =
-      '[data-ds-part="titlebar"] { color: var(--ds-theme-color-top-bar-text); }';
-    showSaveDialog.mockResolvedValue({
-      canceled: false,
-      filePath: join(managed.localAppData, "legacy.zip"),
-    });
-    const service = new ThemeService(
-      store,
-      () => ({}) as never,
-      () => ({}) as never,
-    );
-
-    await expect(
-      service.exportZip(theme.libraryId, theme.revision, "compatibility"),
-    ).resolves.toEqual({
-      ok: false,
-      error: {
-        code: "UNSAFE_CSS",
-        messageKey: "theme.legacyExportUnsupported",
-      },
-    });
-  });
 });

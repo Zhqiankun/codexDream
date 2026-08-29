@@ -24,8 +24,11 @@ const presetThemes = Array.isArray(presetCatalog.themes)
   ? presetCatalog.themes
   : [];
 if (
-  presetCatalog.schemaVersion !== 1 ||
+  presetCatalog.schemaVersion !== 2 ||
   typeof presetCatalog.packId !== "string" ||
+  !Array.isArray(presetCatalog.replacesPackIds) ||
+  presetCatalog.replacesPackIds.length !== 1 ||
+  presetCatalog.replacesPackIds[0] !== "user-wallpapers-2026-08-29-v1" ||
   presetThemes.length !== 13 ||
   presetThemes.some(
     (theme) =>
@@ -33,7 +36,9 @@ if (
       typeof theme.image !== "string" ||
       !/^[a-z0-9][a-z0-9.-]{0,79}\.(?:png|jpg|webp)$/u.test(theme.image) ||
       typeof theme.imageSha256 !== "string" ||
-      !/^[a-f0-9]{64}$/u.test(theme.imageSha256),
+      !/^[a-f0-9]{64}$/u.test(theme.imageSha256) ||
+      typeof theme.previousFingerprint !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(theme.previousFingerprint),
   )
 ) {
   console.error("Package verification failed; preset catalog is invalid.");

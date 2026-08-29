@@ -97,8 +97,6 @@ const errorMessages: Record<string, string> = {
   "theme.inUse": "该主题正在用于下次启动或当前受管会话，请先切换并结束会话。",
   "theme.imageMissing": "请先为主题选择有效背景图。",
   "theme.formalExportUnavailable": "此主题已编辑，无法原样导出正式包。",
-  "theme.legacyExportUnsupported":
-    "当前高级 CSS 使用了旧版不支持的能力，请改用“导出主题 ZIP”。",
   "import.transactionNotFound": "导入事务已失效，请重新选择 ZIP。",
   "import.replaceArguments": "替换参数无效，请重新导入。",
   "window.unavailable": "主题工作台窗口当前不可用。",
@@ -589,9 +587,23 @@ export function App() {
                 onDoubleClick={() => activateTheme(theme)}
               >
                 <span
-                  className="theme-swatch"
-                  style={{ background: theme.accent }}
-                />
+                  className={`theme-swatch ${theme.backgroundThumbnailUrl ? "with-thumbnail" : "color-only"}`}
+                  style={{ background: theme.backgroundColor }}
+                  aria-hidden="true"
+                >
+                  {theme.backgroundThumbnailUrl ? (
+                    <img
+                      src={theme.backgroundThumbnailUrl}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                      onError={(event) => {
+                        event.currentTarget.hidden = true;
+                      }}
+                    />
+                  ) : null}
+                </span>
                 <span className="theme-row-copy">
                   <strong>{theme.name}</strong>
                   <small>
@@ -1138,6 +1150,7 @@ function StudioView({
     "--preview-blur": `${draft.styleConfig.blur}px`,
     "--preview-radius": `${draft.styleConfig.radius}px`,
     "--preview-border": `${draft.styleConfig.borderWidth}px`,
+    "--preview-sidebar-opacity": `${draft.sidebarOverlayOpacity}%`,
     "--ds-theme-color-background": draft.colors.background,
     "--ds-theme-color-panel": draft.colors.panel,
     "--ds-theme-color-sidebar-text": draft.colors.sidebarText,
@@ -1204,25 +1217,6 @@ function StudioView({
           >
             导出主题 ZIP
           </button>
-          <button
-            className="secondary-button"
-            disabled={busy || !canPersistDraft}
-            title={
-              persistenceDisabledReason ??
-              "适用于 v1.0.x 至 v1.2.x；会移除六个新颜色字段，并拒绝旧版不支持的高级 CSS"
-            }
-            onClick={() =>
-              void persistAnd((current) =>
-                bridge.exportZip({
-                  libraryId: current.libraryId,
-                  expectedRevision: current.revision,
-                  format: "compatibility",
-                }),
-              )
-            }
-          >
-            导出旧版兼容 ZIP
-          </button>
           {detail.packageFormat === "formal" && (
             <button
               className="secondary-button"
@@ -1281,6 +1275,47 @@ function StudioView({
             保存主题
           </button>
         </div>
+      </div>
+      <div className="apply-card top-apply-card">
+        <div className="apply-card-copy">
+          <span className="apply-card-kicker">启动主题</span>
+          <strong>
+            {selectedForNextLaunch ? "当前已选择" : "选择用于下次启动"}
+          </strong>
+          <p>
+            {selectedForNextLaunch
+              ? "CodexStyle 启动的新会话将尝试注入此主题。"
+              : themeJsonDirty
+                ? "theme.json 有未应用修改，请先校验或恢复。"
+                : changed
+                  ? "请先保存草稿，再将最新版本用于下次启动。"
+                  : "不会修改已经运行的 Codex 会话。"}
+          </p>
+        </div>
+        <button
+          className={
+            selectedForNextLaunch ? "secondary-button" : "primary-button"
+          }
+          disabled={busy || !canSelectForNextLaunch}
+          onClick={() =>
+            void run(() =>
+              selectedForNextLaunch
+                ? bridge.clearSelection()
+                : bridge.selectForNextLaunch({
+                    libraryId: detail.libraryId,
+                    expectedRevision: detail.revision,
+                  }),
+            )
+          }
+        >
+          {selectedForNextLaunch
+            ? "取消选择"
+            : themeJsonDirty
+              ? "先应用 JSON"
+              : changed
+                ? "请先保存"
+                : "选择主题"}
+        </button>
       </div>
       {detail.validation.warnings.includes("signature-unverified") && (
         <div className="warning-strip" role="status">
@@ -1403,17 +1438,7 @@ function StudioView({
                 </div>
               </div>
               <div className="mock-workspace-shell">
-                <div
-                  className="mock-sidebar"
-                  data-ds-part="sidebar"
-                  style={
-                    draft.backgroundScope === "window"
-                      ? {
-                          backgroundColor: `color-mix(in srgb, ${draft.colors.panel} ${draft.sidebarOverlayOpacity}%, transparent)`,
-                        }
-                      : undefined
-                  }
-                >
+                <div className="mock-sidebar" data-ds-part="sidebar">
                   <div className="mock-sidebar-head">
                     <strong>Codex⌄</strong>
                     <span aria-hidden="true">⌕ ·</span>
@@ -1656,46 +1681,6 @@ function StudioView({
                 </div>
               </div>
             </div>
-          </div>
-          <div className="apply-card">
-            <div>
-              <strong>
-                {selectedForNextLaunch ? "当前已选择" : "选择用于下次启动"}
-              </strong>
-              <p>
-                {selectedForNextLaunch
-                  ? "CodexStyle 启动的新会话将尝试注入此主题。"
-                  : themeJsonDirty
-                    ? "theme.json 有未应用修改，请先校验或恢复。"
-                    : changed
-                      ? "请先保存草稿，再将最新版本用于下次启动。"
-                      : "不会修改已经运行的 Codex 会话。"}
-              </p>
-            </div>
-            <button
-              className={
-                selectedForNextLaunch ? "secondary-button" : "primary-button"
-              }
-              disabled={busy || !canSelectForNextLaunch}
-              onClick={() =>
-                void run(() =>
-                  selectedForNextLaunch
-                    ? bridge.clearSelection()
-                    : bridge.selectForNextLaunch({
-                        libraryId: detail.libraryId,
-                        expectedRevision: detail.revision,
-                      }),
-                )
-              }
-            >
-              {selectedForNextLaunch
-                ? "取消选择"
-                : themeJsonDirty
-                  ? "先应用 JSON"
-                  : changed
-                    ? "请先保存"
-                    : "选择主题"}
-            </button>
           </div>
         </div>
       </div>

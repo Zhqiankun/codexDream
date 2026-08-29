@@ -121,8 +121,6 @@ const properties = new Set([
 const selectorPattern =
   /^\[data-ds-part="([a-z]+(?:-[a-z]+)*)"\](?::([a-z-]+))?$/u;
 const propertyPattern = /^[a-z][a-z-]*$/u;
-const LEGACY_UNSUPPORTED_PATTERN =
-  /(?:\[data-ds-part="(?:titlebar|change-card)"\]|:focus-within|--ds-theme-color-(?:sidebar-text|assistant-message-text|user-message-text|change-card-background|change-card-text|top-bar-background|top-bar-text))/u;
 const controlPattern =
   /[\u0000-\u0008\u000b\u000e-\u001f\u007f-\u009f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/u;
 const numberPattern = /^(?:-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0?\.[0-9]+))$/u;
@@ -148,20 +146,6 @@ export function validateSafeCss(css: string): CssValidation {
       0,
     );
   }
-}
-
-/** Freezes the Safe CSS delta supported by published v1.0.x clients. */
-export function validateLegacySafeCss(css: string): CssValidation {
-  const result = validateSafeCss(css);
-  if (!result.valid || LEGACY_UNSUPPORTED_PATTERN.test(css))
-    return result.valid
-      ? invalid(
-          ["legacy-feature-not-supported"],
-          result.ruleCount,
-          result.declarationCount,
-        )
-      : result;
-  return result;
 }
 
 class SafeCssParser {

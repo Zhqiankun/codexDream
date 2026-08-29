@@ -18,7 +18,7 @@ import {
 } from "../../contracts";
 import { themeFingerprint, type ThemeRecord } from "../domain/theme";
 import { validateImage } from "./image";
-import { validateLegacySafeCss, validateSafeCss } from "./safe-css";
+import { validateSafeCss } from "./safe-css";
 
 export interface ParsedThemePackage {
   record: ThemeRecord;
@@ -244,7 +244,6 @@ export async function writeSimplifiedZip(
   filePath: string,
   record: ThemeRecord,
   image: Buffer,
-  options: { legacyColorContract?: boolean } = {},
 ): Promise<void> {
   const extension = await validateExportImage(record, image);
   const imageName = `background.${extension}`;
@@ -263,20 +262,6 @@ export async function writeSimplifiedZip(
     },
     configuration,
   );
-  if (options.legacyColorContract) {
-    if (!validateLegacySafeCss(record.css).valid)
-      throw new Error("UNSAFE_CSS:legacy-export-unsupported");
-    const {
-      assistantMessageText: _assistantMessageText,
-      userMessageText: _userMessageText,
-      changeCardBackground: _changeCardBackground,
-      changeCardText: _changeCardText,
-      topBarBackground: _topBarBackground,
-      topBarText: _topBarText,
-      ...legacyColors
-    } = configuration.colors;
-    serialized.colors = legacyColors;
-  }
   const themeJson = Buffer.from(JSON.stringify(serialized, null, 2), "utf8");
   await writeZipAtomically(filePath, (zip) => {
     zip.addBuffer(themeJson, "theme.json");

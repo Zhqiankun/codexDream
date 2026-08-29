@@ -177,7 +177,10 @@ describe("theme payload", () => {
       "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 42%, transparent) !important",
     );
     expect(style?.textContent).toContain(
-      "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent) !important",
+      "background-color: rgb(from var(--ds-theme-color-panel) r g b / 42%) !important",
+    );
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-background) !important",
     );
     expect(style?.textContent).toContain('data-ds-part="main-top-fade"');
     expect(style?.textContent).toContain(
@@ -286,6 +289,12 @@ describe("theme payload", () => {
     expect(style?.textContent).toContain("padding: 12px 16px");
     expect(style?.textContent).toContain(
       "background-color: var(--ds-theme-color-top-bar-background) !important",
+    );
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-panel) !important",
+    );
+    expect(style?.textContent).not.toContain(
+      "var(--ds-theme-color-panel) 88%, transparent",
     );
     expect(style?.textContent).toContain(
       "color: var(--ds-theme-color-top-bar-text) !important",

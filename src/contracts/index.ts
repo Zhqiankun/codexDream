@@ -69,7 +69,7 @@ export type Result<T> =
 
 export type ThemeStatus = "draft" | "ready";
 export type PackageFormat = "simplified" | "formal";
-export type ExportFormat = PackageFormat | "compatibility";
+export type ExportFormat = PackageFormat;
 
 export interface ThemeSummary {
   libraryId: string;
@@ -78,7 +78,9 @@ export interface ThemeSummary {
   revision: number;
   updatedAt: string;
   accent: string;
+  backgroundColor: string;
   hasBackground: boolean;
+  backgroundThumbnailUrl?: string;
   selectedForNextLaunch: boolean;
   signed: boolean;
   packageFormat: PackageFormat;
@@ -331,7 +333,7 @@ export const ExportSchema = z
     ...VersionField,
     libraryId: z.string().uuid(),
     expectedRevision: z.number().int().nonnegative(),
-    format: z.enum(["simplified", "compatibility", "formal"]),
+    format: z.enum(["simplified", "formal"]),
   })
   .strict();
 

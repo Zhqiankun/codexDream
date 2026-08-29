@@ -165,6 +165,9 @@ requireMarkers(themeDomain, "theme-summary", [
   "safeThemeAccent",
   "DEFAULT_ACCENT",
   "ACCENT_PATTERN",
+  "backgroundColor",
+  "backgroundThumbnailUrl",
+  "hasUserSelectedBackground",
 ]);
 
 const zip = source("src/main/infra/theme-zip.ts");
@@ -193,6 +196,8 @@ requireMarkers(store, "store-contract", [
   "STORE_TAMPERED",
   "installedPresetPacks",
   "installBundledPresetPack",
+  "replacesInstalledPack",
+  "previousFingerprint",
 ]);
 
 const bundledPresets = source("src/main/infra/bundled-presets.ts");
@@ -200,8 +205,19 @@ requireMarkers(bundledPresets, "bundled-presets", [
   "readImageFileBounded",
   "validateImage",
   "imageSha256",
+  "replacesPackIds",
+  "previousFingerprint",
   "BUNDLED_PRESET_PACK_INVALID",
 ]);
+
+const rendererApp = source("src/renderer/app/App.tsx");
+requireMarkers(rendererApp, "theme-library-layout", [
+  "backgroundThumbnailUrl",
+  "backgroundColor",
+  "top-apply-card",
+]);
+if (rendererApp.includes("导出旧版兼容 ZIP"))
+  failures.push("renderer-exposes-legacy-compatible-export");
 
 const cdp = source("src/main/session/cdp-client.ts");
 requireMarkers(cdp, "cdp-client", [

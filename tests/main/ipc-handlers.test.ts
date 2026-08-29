@@ -108,6 +108,28 @@ describe("IPC handler command boundary", () => {
     expect(controller.patchDraft).not.toHaveBeenCalled();
   });
 
+  it("rejects the removed legacy-compatible export format", async () => {
+    const controller = controllerFixture();
+    registerIpc(controller as never);
+
+    const result = await handlers.get("theme.exportZip")!(trustedEvent(), {
+      v: 3,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 1,
+      format: "compatibility",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "IPC_INVALID",
+        messageKey: "ipc.invalid",
+        details: [{ key: "format" }],
+      },
+    });
+    expect(controller.exportTheme).not.toHaveBeenCalled();
+  });
+
   it("logs only safe validation paths and issue codes", async () => {
     const controller = controllerFixture();
     const logger = {

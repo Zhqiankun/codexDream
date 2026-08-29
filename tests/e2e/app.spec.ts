@@ -63,6 +63,73 @@ test("starts the real Electron shell with native storage and completes a local w
         ]),
       );
 
+    const preset = await page.evaluate(async () => {
+      const snapshot = await globalThis.window.codexStyle.getSnapshot();
+      if (!snapshot.ok) return undefined;
+      const summary = snapshot.data.themes.find(
+        (theme) => theme.name === "赤金信念",
+      );
+      if (!summary) return undefined;
+      const detail = await globalThis.window.codexStyle.getTheme({
+        libraryId: summary.libraryId,
+      });
+      return detail.ok ? { summary, detail: detail.data } : undefined;
+    });
+    expect(preset).toMatchObject({
+      summary: {
+        backgroundColor: "rgba(111, 18, 13, 0.2)",
+        backgroundThumbnailUrl: expect.stringContaining("app://theme-asset/"),
+      },
+      detail: {
+        sidebarOverlayOpacity: 20,
+        colors: {
+          background: "rgba(111, 18, 13, 0.2)",
+          panel: "rgba(136, 24, 18, 0.2)",
+          line: "rgba(255, 212, 56, 0.1)",
+        },
+      },
+    });
+    await expect(page.locator(".theme-swatch img")).toHaveCount(13);
+    await expect(
+      page.getByRole("button", { name: "导出旧版兼容 ZIP" }),
+    ).toHaveCount(0);
+    expect(
+      await page.locator(".top-apply-card").evaluate((selection) => {
+        const editor = document.querySelector(".editor-grid");
+        return Boolean(
+          editor &&
+            selection.compareDocumentPosition(editor) &
+              Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      }),
+    ).toBe(true);
+
+    await page.getByRole("button", { name: /赤金信念/u }).click();
+    await expect(page.locator('input[value="赤金信念"]')).toBeVisible();
+    const presetSurfaces = await page
+      .locator(".mock-codex")
+      .evaluate((root) => {
+        const style = (selector: string) =>
+          getComputedStyle(root.querySelector(selector)!);
+        return {
+          relativeColorSupported: CSS.supports(
+            "color",
+            "rgb(from rgba(1, 2, 3, 0.2) r g b / 20%)",
+          ),
+          main: style(".mock-main").backgroundColor,
+          sidebar: style(".mock-sidebar").backgroundColor,
+          dialog: style(".mock-dialog").backgroundColor,
+          line: style(".mock-dialog").borderTopColor,
+        };
+      });
+    expect(presetSurfaces).toEqual({
+      relativeColorSupported: true,
+      main: "rgba(111, 18, 13, 0.2)",
+      sidebar: "color(srgb 0.533333 0.0941176 0.0705882 / 0.2)",
+      dialog: "rgba(136, 24, 18, 0.2)",
+      line: "rgba(255, 212, 56, 0.1)",
+    });
+
     await page.getByRole("button", { name: "＋ 新建主题" }).click();
     await expect(page.locator('input[value="新主题"]')).toBeVisible();
     await page.getByRole("tab", { name: "颜色" }).click();
@@ -79,7 +146,12 @@ test("starts the real Electron shell with native storage and completes a local w
           return result.data.themes.find((theme) => theme.name === "新主题");
         }),
       )
-      .toMatchObject({ status: "ready", hasBackground: true });
+      .toMatchObject({
+        status: "ready",
+        hasBackground: true,
+        backgroundColor: "#123456",
+        backgroundThumbnailUrl: undefined,
+      });
 
     const snapshot = await page.evaluate(() =>
       globalThis.window.codexStyle.getSnapshot(),

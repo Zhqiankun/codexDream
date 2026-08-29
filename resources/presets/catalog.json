@@ -1,6 +1,7 @@
 {
-  "schemaVersion": 1,
-  "packId": "user-wallpapers-2026-08-29-v1",
+  "schemaVersion": 2,
+  "packId": "user-wallpapers-2026-08-29-v2",
+  "replacesPackIds": ["user-wallpapers-2026-08-29-v1"],
   "themes": [
     {
       "presetId": "red-belief",
@@ -9,8 +10,9 @@
       "description": "深红底色与赤金强调的沉稳主题。",
       "image": "red-belief.png",
       "imageSha256": "5247a5d4aa383dbf61c09d7d9d80844428748d61de22c569bfb7d648883a8138",
+      "previousFingerprint": "1aaa6631398ef45f535b3a389abae6d68c1d458cc250679802c9ef0609af9c9d",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 74,
+      "sidebarOverlayOpacity": 20,
       "appearance": "dark",
       "art": {
         "focusX": 0.5,
@@ -19,8 +21,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#6f120d",
-        "panel": "#881812",
+        "background": "rgba(111, 18, 13, 0.2)",
+        "panel": "rgba(136, 24, 18, 0.2)",
         "sidebarText": "#fff1c4",
         "panelAlt": "#9c2118",
         "assistantPanel": "#8c1d16",
@@ -36,7 +38,7 @@
         "highlight": "#b63524",
         "text": "#fff6dc",
         "muted": "#e0b28a",
-        "line": "rgba(255, 212, 56, 0.28)"
+        "line": "rgba(255, 212, 56, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -60,8 +62,9 @@
       "description": "黑白光影与低干扰深色表面。",
       "image": "silver-profile.jpg",
       "imageSha256": "c04fda69dddf554d6be7d847194e4317941f45ca53f25b324572d4ca0098ea80",
+      "previousFingerprint": "c50d09c920871da81bd19e2627590fa704c74f98db8d76a8d7230864aa8c526b",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 72,
+      "sidebarOverlayOpacity": 20,
       "appearance": "dark",
       "art": {
         "focusX": 0.72,
@@ -70,8 +73,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#070707",
-        "panel": "#151515",
+        "background": "rgba(7, 7, 7, 0.2)",
+        "panel": "rgba(21, 21, 21, 0.2)",
         "sidebarText": "#f2f2f2",
         "panelAlt": "#242424",
         "assistantPanel": "#1f1f1f",
@@ -87,7 +90,7 @@
         "highlight": "#33333a",
         "text": "#f5f5f5",
         "muted": "#a7a7a7",
-        "line": "rgba(255, 255, 255, 0.16)"
+        "line": "rgba(255, 255, 255, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -111,8 +114,9 @@
       "description": "清新草绿与暖橙点缀的轻盈主题。",
       "image": "forest-slow-life.jpg",
       "imageSha256": "bf191746eb7cc1c58124b42b9fc64da40de11572d272eb435e59300ab91b05fa",
+      "previousFingerprint": "8238bbc4a7995648c4bf5dd415ffb4f0732fc690dd66d1a842473235f061d7a6",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 76,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.76,
@@ -121,8 +125,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#579864",
-        "panel": "#dcecd3",
+        "background": "rgba(87, 152, 100, 0.2)",
+        "panel": "rgba(220, 236, 211, 0.2)",
         "sidebarText": "#244b33",
         "panelAlt": "#f0f7e9",
         "assistantPanel": "#edf6e7",
@@ -138,7 +142,7 @@
         "highlight": "#cbe6b9",
         "text": "#173625",
         "muted": "#5e7c65",
-        "line": "#b4d0aa"
+        "line": "rgba(180, 208, 170, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -162,8 +166,9 @@
       "description": "水墨留白与克制灰阶的清朗主题。",
       "image": "ink-swordsman.jpg",
       "imageSha256": "71a03b53fd2711b1d57e05ef781d8a9aad156ca48530e167e3e51b86291d6a0d",
+      "previousFingerprint": "166890843c9e00757b4d39d94debbe980c60b0f8520e67a44179f61d05cc3432",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 82,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.5,
@@ -172,8 +177,8 @@
         "taskMode": "ambient"
       },
       "colors": {
-        "background": "#d9dadc",
-        "panel": "#ecedef",
+        "background": "rgba(217, 218, 220, 0.2)",
+        "panel": "rgba(236, 237, 239, 0.2)",
         "sidebarText": "#2a2a2d",
         "panelAlt": "#fafafa",
         "assistantPanel": "#f3f3f4",
@@ -189,7 +194,7 @@
         "highlight": "#e0d4d8",
         "text": "#17171a",
         "muted": "#6d7075",
-        "line": "#c1c3c6"
+        "line": "rgba(193, 195, 198, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -213,8 +218,9 @@
       "description": "樱粉背景与青蓝猫眸强调色。",
       "image": "sakura-cat.jpg",
       "imageSha256": "c7cb5c2474d47ffff852652ab0e6b048184ecb713b4ef4f9bb6c5528a2dc69ab",
+      "previousFingerprint": "922ff331e35c36c441f6224b7952909b0f0e22845ca8421ef127acc26e9f5607",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 74,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.82,
@@ -223,8 +229,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#f2b7ca",
-        "panel": "#fadce6",
+        "background": "rgba(242, 183, 202, 0.2)",
+        "panel": "rgba(250, 220, 230, 0.2)",
         "sidebarText": "#3b4d55",
         "panelAlt": "#fff8fa",
         "assistantPanel": "#fff4f7",
@@ -240,7 +246,7 @@
         "highlight": "#f9d3df",
         "text": "#33484d",
         "muted": "#74848b",
-        "line": "#e6bac9"
+        "line": "rgba(230, 186, 201, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -264,8 +270,9 @@
       "description": "极简白色空间与暖茶色点缀。",
       "image": "white-bear.jpg",
       "imageSha256": "d157056977e42089f7902d25189c9813d5baeea749cc9266b9da488791d8e5be",
+      "previousFingerprint": "b8a393e7fa361e4a64f922ff64bbbbc99595938af2b17f03dd22d33b5452b897",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 82,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.82,
@@ -274,8 +281,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#eeeee8",
-        "panel": "#f8f6ee",
+        "background": "rgba(238, 238, 232, 0.2)",
+        "panel": "rgba(248, 246, 238, 0.2)",
         "sidebarText": "#252525",
         "panelAlt": "#ffffff",
         "assistantPanel": "#fffcf5",
@@ -291,7 +298,7 @@
         "highlight": "#f3e2cb",
         "text": "#1a1a1a",
         "muted": "#77746e",
-        "line": "#dad7cf"
+        "line": "rgba(218, 215, 207, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -315,8 +322,9 @@
       "description": "黑金底色与雷光橙黄的高对比主题。",
       "image": "thunder-swordsman.jpg",
       "imageSha256": "799578b7d1b4a521db83caf175e3ac05b045e1d96ad9a601fa14fbc68812b178",
+      "previousFingerprint": "bc9759c91ca73ec15bbfea1a0a2ba0565cdb224295df26e752acd37156952b14",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 70,
+      "sidebarOverlayOpacity": 20,
       "appearance": "dark",
       "art": {
         "focusX": 0.83,
@@ -325,8 +333,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#040404",
-        "panel": "#16110a",
+        "background": "rgba(4, 4, 4, 0.2)",
+        "panel": "rgba(22, 17, 10, 0.2)",
         "sidebarText": "#fff2cc",
         "panelAlt": "#25170d",
         "assistantPanel": "#20140c",
@@ -342,7 +350,7 @@
         "highlight": "#4a250b",
         "text": "#fff3d7",
         "muted": "#b9a17f",
-        "line": "rgba(255, 166, 22, 0.24)"
+        "line": "rgba(255, 166, 22, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -366,8 +374,9 @@
       "description": "云雾蓝灰与山水留白的古风主题。",
       "image": "cloud-swordsman.jpg",
       "imageSha256": "6bee3cee46f3f93f305c5a2cff8a1d3ebba9eb7ff963d368a7c6c2ebdaf23703",
+      "previousFingerprint": "e67c7dfdf5a5a8b933417f1a295c36f128603f96bca9bd2c3746440426f83aaa",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 78,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.73,
@@ -376,8 +385,8 @@
         "taskMode": "ambient"
       },
       "colors": {
-        "background": "#7897a9",
-        "panel": "#d7e4ea",
+        "background": "rgba(120, 151, 169, 0.2)",
+        "panel": "rgba(215, 228, 234, 0.2)",
         "sidebarText": "#173043",
         "panelAlt": "#eef4f7",
         "assistantPanel": "#e8f0f4",
@@ -393,7 +402,7 @@
         "highlight": "#c7dce6",
         "text": "#142a3a",
         "muted": "#58717e",
-        "line": "#b6cbd5"
+        "line": "rgba(182, 203, 213, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -417,8 +426,9 @@
       "description": "奶油暖黄与活泼粉橙的好运主题。",
       "image": "lucky-cats.jpg",
       "imageSha256": "20e72c12714cbaaef4f320d1065a7d71504c3c2bd0dc5e1e3df757c584e4936b",
+      "previousFingerprint": "cdc6c80a52bf70e3ee604dd92699e0110672b06dd55dd6aac3229ca02150d0c8",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 82,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.5,
@@ -427,8 +437,8 @@
         "taskMode": "ambient"
       },
       "colors": {
-        "background": "#f3ddaa",
-        "panel": "#f7eacc",
+        "background": "rgba(243, 221, 170, 0.2)",
+        "panel": "rgba(247, 234, 204, 0.2)",
         "sidebarText": "#4d3837",
         "panelAlt": "#fff9e8",
         "assistantPanel": "#fff4d4",
@@ -444,7 +454,7 @@
         "highlight": "#ffe19b",
         "text": "#4b3738",
         "muted": "#826b68",
-        "line": "#e3c997"
+        "line": "rgba(227, 201, 151, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -468,8 +478,9 @@
       "description": "明快草绿与橙色强调的励志主题。",
       "image": "grow-strong.jpg",
       "imageSha256": "50714fd5d4d54acfdc2b3fc44ca32c67da994044267ce0c8eccb7c066b3c2ece",
+      "previousFingerprint": "bc85dba3b4e50d4f0fd1193c1a7bfe1d8683dac9d6658d7246ae57ae92ab3d0e",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 78,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.5,
@@ -478,8 +489,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#63aa72",
-        "panel": "#d8ebd9",
+        "background": "rgba(99, 170, 114, 0.2)",
+        "panel": "rgba(216, 235, 217, 0.2)",
         "sidebarText": "#173620",
         "panelAlt": "#f7fff8",
         "assistantPanel": "#edf8ee",
@@ -495,7 +506,7 @@
         "highlight": "#c8e7ce",
         "text": "#10281b",
         "muted": "#54745c",
-        "line": "#abd0b3"
+        "line": "rgba(171, 208, 179, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -519,8 +530,9 @@
       "description": "暖橙角色与柔和室内光线主题。",
       "image": "warm-tuntun.jpg",
       "imageSha256": "9ee3fb195db76ba122e5febb2c15723928ac75c871bc5214a4c9076fce59dd1d",
+      "previousFingerprint": "09f87c523d593f7e2e55d0af4e7c072a45487b9b62b6279ca7e3d3b4d3cbc88e",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 80,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.52,
@@ -529,8 +541,8 @@
         "taskMode": "ambient"
       },
       "colors": {
-        "background": "#e7c7b8",
-        "panel": "#f5e3d5",
+        "background": "rgba(231, 199, 184, 0.2)",
+        "panel": "rgba(245, 227, 213, 0.2)",
         "sidebarText": "#533728",
         "panelAlt": "#fff3e9",
         "assistantPanel": "#ffe9d2",
@@ -546,7 +558,7 @@
         "highlight": "#ffd7aa",
         "text": "#4b302d",
         "muted": "#86675e",
-        "line": "#d8b8aa"
+        "line": "rgba(216, 184, 170, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -570,8 +582,9 @@
       "description": "绯红纸币纹理与通透浅色面板。",
       "image": "hundred-yuan.jpg",
       "imageSha256": "75cc2f0eb2c5dda00b9b81cb3a4a72c1b6c5a8382f38c480b609b5650534b776",
+      "previousFingerprint": "5e8cc24ce9a98fde55e726ddf63449aa732575471449240b42a37bd5ecd87482",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 80,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.66,
@@ -580,8 +593,8 @@
         "taskMode": "ambient"
       },
       "colors": {
-        "background": "#e7aaba",
-        "panel": "#f5d9e0",
+        "background": "rgba(231, 170, 186, 0.2)",
+        "panel": "rgba(245, 217, 224, 0.2)",
         "sidebarText": "#5a2030",
         "panelAlt": "#fff7f8",
         "assistantPanel": "#fceaf0",
@@ -597,7 +610,7 @@
         "highlight": "#f4c7d4",
         "text": "#55192a",
         "muted": "#8a5b6a",
-        "line": "#dda8b6"
+        "line": "rgba(221, 168, 182, 0.1)"
       },
       "style": {
         "mode": "configured",
@@ -621,8 +634,9 @@
       "description": "晴绿底色与手绘线条角色主题。",
       "image": "line-dogs.jpg",
       "imageSha256": "aae78c800bfcf8751ff9bc8fbd825de4e729d8fe14d45ceab25e6b646790873d",
+      "previousFingerprint": "7bebf9606bc0d24d9c309c96c9920843ca87e24221d06da223c40147db6c8b01",
       "backgroundScope": "window",
-      "sidebarOverlayOpacity": 78,
+      "sidebarOverlayOpacity": 20,
       "appearance": "light",
       "art": {
         "focusX": 0.5,
@@ -631,8 +645,8 @@
         "taskMode": "full"
       },
       "colors": {
-        "background": "#68ad76",
-        "panel": "#d8ecd9",
+        "background": "rgba(104, 173, 118, 0.2)",
+        "panel": "rgba(216, 236, 217, 0.2)",
         "sidebarText": "#244c31",
         "panelAlt": "#f1fff3",
         "assistantPanel": "#eaf8ec",
@@ -648,7 +662,7 @@
         "highlight": "#cde9d1",
         "text": "#244c31",
         "muted": "#64816c",
-        "line": "#a9ceb0"
+        "line": "rgba(169, 206, 176, 0.1)"
       },
       "style": {
         "mode": "configured",

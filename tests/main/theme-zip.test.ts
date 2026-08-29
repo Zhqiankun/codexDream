@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, afterEach } from "vitest";
 import sharp from "sharp";
-import yauzl from "yauzl";
 import yazl from "yazl";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
 import {
@@ -51,7 +50,7 @@ describe("theme zip compatibility", () => {
     expect(parsed.record.sidebarOverlayOpacity).toBe(38);
   });
 
-  it("round-trips structured design and generated CSS in a compatibility ZIP", async () => {
+  it("round-trips structured design and generated CSS in the current ZIP", async () => {
     const managed = await createManagedRoot();
     managedCleanups.push(managed.cleanup);
     const store = new LocalThemeStore(managed.root);
@@ -150,53 +149,6 @@ describe("theme zip compatibility", () => {
     expect(colors.changeCardText).toBe(previousColors.text);
     expect(colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
     expect(colors.topBarText).toBe(previousColors.muted);
-  });
-
-  it("exports a separately labelled package for strict older clients", async () => {
-    const managed = await createManagedRoot();
-    managedCleanups.push(managed.cleanup);
-    const store = new LocalThemeStore(managed.root);
-    await store.init();
-    const theme = store.listRecords()[0];
-    const image = store.getBackground(theme.libraryId)!;
-    const zipPath = join(managed.localAppData, "legacy-compatible.zip");
-
-    await writeSimplifiedZip(zipPath, theme, image, {
-      legacyColorContract: true,
-    });
-    const rawTheme = JSON.parse(
-      (await readZipEntry(zipPath, "theme.json")).toString("utf8"),
-    ) as { colors: Record<string, unknown> };
-    const rawColors = rawTheme.colors;
-    expect(rawColors).toHaveProperty("sidebarText");
-    expect(rawColors).toHaveProperty("assistantPanel");
-    expect(rawColors).not.toHaveProperty("assistantMessageText");
-    expect(rawColors).not.toHaveProperty("userMessageText");
-    expect(rawColors).not.toHaveProperty("changeCardBackground");
-    expect(rawColors).not.toHaveProperty("changeCardText");
-    expect(rawColors).not.toHaveProperty("topBarBackground");
-    expect(rawColors).not.toHaveProperty("topBarText");
-  });
-
-  it("refuses a legacy export when advanced CSS uses current-only tokens", async () => {
-    const managed = await createManagedRoot();
-    managedCleanups.push(managed.cleanup);
-    const store = new LocalThemeStore(managed.root);
-    await store.init();
-    const theme = store.listRecords()[0];
-    const image = store.getBackground(theme.libraryId)!;
-
-    await expect(
-      writeSimplifiedZip(
-        join(managed.localAppData, "legacy-incompatible.zip"),
-        {
-          ...theme,
-          css: '[data-ds-part="titlebar"] { color: var(--ds-theme-color-top-bar-text); }',
-        },
-        image,
-        { legacyColorContract: true },
-      ),
-    ).rejects.toThrow("UNSAFE_CSS:legacy-export-unsupported");
   });
 
   it("rejects an image whose bytes do not match its extension", async () => {
@@ -390,38 +342,5 @@ async function writeZip(
       .on("close", resolve)
       .on("error", reject);
     zip.end();
-  });
-}
-
-async function readZipEntry(path: string, name: string): Promise<Buffer> {
-  const archive = await new Promise<yauzl.ZipFile>((resolve, reject) => {
-    yauzl.open(path, { lazyEntries: true }, (error, value) => {
-      if (error || !value) reject(error ?? new Error("archive unavailable"));
-      else resolve(value);
-    });
-  });
-  return new Promise<Buffer>((resolve, reject) => {
-    archive.once("error", reject);
-    archive.once("end", () => reject(new Error(`missing entry: ${name}`)));
-    archive.on("entry", (entry) => {
-      if (entry.fileName !== name) {
-        archive.readEntry();
-        return;
-      }
-      archive.openReadStream(entry, (error, stream) => {
-        if (error || !stream) {
-          reject(error ?? new Error("entry stream unavailable"));
-          return;
-        }
-        const chunks: Buffer[] = [];
-        stream.once("error", reject);
-        stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-        stream.once("end", () => {
-          archive.close();
-          resolve(Buffer.concat(chunks));
-        });
-      });
-    });
-    archive.readEntry();
   });
 }
