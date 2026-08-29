@@ -30,6 +30,7 @@
 - [x] 主进程增加启动后及每 20 分钟静默更新检查；只提示新版，不自动下载，顶部更新入口改用安装语义图标与状态胶囊。
 - [x] 13 张用户提供图片已分别形成内置主题预设；主进程严格校验并一次性原子追加，已有主题及选择状态不被覆盖。
 - [x] v1.3.6 预设透明度、无覆盖 catalog v2 迁移、主题库缩略图、顶部启动主题选择及旧版兼容导出移除已完成。
+- [x] v1.3.7 二十六色契约已接通：会话标题、首页标题/快捷卡片、命令/编辑/思考摘要均有独立颜色、双页面预览定位和 selector profile `/8` 真实注入；catalog v3 可从 v1 或 v2 安全迁移，用户编辑与删除语义保持。
 
 ### Native secure-store 阶段
 
@@ -54,10 +55,12 @@
 ## 当前环境
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
-- 当前用户安装的 Store 包：`OpenAI.Codex 26.818.8289.0`，x64，`SignatureKind=Store`，非开发模式。
-- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`，`main` 与 `origin/main` 同步；`v1.0.0` 发布改动将在验证后统一提交并打标签。
+- 当前用户安装的 Store 包：`OpenAI.Codex 26.825.4187.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其当前会话标签、首页卡片和活动摘要标记，未修改 Store 包。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；本轮以 `v1.3.6` 为基线，`v1.3.7` 改动将在验证后统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-29 `v1.3.7` 发布候选：结构化配色扩展到 26 项，selector profile `/8` 同时覆盖当前会话标签外层容器与选中 tab、首页标题/快捷卡片及命令/编辑/思考活动摘要；13 套 catalog v3 预设均含 26 色和 v1/v2 两代精确 fingerprint，从两代前置 pack 原位迁移、编辑保留与删除不复活均通过回归。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、186 项主进程测试、52 项 renderer 测试、7 项集成测试和 1 项沙箱外隔离 Electron E2E 全部通过；`npm run package:win` 与 `npm run verify:package` 通过。安装包 `CodexStyle-1.3.7-x64.exe` 为 121,763,083 字节，SHA-256 `e4e1802b8277d960748f629833ab1cd23edee156c5e12ef9d49430915694dbcd`；便携包 `CodexStyle-1.3.7-x64.zip` 为 164,879,304 字节，SHA-256 `5972828561f7edab780f3b26617c865421a5f6ef2d82057a8270dcff217c3641`。
 
 - 2026-08-29 `v1.3.6` 发布候选：13 套 catalog v2 预设统一页面/面板/侧栏 20% 与边框 10%，全部旧 fingerprint 均通过原位迁移验证，编辑项与删除项保持；主题库缩略图、纯色回退、顶部选择卡和旧版兼容导出移除已由 renderer 与真实 Electron 验证。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、185 项主进程测试、52 项 renderer 测试、7 项集成测试和 1 项真实 Electron E2E 全部通过；安装包 ASAR/catalog/图片哈希与 native 布局通过校验，打包成品隔离启动得到 15 个主题、13 个 v2 预设且透明度全部正确。
 

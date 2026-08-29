@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.7 — 2026-08-29
+
+### English
+
+- Expanded structured theme colors from eighteen to twenty-six with independent controls for the selected conversation tab, home headline, home suggestion cards, and command/edit/thinking activity summaries. Background, primary text, and secondary text are separated where applicable.
+- Added matching Live Preview nodes and automatic home/conversation switching when a color field is hovered or focused, so every new control can be located before saving.
+- Upgraded the verified Codex selector profile to `/8` and added narrowly scoped injection bridges for the current selected tab, home title/cards, and `group/activity-header` summaries without modifying the Store application package.
+- Added strict catalog-v3 migration for all thirteen wallpaper presets. Untouched presets can upgrade directly from catalog v1 or v2 using exact predecessor fingerprints; user-edited presets remain unchanged and deleted presets are not restored.
+
+> v1.3.7 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall is required, and local themes are preserved.
+
+### 简体中文
+
+- 将结构化主题配色从十八色扩展为二十六色：当前会话标题、首页主标题、首页快捷卡片，以及命令/编辑/思考摘要均可独立配置；需要区分的区域分别提供背景、主要文字和次要文字颜色。
+- 为新增颜色补齐同构 LIVE PREVIEW 节点；悬停或聚焦颜色项时自动切换到对应首页或对话页，保存前即可定位实际作用区域。
+- 将已核对的 Codex 选择器 profile 升级到 `/8`，只为当前会话标签、首页标题/卡片和 `group/activity-header` 活动摘要增加受控注入，不修改 Store 应用包。
+- 为 13 套壁纸预设增加严格 catalog v3 迁移：通过两代精确 fingerprint，可从 catalog v1 或 v2 直接升级未编辑预设；用户改过的预设不覆盖，删过的预设不复活。
+
+> SignPath Foundation 申请仍在审核，v1.3.7 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载，本地主题会保留。
+
 ## v1.3.6 — 2026-08-29
 
 ### English
