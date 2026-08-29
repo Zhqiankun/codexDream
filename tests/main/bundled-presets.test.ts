@@ -12,6 +12,10 @@ import {
 import { LocalThemeStore } from "../../src/main/infra/local-store";
 import { MANAGED_FILES } from "../../src/main/infra/secure-store";
 import { readThemeConfiguration } from "../../src/contracts";
+import {
+  themeFingerprint,
+  type ThemeRecord,
+} from "../../src/main/domain/theme";
 import { createManagedRoot } from "../fixtures/managed-root";
 
 const presetRoot = resolve(process.cwd(), "resources", "presets");
@@ -168,6 +172,14 @@ function predecessorPackSource(
   };
 }
 
+function restorePreHomeCardFingerprint(records: ThemeRecord[]): void {
+  for (const record of records) {
+    if (!record.themeId.startsWith("builtin-")) continue;
+    delete record.json.homeCards;
+    record.fingerprint = themeFingerprint(record);
+  }
+}
+
 describe("bundled image theme presets", () => {
   it("strictly loads all 13 catalog themes and verifies every image hash", async () => {
     const pack = await createBundledPresetSource(presetRoot).load();
@@ -302,6 +314,7 @@ describe("bundled image theme presets", () => {
         predecessorPackSource(predecessorPackId, previousThemes),
       ]);
       await legacy.init();
+      restorePreHomeCardFingerprint(legacy.listRecords());
       const originals = new Map(
         legacy
           .listRecords()

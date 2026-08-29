@@ -1,8 +1,9 @@
-import type {
-  ThemeAppearance,
-  ThemeColors,
-  ThemeDetail,
-  ThemeStyleConfig,
+import {
+  createDefaultThemeHomeCards,
+  type ThemeAppearance,
+  type ThemeColors,
+  type ThemeDetail,
+  type ThemeStyleConfig,
 } from "../../../contracts";
 
 export interface ThemePreset {
@@ -284,6 +285,7 @@ export function applyThemePreset(
     ...draft,
     appearance: preset.appearance,
     colors: { ...preset.colors },
+    homeCards: createDefaultThemeHomeCards(preset.colors.homeCardBackground),
     styleConfig: {
       ...draft.styleConfig,
       ...preset.styleConfig,
@@ -299,6 +301,12 @@ export function isThemePresetActive(
   return (
     draft.appearance === preset.appearance &&
     equalRecord(draft.colors, preset.colors) &&
+    draft.homeCards.every(
+      (card) =>
+        card.mode === "color" &&
+        card.color === preset.colors.homeCardBackground &&
+        card.imageDataUrl === undefined,
+    ) &&
     draft.styleConfig.mode === preset.styleConfig.mode &&
     draft.styleConfig.blur === preset.styleConfig.blur &&
     draft.styleConfig.radius === preset.styleConfig.radius &&

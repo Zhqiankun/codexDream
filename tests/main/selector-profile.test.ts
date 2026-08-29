@@ -23,7 +23,7 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
-    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/8");
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/9");
     expect(SELECTOR_PARTS).toContainEqual([
       "titlebar",
       'div[class*="_ApplicationMenuTopBar_"]',
@@ -39,6 +39,14 @@ describe("versioned selector profile", () => {
     expect(SELECTOR_PARTS).toContainEqual([
       "thread-tab",
       'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"]) [role="tab"][aria-selected="true"]',
+    ]);
+    expect(SELECTOR_PARTS).toContainEqual([
+      "thread-tab",
+      'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"]) [data-app-shell-tab-controller]:has([role="tab"][aria-selected="true"]) [class~="group/tab"]:has(> button[role="tab"][aria-selected="true"])',
+    ]);
+    expect(SELECTOR_PARTS).toContainEqual([
+      "home-title",
+      '[role="main"]:has([data-testid="home-icon"]) [data-feature="game-source"]',
     ]);
     expect(SELECTOR_PARTS).toContainEqual([
       "home-card",

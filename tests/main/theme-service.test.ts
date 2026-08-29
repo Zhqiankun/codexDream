@@ -5,6 +5,7 @@ import sharp from "sharp";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_CONFIGURED_STYLE,
+  MAX_THEME_HOME_CARD_IMAGE_DATA_URL_LENGTH,
   type ThemeDetail,
 } from "../../src/contracts";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
@@ -92,5 +93,64 @@ describe("ThemeService", () => {
     expect(metadata.width).toBe(64);
     expect(metadata.height).toBe(64);
     expect(metadata.hasAlpha).toBe(true);
+  });
+
+  it("optimizes and stores one independently selected home card image", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "codexstyle-home-card-"));
+    temporaryDirectories.push(directory);
+    const imagePath = join(directory, "card.png");
+    await sharp({
+      create: {
+        width: 1_600,
+        height: 1_000,
+        channels: 4,
+        background: { r: 24, g: 92, b: 160, alpha: 1 },
+      },
+    })
+      .png()
+      .toFile(imagePath);
+    showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: [imagePath],
+    });
+    const store = {
+      get: vi.fn().mockReturnValue({ json: {} }),
+      patch: vi.fn().mockResolvedValue({ libraryId: "theme-library-id" }),
+      getDetail: vi.fn().mockReturnValue({} as ThemeDetail),
+    };
+    const service = new ThemeService(
+      store as never,
+      () => ({}) as never,
+      () => ({}) as never,
+    );
+
+    await expect(
+      service.chooseHomeCardImage("theme-library-id", 11, 2),
+    ).resolves.toEqual({ ok: true, data: {} });
+
+    const patch = store.patch.mock.calls[0]?.[2] as {
+      homeCards: ThemeDetail["homeCards"];
+    };
+    expect(patch.homeCards[2]).toMatchObject({
+      mode: "image",
+      color: "#2d2d2d",
+    });
+    expect(patch.homeCards[2].imageDataUrl).toMatch(
+      /^data:image\/webp;base64,UklGR/u,
+    );
+    expect(patch.homeCards[2].imageDataUrl!.length).toBeLessThanOrEqual(
+      MAX_THEME_HOME_CARD_IMAGE_DATA_URL_LENGTH,
+    );
+    expect(
+      patch.homeCards.filter((card) => card.mode === "image"),
+    ).toHaveLength(1);
+    const optimized = Buffer.from(
+      patch.homeCards[2].imageDataUrl!.split(",")[1]!,
+      "base64",
+    );
+    const metadata = await sharp(optimized).metadata();
+    expect(metadata.format).toBe("webp");
+    expect(metadata.width).toBe(480);
+    expect(metadata.height).toBe(270);
   });
 });

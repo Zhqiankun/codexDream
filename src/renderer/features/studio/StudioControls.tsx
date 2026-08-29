@@ -34,6 +34,7 @@ interface StudioControlsProps {
   onDraftChange: (draft: ThemeDetail) => void;
   onChooseBackground: () => void;
   onChooseSendIcon: () => void;
+  onChooseHomeCardImage: (cardIndex: number) => void;
   onThemeJsonChange: (source: string) => void;
   onApplyThemeJson: () => void;
   onResetThemeJson: () => void;
@@ -195,6 +196,13 @@ const colorGroups: ReadonlyArray<{
   },
 ];
 
+const homeCardLabels = [
+  "探索并理解代码",
+  "构建新功能、应用或工具",
+  "审查代码并提出修改建议",
+  "修复问题和失败",
+] as const;
+
 const recipeFields = [
   { key: "sidebar", label: "侧栏表面", hint: "对话列表与导航区" },
   { key: "composer", label: "输入框", hint: "聚焦边框与磨砂表面" },
@@ -227,6 +235,7 @@ export function StudioControls({
   onDraftChange,
   onChooseBackground,
   onChooseSendIcon,
+  onChooseHomeCardImage,
   onThemeJsonChange,
   onApplyThemeJson,
   onResetThemeJson,
@@ -265,6 +274,7 @@ export function StudioControls({
           backgroundKey={backgroundKey}
           onDraftChange={onDraftChange}
           onChooseBackground={onChooseBackground}
+          onChooseHomeCardImage={onChooseHomeCardImage}
           onPreviewColorTargetChange={onPreviewColorTargetChange}
         />
       )}
@@ -299,6 +309,7 @@ function DesignPanel({
   backgroundKey,
   onDraftChange,
   onChooseBackground,
+  onChooseHomeCardImage,
   onPreviewColorTargetChange,
 }: Pick<
   StudioControlsProps,
@@ -307,6 +318,7 @@ function DesignPanel({
   | "backgroundKey"
   | "onDraftChange"
   | "onChooseBackground"
+  | "onChooseHomeCardImage"
   | "onPreviewColorTargetChange"
 >) {
   const [section, setSection] = useState<"base" | "canvas" | "colors">("base");
@@ -326,6 +338,28 @@ function DesignPanel({
   );
   const update = (patch: Partial<ThemeDetail>) =>
     onDraftChange({ ...draft, ...patch });
+  const updateThemeColor = (key: keyof ThemeColors, value: string) => {
+    const previous = draft.colors[key];
+    update({
+      colors: { ...draft.colors, [key]: value },
+      ...(key === "homeCardBackground"
+        ? {
+            homeCards: draft.homeCards.map((card) =>
+              card.color === previous ? { ...card, color: value } : card,
+            ) as typeof draft.homeCards,
+          }
+        : {}),
+    });
+  };
+  const updateHomeCard = (
+    cardIndex: number,
+    patch: Partial<ThemeDetail["homeCards"][number]>,
+  ) =>
+    update({
+      homeCards: draft.homeCards.map((card, index) =>
+        index === cardIndex ? { ...card, ...patch } : card,
+      ) as typeof draft.homeCards,
+    });
   return (
     <div className="design-mode" role="tabpanel">
       <div className="design-subtabs" role="tablist" aria-label="设计配置分类">
@@ -643,15 +677,13 @@ function DesignPanel({
                                   aria-label={`选择${label}颜色`}
                                   title={`打开${label}颜色选择器`}
                                   onChange={(event) =>
-                                    update({
-                                      colors: {
-                                        ...draft.colors,
-                                        [key]: withColorOpacity(
-                                          event.target.value,
-                                          opacity,
-                                        ),
-                                      },
-                                    })
+                                    updateThemeColor(
+                                      key,
+                                      withColorOpacity(
+                                        event.target.value,
+                                        opacity,
+                                      ),
+                                    )
                                   }
                                 />
                                 <span
@@ -671,12 +703,7 @@ function DesignPanel({
                                     : `theme-color-format ${errorId}`
                                 }
                                 onChange={(event) =>
-                                  update({
-                                    colors: {
-                                      ...draft.colors,
-                                      [key]: event.target.value,
-                                    },
-                                  })
+                                  updateThemeColor(key, event.target.value)
                                 }
                               />
                             </span>
@@ -701,15 +728,13 @@ function DesignPanel({
                                 value={opacity}
                                 aria-label={`${label}透明度`}
                                 onChange={(event) =>
-                                  update({
-                                    colors: {
-                                      ...draft.colors,
-                                      [key]: withColorOpacity(
-                                        draft.colors[key],
-                                        Number(event.target.value),
-                                      ),
-                                    },
-                                  })
+                                  updateThemeColor(
+                                    key,
+                                    withColorOpacity(
+                                      draft.colors[key],
+                                      Number(event.target.value),
+                                    ),
+                                  )
                                 }
                               />
                               <span className="color-opacity-value">
@@ -724,6 +749,190 @@ function DesignPanel({
                 );
               })}
             </div>
+            <section
+              className="home-card-customization"
+              aria-labelledby="home-card-customization-heading"
+            >
+              <div className="color-group-heading">
+                <h3 id="home-card-customization-heading">四张快捷卡片</h3>
+                <span>每张独立选择纯色或背景图片</span>
+              </div>
+              <div className="home-card-config-grid">
+                {draft.homeCards.map((card, cardIndex) => {
+                  const label = homeCardLabels[cardIndex];
+                  const opacity = toColorOpacity(card.color);
+                  const colorValid = isStudioThemeColor(card.color);
+                  const errorId = `home-card-${cardIndex}-color-error`;
+                  return (
+                    <article
+                      className={`home-card-config ${colorValid ? "" : "invalid"}`}
+                      key={label}
+                      onMouseEnter={() =>
+                        setHoveredColorTarget("homeCardBackground")
+                      }
+                      onMouseLeave={() => setHoveredColorTarget(undefined)}
+                      onFocusCapture={() =>
+                        setFocusedColorTarget("homeCardBackground")
+                      }
+                      onBlurCapture={(event) => {
+                        const next = event.relatedTarget;
+                        if (
+                          !(next instanceof Node) ||
+                          !event.currentTarget.contains(next)
+                        )
+                          setFocusedColorTarget(undefined);
+                      }}
+                    >
+                      <div
+                        className="home-card-config-preview"
+                        aria-label={`${label}卡片预览`}
+                        style={{
+                          backgroundColor: card.color,
+                          backgroundImage:
+                            card.mode === "image" && card.imageDataUrl
+                              ? `url("${card.imageDataUrl}")`
+                              : "none",
+                          color: draft.colors.homeCardText,
+                        }}
+                      >
+                        <span>{cardIndex + 1}</span>
+                        <strong>{label}</strong>
+                      </div>
+                      <div className="home-card-config-body">
+                        <div
+                          className="home-card-mode-switch"
+                          role="group"
+                          aria-label={`${label}背景方式`}
+                        >
+                          <button
+                            type="button"
+                            className={card.mode === "color" ? "active" : ""}
+                            aria-pressed={card.mode === "color"}
+                            onClick={() =>
+                              updateHomeCard(cardIndex, { mode: "color" })
+                            }
+                          >
+                            颜色
+                          </button>
+                          <button
+                            type="button"
+                            className={card.mode === "image" ? "active" : ""}
+                            aria-pressed={card.mode === "image"}
+                            onClick={() =>
+                              card.imageDataUrl
+                                ? updateHomeCard(cardIndex, { mode: "image" })
+                                : onChooseHomeCardImage(cardIndex)
+                            }
+                          >
+                            图片
+                          </button>
+                        </div>
+                        {card.mode === "color" ? (
+                          <>
+                            <span className="home-card-color-row">
+                              <span className="color-picker-shell">
+                                <span
+                                  className="color-swatch"
+                                  style={{ background: card.color }}
+                                  aria-hidden="true"
+                                />
+                                <input
+                                  className="native-color-picker"
+                                  type="color"
+                                  value={toPickerHex(card.color)}
+                                  aria-label={`选择${label}背景颜色`}
+                                  onChange={(event) =>
+                                    updateHomeCard(cardIndex, {
+                                      color: withColorOpacity(
+                                        event.target.value,
+                                        opacity,
+                                      ),
+                                    })
+                                  }
+                                />
+                                <span
+                                  className="picker-caret"
+                                  aria-hidden="true"
+                                >
+                                  ◢
+                                </span>
+                              </span>
+                              <input
+                                value={card.color}
+                                aria-label={`${label}背景颜色`}
+                                aria-invalid={!colorValid}
+                                aria-describedby={
+                                  colorValid
+                                    ? "theme-color-format"
+                                    : `theme-color-format ${errorId}`
+                                }
+                                onChange={(event) =>
+                                  updateHomeCard(cardIndex, {
+                                    color: event.target.value,
+                                  })
+                                }
+                              />
+                            </span>
+                            {!colorValid && (
+                              <span
+                                className="color-format-error"
+                                id={errorId}
+                                role="alert"
+                              >
+                                卡片颜色格式无效。
+                              </span>
+                            )}
+                            <label className="color-opacity-control">
+                              <span>透明度</span>
+                              <input
+                                className="opacity-range color-opacity-range"
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value={opacity}
+                                aria-label={`${label}背景透明度`}
+                                onChange={(event) =>
+                                  updateHomeCard(cardIndex, {
+                                    color: withColorOpacity(
+                                      card.color,
+                                      Number(event.target.value),
+                                    ),
+                                  })
+                                }
+                              />
+                              <span className="color-opacity-value">
+                                {opacity}%
+                              </span>
+                            </label>
+                          </>
+                        ) : (
+                          <div className="home-card-image-actions">
+                            <span>
+                              {card.imageDataUrl
+                                ? "已保存优化后的卡片图片"
+                                : "尚未选择图片"}
+                            </span>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              disabled={busy}
+                              onClick={() => onChooseHomeCardImage(cardIndex)}
+                            >
+                              {card.imageDataUrl ? "更换图片" : "选择图片"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+              <p className="field-hint home-card-image-hint">
+                图片会在本机压缩为适合小卡片的 WebP 缩略图，并随主题 ZIP
+                一起保存。
+              </p>
+            </section>
           </StudioSection>
         )}
       </div>
@@ -954,7 +1163,7 @@ function ThemeJsonPanel({
     <div className="studio-panel-body" role="tabpanel">
       <StudioSection
         title="主题配置 JSON"
-        meta={`${source.length.toLocaleString()} / 65,536`}
+        meta={`${source.length.toLocaleString()} / 393,216`}
       >
         <p className="field-hint json-guidance">
           高级入口。修改不会直接进入预览；通过主进程完整校验后才会同步到设计配置。
@@ -963,7 +1172,7 @@ function ThemeJsonPanel({
           className={`css-editor json-editor ${error ? "invalid" : ""}`}
           spellCheck={false}
           value={source}
-          maxLength={65_536}
+          maxLength={393_216}
           onChange={(event) => onChange(event.target.value)}
           aria-label="theme.json 编辑器"
         />

@@ -9,6 +9,10 @@ export type ThemeSafeArea = "none" | "left" | "right";
 export type ThemeTaskMode = "ambient" | "full" | "off";
 export type ThemeShadow = "none" | "soft" | "strong";
 export type ThemeStyleMode = "configured" | "advanced";
+export type ThemeHomeCardMode = "color" | "image";
+
+export const THEME_HOME_CARD_COUNT = 4;
+export const MAX_THEME_HOME_CARD_IMAGE_DATA_URL_LENGTH = 48 * 1024;
 
 export interface ThemeArt {
   focusX: number;
@@ -46,6 +50,19 @@ export interface ThemeColors {
   line: string;
 }
 
+export interface ThemeHomeCard {
+  mode: ThemeHomeCardMode;
+  color: string;
+  imageDataUrl?: string;
+}
+
+export type ThemeHomeCards = [
+  ThemeHomeCard,
+  ThemeHomeCard,
+  ThemeHomeCard,
+  ThemeHomeCard,
+];
+
 export interface ThemeStyleRecipes {
   sidebar: boolean;
   composer: boolean;
@@ -68,6 +85,7 @@ export interface ThemeConfiguration {
   appearance: ThemeAppearance;
   art: ThemeArt;
   colors: ThemeColors;
+  homeCards: ThemeHomeCards;
   styleConfig: ThemeStyleConfig;
 }
 
@@ -123,6 +141,9 @@ const LEGACY_THEME_COLOR_KEYS = THEME_COLOR_KEYS.filter(
   (key) => !OPTIONAL_THEME_COLOR_KEYS.has(key),
 );
 
+const COLOR_PATTERN =
+  /^(#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|#[0-9a-fA-F]{3,4}|rgb\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*\)|rgba\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*(?:0|1|1\.0|0?\.[0-9]{1,6})\s*\))$/u;
+
 export const DEFAULT_THEME_ART: ThemeArt = {
   focusX: 0.5,
   focusY: 0.5,
@@ -159,6 +180,9 @@ export const DEFAULT_THEME_COLORS: ThemeColors = {
   line: "rgba(255, 255, 255, .157)",
 };
 
+export const DEFAULT_THEME_HOME_CARDS: ThemeHomeCards =
+  createDefaultThemeHomeCards(DEFAULT_THEME_COLORS.homeCardBackground);
+
 export const DEFAULT_CONFIGURED_STYLE: ThemeStyleConfig = {
   mode: "configured",
   recipes: {
@@ -180,9 +204,6 @@ export const DEFAULT_ADVANCED_STYLE: ThemeStyleConfig = {
   recipes: { ...DEFAULT_CONFIGURED_STYLE.recipes },
 };
 
-const COLOR_PATTERN =
-  /^(#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|#[0-9a-fA-F]{3,4}|rgb\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*\)|rgba\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*(?:0|1|1\.0|0?\.[0-9]{1,6})\s*\))$/u;
-
 const SHADOW_VALUES: Record<ThemeShadow, string> = {
   none: "none",
   soft: "0 8px 24px rgba(0, 0, 0, 0.18)",
@@ -197,8 +218,12 @@ export function readThemeConfiguration(
     : "auto";
   const art = normalizeThemeArt(json.art);
   const colors = normalizeThemeColors(json.colors, json.accent);
+  const homeCards = normalizeThemeHomeCards(
+    json.homeCards,
+    colors.homeCardBackground,
+  );
   const styleConfig = normalizeThemeStyleConfig(json.style, "advanced");
-  return { appearance, art, colors, styleConfig };
+  return { appearance, art, colors, homeCards, styleConfig };
 }
 
 export function writeThemeConfiguration(
@@ -210,6 +235,7 @@ export function writeThemeConfiguration(
     appearance: configuration.appearance,
     art: { ...configuration.art },
     colors: { ...configuration.colors },
+    homeCards: cloneThemeHomeCards(configuration.homeCards),
     style: {
       ...configuration.styleConfig,
       recipes: { ...configuration.styleConfig.recipes },
@@ -295,6 +321,41 @@ export function normalizeThemeColors(
   return result;
 }
 
+export function normalizeThemeHomeCards(
+  value: unknown,
+  fallbackColor = DEFAULT_THEME_COLORS.homeCardBackground,
+): ThemeHomeCards {
+  const safeFallback = isThemeColor(fallbackColor)
+    ? fallbackColor
+    : DEFAULT_THEME_COLORS.homeCardBackground;
+  if (!Array.isArray(value) || value.length !== THEME_HOME_CARD_COUNT)
+    return createDefaultThemeHomeCards(safeFallback);
+  return value.map((entry) => {
+    if (!isRecord(entry)) return { mode: "color", color: safeFallback };
+    const color = isThemeColor(entry.color) ? entry.color : safeFallback;
+    const imageDataUrl = isThemeHomeCardImageDataUrl(entry.imageDataUrl)
+      ? entry.imageDataUrl
+      : undefined;
+    return {
+      mode: entry.mode === "image" && imageDataUrl ? "image" : "color",
+      color,
+      ...(imageDataUrl ? { imageDataUrl } : {}),
+    };
+  }) as ThemeHomeCards;
+}
+
+export function createDefaultThemeHomeCards(color: string): ThemeHomeCards {
+  const safeColor = isThemeColor(color) ? color : "#2d2d2d";
+  return Array.from({ length: THEME_HOME_CARD_COUNT }, () => ({
+    mode: "color" as const,
+    color: safeColor,
+  })) as ThemeHomeCards;
+}
+
+export function cloneThemeHomeCards(homeCards: ThemeHomeCards): ThemeHomeCards {
+  return homeCards.map((card) => ({ ...card })) as ThemeHomeCards;
+}
+
 export function normalizeThemeStyleConfig(
   value: unknown,
   fallbackMode: ThemeStyleMode = "advanced",
@@ -356,6 +417,14 @@ export function isThemeColor(value: unknown): value is string {
   return typeof value === "string" && COLOR_PATTERN.test(value);
 }
 
+export function isThemeHomeCardImageDataUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= MAX_THEME_HOME_CARD_IMAGE_DATA_URL_LENGTH &&
+    /^data:image\/webp;base64,UklGR[A-Za-z0-9+/]*={0,2}$/u.test(value)
+  );
+}
+
 export function isCompleteThemeArt(value: unknown): value is ThemeArt {
   return (
     isRecord(value) &&
@@ -380,6 +449,28 @@ export function isCompleteThemeColors(value: unknown): value is ThemeColors {
     isRecord(value) &&
     Object.keys(value).length === THEME_COLOR_KEYS.length &&
     THEME_COLOR_KEYS.every((key) => isThemeColor(value[key]))
+  );
+}
+
+export function isCompleteThemeHomeCards(
+  value: unknown,
+): value is ThemeHomeCards {
+  return (
+    Array.isArray(value) &&
+    value.length === THEME_HOME_CARD_COUNT &&
+    value.every(
+      (card) =>
+        isRecord(card) &&
+        Object.keys(card).every((key) =>
+          ["mode", "color", "imageDataUrl"].includes(key),
+        ) &&
+        (card.mode === "color" || card.mode === "image") &&
+        isThemeColor(card.color) &&
+        (card.imageDataUrl === undefined ||
+          isThemeHomeCardImageDataUrl(card.imageDataUrl)) &&
+        (card.mode !== "image" ||
+          isThemeHomeCardImageDataUrl(card.imageDataUrl)),
+    )
   );
 }
 
@@ -504,6 +595,7 @@ export function cloneThemeConfiguration(
     appearance: configuration.appearance,
     art: { ...configuration.art },
     colors: { ...configuration.colors },
+    homeCards: cloneThemeHomeCards(configuration.homeCards),
     styleConfig: cloneStyleConfig(configuration.styleConfig),
   };
 }

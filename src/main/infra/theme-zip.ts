@@ -8,6 +8,7 @@ import {
   DEFAULT_SIDEBAR_OVERLAY_OPACITY,
   generateConfiguredCss,
   isCompleteThemeArt,
+  isCompleteThemeHomeCards,
   isCompatibleThemeColors,
   isCompleteThemeStyleConfig,
   isThemeAppearance,
@@ -475,6 +476,7 @@ function validateFormalTheme(theme: Record<string, unknown>): void {
       "appearance",
       "art",
       "colors",
+      "homeCards",
       "style",
       "backgroundScope",
       "sidebarOverlayOpacity",
@@ -510,6 +512,11 @@ function validateFormalTheme(theme: Record<string, unknown>): void {
     throw new Error("UNSAFE_ARCHIVE:theme-appearance");
   if (theme.art !== undefined) validateArt(theme.art);
   if (theme.colors !== undefined) validateColors(theme.colors);
+  if (
+    theme.homeCards !== undefined &&
+    !isCompleteThemeHomeCards(theme.homeCards)
+  )
+    throw new Error("UNSAFE_ARCHIVE:theme-home-cards");
   if (theme.style !== undefined && !isCompleteThemeStyleConfig(theme.style))
     throw new Error("UNSAFE_ARCHIVE:theme-style");
   readBackgroundScope(theme.backgroundScope);
@@ -523,6 +530,8 @@ function validatePortableThemeConfiguration(
     (theme.appearance !== undefined && !isThemeAppearance(theme.appearance)) ||
     (theme.art !== undefined && !isCompleteThemeArt(theme.art)) ||
     (theme.colors !== undefined && !isCompatibleThemeColors(theme.colors)) ||
+    (theme.homeCards !== undefined &&
+      !isCompleteThemeHomeCards(theme.homeCards)) ||
     (theme.style !== undefined && !isCompleteThemeStyleConfig(theme.style))
   )
     throw new Error("UNSAFE_ARCHIVE:theme-configuration");

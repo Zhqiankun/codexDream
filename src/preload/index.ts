@@ -28,6 +28,11 @@ const api: CodexStyleApi = {
     invoke("theme.chooseBackground", { v: PROTOCOL_VERSION, ...request }),
   chooseSendIcon: (request) =>
     invoke("theme.chooseSendIcon", { v: PROTOCOL_VERSION, ...request }),
+  chooseHomeCardImage: (request) =>
+    invoke("theme.chooseHomeCardImage", {
+      v: PROTOCOL_VERSION,
+      ...request,
+    }),
   commit: (request) =>
     invoke("theme.commit", { v: PROTOCOL_VERSION, ...request }),
   deleteTheme: (request) =>

@@ -155,6 +155,12 @@ test("starts the real Electron shell with native storage and completes a local w
     await page
       .getByRole("textbox", { name: "页面背景颜色", exact: true })
       .fill("#123456");
+    await page
+      .getByRole("textbox", {
+        name: "探索并理解代码背景颜色",
+        exact: true,
+      })
+      .fill("#654321");
     await page.getByRole("button", { name: "保存主题" }).click();
 
     await expect
@@ -177,6 +183,22 @@ test("starts the real Electron shell with native storage and completes a local w
     );
     expect(snapshot.ok).toBe(true);
     if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(16);
+    const createdDetail = await page.evaluate(async () => {
+      const snapshot = await globalThis.window.codexStyle.getSnapshot();
+      if (!snapshot.ok) return undefined;
+      const created = snapshot.data.themes.find(
+        (candidate) => candidate.name === "新主题",
+      );
+      if (!created) return undefined;
+      const detail = await globalThis.window.codexStyle.getTheme({
+        libraryId: created.libraryId,
+      });
+      return detail.ok ? detail.data : undefined;
+    });
+    expect(createdDetail?.homeCards[0]).toMatchObject({
+      mode: "color",
+      color: "#654321",
+    });
 
     const logDirectory = await application.evaluate(({ app }) =>
       app.getPath("logs"),

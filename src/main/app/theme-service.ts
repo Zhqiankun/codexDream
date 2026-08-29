@@ -9,7 +9,11 @@ import type {
   ThemePatch,
   ThemeSnapshot,
 } from "../../contracts";
-import { isThemeIconDataUrl, readThemeConfiguration } from "../../contracts";
+import {
+  isThemeHomeCardImageDataUrl,
+  isThemeIconDataUrl,
+  readThemeConfiguration,
+} from "../../contracts";
 import type { ThemeRecord } from "../domain/theme";
 import { LocalThemeStore } from "../infra/local-store";
 import { readImageFileBounded, validateImage } from "../infra/image";
@@ -161,6 +165,47 @@ export class ThemeService {
           sendIcon: "custom",
           sendIconDataUrl: dataUrl,
         },
+      });
+      return {
+        ok: true,
+        data: this.store.getDetail(record.libraryId, "app://theme-asset")!,
+      };
+    } catch (error) {
+      return this.fromError(error);
+    }
+  }
+
+  async chooseHomeCardImage(
+    libraryId: string,
+    expectedRevision: number,
+    cardIndex: number,
+  ): Promise<Result<ThemeDetail>> {
+    const window = this.mainWindow();
+    if (!window) return this.error("UNKNOWN", "window.unavailable");
+    if (!Number.isInteger(cardIndex) || cardIndex < 0 || cardIndex > 3)
+      return this.error("IPC_INVALID", "request.invalid");
+    const selected = await dialog.showOpenDialog(window, {
+      properties: ["openFile"],
+      filters: [
+        { name: "卡片背景图片", extensions: ["png", "jpg", "jpeg", "webp"] },
+      ],
+    });
+    if (selected.canceled || !selected.filePaths[0])
+      return this.error("CANCELLED", "dialog.cancelled");
+    try {
+      const source = await readImageFileBounded(selected.filePaths[0]);
+      await validateImage(source, selected.filePaths[0]);
+      const imageDataUrl = await prepareHomeCardImageDataUrl(source);
+      const current = this.store.get(libraryId);
+      if (!current) return this.error("NOT_FOUND", "theme.notFound");
+      const configuration = readThemeConfiguration(current.json);
+      const homeCards = configuration.homeCards.map((card, index) =>
+        index === cardIndex
+          ? { ...card, mode: "image" as const, imageDataUrl }
+          : { ...card },
+      ) as typeof configuration.homeCards;
+      const record = await this.store.patch(libraryId, expectedRevision, {
+        homeCards,
       });
       return {
         ok: true,
@@ -424,4 +469,26 @@ export class ThemeService {
   ): Result<T> {
     return { ok: false, error: { code, messageKey } };
   }
+}
+
+async function prepareHomeCardImageDataUrl(source: Buffer): Promise<string> {
+  for (const [width, height, quality] of [
+    [480, 270, 72],
+    [400, 225, 62],
+    [320, 180, 52],
+    [240, 135, 42],
+  ] as const) {
+    const image = await sharp(source, {
+      failOn: "error",
+      limitInputPixels: 50_000_000,
+      animated: false,
+    })
+      .rotate()
+      .resize(width, height, { fit: "cover", position: "attention" })
+      .webp({ quality, alphaQuality: 70, effort: 6, smartSubsample: true })
+      .toBuffer();
+    const dataUrl = "data:image/webp;base64," + image.toString("base64");
+    if (isThemeHomeCardImageDataUrl(dataUrl)) return dataUrl;
+  }
+  throw new Error("UNSAFE_IMAGE:home-card-size");
 }

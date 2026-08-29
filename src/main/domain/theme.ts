@@ -128,6 +128,9 @@ export function toDetail(
     appearance: configuration.appearance,
     art: { ...configuration.art },
     colors: { ...configuration.colors },
+    homeCards: configuration.homeCards.map((card) => ({
+      ...card,
+    })) as typeof configuration.homeCards,
     styleConfig: {
       ...configuration.styleConfig,
       recipes: { ...configuration.styleConfig.recipes },

@@ -6,9 +6,13 @@ import {
   DEFAULT_SIDEBAR_OVERLAY_OPACITY,
   DEFAULT_THEME_ART,
   DEFAULT_THEME_COLORS,
+  DEFAULT_THEME_HOME_CARDS,
   cloneThemeConfiguration,
+  cloneThemeHomeCards,
+  createDefaultThemeHomeCards,
   generateConfiguredCss,
   isCompleteThemeArt,
+  isCompleteThemeHomeCards,
   isCompatibleThemeColors,
   isCompleteThemeStyleConfig,
   isThemeAppearance,
@@ -206,6 +210,7 @@ export class LocalThemeStore {
       appearance: "auto",
       art: DEFAULT_THEME_ART,
       colors: { ...DEFAULT_THEME_COLORS, accent: "#7c3aed" },
+      homeCards: cloneThemeHomeCards(DEFAULT_THEME_HOME_CARDS),
       styleConfig: DEFAULT_CONFIGURED_STYLE,
     });
     const css = generateConfiguredCss(configuration.styleConfig);
@@ -287,7 +292,7 @@ export class LocalThemeStore {
       throw new Error("UNSAFE_CSS:css-too-large");
     if (
       patch.themeJson !== undefined &&
-      Buffer.byteLength(patch.themeJson, "utf8") > 64 * 1024
+      Buffer.byteLength(patch.themeJson, "utf8") > 384 * 1024
     )
       throw new Error("UNSAFE_ARCHIVE:theme-json-too-large");
     return this.mutateWithCheckpoint(libraryId, () => {
@@ -310,6 +315,8 @@ export class LocalThemeStore {
         if (patch.art !== undefined) configuration.art = { ...patch.art };
         if (patch.colors !== undefined)
           configuration.colors = { ...patch.colors };
+        if (patch.homeCards !== undefined)
+          configuration.homeCards = cloneThemeHomeCards(patch.homeCards);
         if (patch.styleConfig !== undefined)
           configuration.styleConfig = {
             ...patch.styleConfig,
@@ -1535,6 +1542,7 @@ export class LocalThemeStore {
       appearance: preset.appearance,
       art: { ...preset.art },
       colors: { ...preset.colors },
+      homeCards: createDefaultThemeHomeCards(preset.colors.homeCardBackground),
       styleConfig: {
         ...preset.style,
         recipes: { ...preset.style.recipes },
@@ -1914,6 +1922,8 @@ function isThemeRecord(value: unknown): value is ThemeRecord {
     (theme.json.art !== undefined && !isCompleteThemeArt(theme.json.art)) ||
     (theme.json.colors !== undefined &&
       !isCompatibleThemeColors(theme.json.colors)) ||
+    (theme.json.homeCards !== undefined &&
+      !isCompleteThemeHomeCards(theme.json.homeCards)) ||
     (theme.json.style !== undefined &&
       !isCompleteThemeStyleConfig(theme.json.style))
   )
@@ -2070,6 +2080,7 @@ const EDITABLE_THEME_KEYS = new Set([
   "appearance",
   "art",
   "colors",
+  "homeCards",
   "style",
   "backgroundScope",
   "sidebarOverlayOpacity",
@@ -2113,6 +2124,7 @@ function applyThemeJsonSource(theme: ThemeRecord, source: string): void {
     !isThemeAppearance(parsed.appearance) ||
     !isCompleteThemeArt(parsed.art) ||
     !isCompatibleThemeColors(parsed.colors) ||
+    !isCompleteThemeHomeCards(parsed.homeCards) ||
     !isCompleteThemeStyleConfig(parsed.style) ||
     (parsed.accent !== undefined && !isThemeColor(parsed.accent))
   )
@@ -2137,6 +2149,7 @@ function applyThemeJsonSource(theme: ThemeRecord, source: string): void {
     appearance: parsed.appearance,
     art: { ...parsed.art },
     colors: readThemeConfiguration(parsed).colors,
+    homeCards: readThemeConfiguration(parsed).homeCards,
     styleConfig: {
       ...parsed.style,
       recipes: { ...parsed.style.recipes },

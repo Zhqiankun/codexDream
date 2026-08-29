@@ -35,15 +35,15 @@ src/renderer/styles/                   设计 tokens 与全局样式
 native/secure-store/                   Windows x64 N-API 源码、预定义路径表与 native 测试支撑
 ```
 
-`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:3`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
+`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:4`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
 
-公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`theme.get/createDraft/patchDraft/discardChanges/chooseBackground/chooseSendIcon/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`。
+公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`theme.get/createDraft/patchDraft/discardChanges/chooseBackground/chooseSendIcon/chooseHomeCardImage/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`。
 
 主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责协议校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏遮罩使用固定 `rgb(15 23 42)`，由注入 bridge 以受控样式覆盖主题侧栏背景，防止 Safe CSS 顺序造成预览与真实结果偏差。
 
-结构化主题配置同样归属 theme domain：`appearance`、`art`、二十六色 `colors` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted` 为可选兼容扩展；规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整二十六色。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色处理、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是 CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
+结构化主题配置同样归属 theme domain：`appearance`、`art`、二十六色 `colors`、固定四项 `homeCards` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted` 为可选兼容扩展；旧主题缺少 `homeCards` 时从 `homeCardBackground` 生成四项纯色默认值。规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整二十六色和四张卡片。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色与卡片图片 Data URL 边界、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是图片解码压缩、CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
 
-`theme.patchDraft` 在普通 IPC `v:3` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/styleConfig 与高级 CSS；`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
+`theme.patchDraft` 在普通 IPC `v:4` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/homeCards/styleConfig 与高级 CSS；`theme.chooseHomeCardImage` 只接收 library ID、revision 和 `0..3` 卡片索引，main 将选定的 PNG/JPEG/WebP 有界解码并尝试多档尺寸/质量，最终只写入不超过 48 KiB 的 WebP Data URL。`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；四张卡片图嵌入 `theme.json`，不改变三件套 ZIP。旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
 
 内置图片主题包归属 main infrastructure：`resources/presets/catalog.json` 与图片作为固定 app.asar 资源，`bundled-presets.ts` 负责有界读取、严格 schema、稳定 pack/theme ID、图片格式和 SHA-256 校验。`LocalThemeStore` 只接收已验证字节，并以 v2 `installedPresetPacks` 标记执行一次批量事务；catalog v3 通过 `replacesPackIds` 与有界 `previousFingerprints` 列表兼容从 catalog v1 或 v2 直接升级，只迁移未编辑内置项，删除或编辑过的项跳过。随机受管 UUID 图片、ready 记录与 pack 标记由同一次索引提交生效。`ThemeSummary` 仅新增页面背景色与 main 生成的受控缩略图 URL，不暴露文件路径、字节或新 IPC 方法。
 
@@ -83,7 +83,7 @@ ownership/owned-session.json
 
 native 源码随仓库维护并在 Windows x64 构建阶段编译为 N-API `.node`。electron-builder 必须将它声明为 ASAR-unpacked 资源，`verify:package` 必须检查归档布局、x64/N-API 可加载性和不存在 JS fallback。生产启动时从固定 unpacked 位置加载；缺失、错误位置、加载失败或架构不匹配统一 `STORE_TAMPERED`。
 
-IPC 方法集合、preload API 形状和 `../old/**` 保持不变；展示配置只扩展现有 `ThemeDetail`/`ThemePatch` 数据字段及三件套 `theme.json` 的可选兼容字段。
+除经审核新增的 `theme.chooseHomeCardImage` 外，IPC 方法集合保持不变；preload 只暴露对应强类型方法，`../old/**` 保持只读。展示配置扩展现有 `ThemeDetail`/`ThemePatch` 数据字段及三件套 `theme.json` 的可选兼容字段，不向 renderer 暴露路径或原始图片字节。
 
 ## CDP 状态机
 
@@ -140,6 +140,8 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 15. 标题、首页与活动颜色：保持 `theme-config.ts` 为唯一跨层颜色契约，将颜色从十八色扩展为二十六色；selector profile `/8` 仅登记当前会话 tab、首页主标题、首页快捷卡片和 `group/activity-header` 活动摘要四类已核对节点。payload 通过独立 token bridge 覆盖背景、主文字和次要文字；renderer 使用相同变量和 `data-ds-part` 构造首页/对话预览，并在聚焦颜色项时自动切换对应页面。catalog v3 为 13 套图片主题补齐新颜色，并保存 v1/v2 两代精确 fingerprint，确保跨版本升级仍不覆盖用户编辑或复活删除项。
 
 16. Ownership 升级兼容热修复：从当前 profile 版本自动、有界生成 `1..current` 持久化解析集合，使 v1.3.6 留下的完整 `/7` ownership 状态在 v1.3.7+ 启动时进入既有 `ORPHANED` 流程，而不是阻断应用初始化。动态测试覆盖所有历史 profile，并单独证明畸形值及 `current + 1` 仍 fail closed；不删除 ownership 文件、不放宽当前 profile 的 runtime 身份验证，也不修改主题或用户数据。
+
+17. 当前 Codex 标题与首页卡片：对 Store Codex `26.825.4187.0` 只读核对真实 DOM 后，将 selector profile 升级到 `/9`。当前会话标签同时命中已选中按钮与 `group/tab` 表面，并覆盖实际消费的 `--app-shell-tab-background`；首页标题登记 `data-feature="game-source"` 和 `group/title`。四个 `group/home-suggestions` 卡片按受控 DOM 顺序标记 `0..3`，各自消费结构化颜色或有界 WebP。图片选择、持久化、预览、三件套 ZIP、旧主题默认补全和真实注入使用同一 theme-domain 契约。
 
 ## 验证命令
 

@@ -291,6 +291,20 @@ export class AppController {
     );
   }
 
+  chooseHomeCardImage(
+    libraryId: string,
+    expectedRevision: number,
+    cardIndex: number,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(() =>
+      this.themeService.chooseHomeCardImage(
+        libraryId,
+        expectedRevision,
+        cardIndex,
+      ),
+    );
+  }
+
   commitTheme(
     libraryId: string,
     expectedRevision: number,

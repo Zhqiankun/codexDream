@@ -3,8 +3,10 @@ import {
   DEFAULT_CONFIGURED_STYLE,
   DEFAULT_THEME_ART,
   DEFAULT_THEME_COLORS,
+  DEFAULT_THEME_HOME_CARDS,
   generateConfiguredCss,
   isCompleteThemeStyleConfig,
+  isCompleteThemeHomeCards,
   isCompatibleThemeColors,
   readThemeConfiguration,
   themeTokenDeclarations,
@@ -79,6 +81,7 @@ describe("structured theme configuration", () => {
     );
     expect(legacy.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
     expect(legacy.colors.topBarText).toBe(DEFAULT_THEME_COLORS.topBarText);
+    expect(legacy.homeCards).toEqual(DEFAULT_THEME_HOME_CARDS);
 
     const {
       sidebarText: _sidebarText,
@@ -164,6 +167,7 @@ describe("structured theme configuration", () => {
         appearance: "dark",
         art: { ...DEFAULT_THEME_ART, focusX: 0.25, focusY: 0.75 },
         colors: { ...DEFAULT_THEME_COLORS, accent: "#336699" },
+        homeCards: DEFAULT_THEME_HOME_CARDS,
         styleConfig: { ...DEFAULT_CONFIGURED_STYLE, blur: 24 },
       }),
     );
@@ -229,6 +233,33 @@ describe("structured theme configuration", () => {
         ...DEFAULT_CONFIGURED_STYLE,
         sendIcon: "custom",
       }),
+    ).toBe(false);
+  });
+
+  it("normalizes four independent home card surfaces and requires an image for image mode", () => {
+    const imageDataUrl = "data:image/webp;base64,UklGRg==";
+    const configuration = readThemeConfiguration({
+      colors: DEFAULT_THEME_COLORS,
+      homeCards: [
+        { mode: "color", color: "#112233" },
+        { mode: "image", color: "#223344", imageDataUrl },
+        { mode: "color", color: "rgba(1, 2, 3, 0.4)" },
+        { mode: "image", color: "#445566" },
+      ],
+    });
+
+    expect(configuration.homeCards).toEqual([
+      { mode: "color", color: "#112233" },
+      { mode: "image", color: "#223344", imageDataUrl },
+      { mode: "color", color: "rgba(1, 2, 3, 0.4)" },
+      { mode: "color", color: "#445566" },
+    ]);
+    expect(isCompleteThemeHomeCards(configuration.homeCards)).toBe(true);
+    expect(
+      isCompleteThemeHomeCards([
+        ...configuration.homeCards.slice(0, 3),
+        { mode: "image", color: "#445566" },
+      ]),
     ).toBe(false);
   });
 });

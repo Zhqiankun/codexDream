@@ -27,7 +27,7 @@ import { isStudioThemeColor } from "../features/studio/theme-color-input";
 
 const MAX_CSS_CHARACTERS = 262_144;
 const MAX_CSS_BYTES = 256 * 1024;
-const RENDERER_PROTOCOL_VERSION = 3;
+const RENDERER_PROTOCOL_VERSION = 4;
 const cssTextEncoder = new TextEncoder();
 
 type View = "library" | "session";
@@ -52,6 +52,13 @@ const HOME_COLOR_TARGETS = new Set<PreviewColorTarget>([
   "homeCardText",
   "homeTitleText",
 ]);
+
+const HOME_CARD_SUGGESTIONS = [
+  ["⌕", "探索并理解代码"],
+  ["⌁", "构建新功能、应用或工具"],
+  ["↻", "审查代码并提出修改建议"],
+  ["♙", "修复问题和失败"],
+] as const;
 
 const sessionLabels: Record<SessionState, string> = {
   NO_SESSION: "未启动",
@@ -885,6 +892,7 @@ function serializeThemeJson(detail: ThemeDetail): string {
     appearance: detail.appearance,
     art: { ...detail.art },
     colors: { ...detail.colors },
+    homeCards: detail.homeCards.map((card) => ({ ...card })),
     style: {
       ...detail.styleConfig,
       recipes: { ...detail.styleConfig.recipes },
@@ -910,6 +918,7 @@ function buildThemePatch(draft: ThemeDetail): ThemePatch {
     appearance: draft.appearance,
     art: draft.art,
     colors: draft.colors,
+    homeCards: draft.homeCards,
     styleConfig: draft.styleConfig,
   };
 }
@@ -964,6 +973,11 @@ function StudioView({
   const cssChanged =
     draft.styleConfig.mode === "advanced" && draft.css !== detail.css;
   const colorsValid = Object.values(draft.colors).every(isStudioThemeColor);
+  const homeCardsValid = draft.homeCards.every(
+    (card) =>
+      isStudioThemeColor(card.color) &&
+      (card.mode !== "image" || Boolean(card.imageDataUrl)),
+  );
   const cssContractValid =
     draft.styleConfig.mode === "configured" || cssFitsPatchContract(draft.css);
   // The main process is the source of truth for CSS safety. Renderer preflight
@@ -971,7 +985,7 @@ function StudioView({
   const previewCssValid = !cssChanged && draft.validation.css === "valid";
   const cssValid =
     draft.styleConfig.mode === "configured"
-      ? colorsValid
+      ? colorsValid && homeCardsValid
       : cssContractValid && (cssChanged || previewCssValid);
   useEffect(() => {
     if (previewStyleRef.current)
@@ -984,6 +998,7 @@ function StudioView({
     draft.appearance !== detail.appearance ||
     JSON.stringify(draft.art) !== JSON.stringify(detail.art) ||
     JSON.stringify(draft.colors) !== JSON.stringify(detail.colors) ||
+    JSON.stringify(draft.homeCards) !== JSON.stringify(detail.homeCards) ||
     JSON.stringify(draft.styleConfig) !== JSON.stringify(detail.styleConfig);
   const changed =
     draft.name !== detail.name ||
@@ -996,14 +1011,17 @@ function StudioView({
   const canDiscardChanges =
     changed || themeJsonDirty || detail.canDiscardChanges;
   const draftPatch = buildThemePatch(draft);
-  const canPersistDraft = !themeJsonDirty && colorsValid && cssContractValid;
+  const canPersistDraft =
+    !themeJsonDirty && colorsValid && homeCardsValid && cssContractValid;
   const persistenceDisabledReason = themeJsonDirty
     ? "请先校验并应用高级配置，或恢复当前配置"
     : !colorsValid
       ? "请先修正标为无效的颜色值"
-      : !cssContractValid
-        ? "CSS 不能超过 262,144 个字符或 256 KiB"
-        : undefined;
+      : !homeCardsValid
+        ? "请先修正卡片背景颜色或选择卡片图片"
+        : !cssContractValid
+          ? "CSS 不能超过 262,144 个字符或 256 KiB"
+          : undefined;
   const selectedForNextLaunch = Boolean(summary?.selectedForNextLaunch);
   const canSelectForNextLaunch =
     detail.status === "ready" &&
@@ -1116,6 +1134,37 @@ function StudioView({
             sendIconDataUrl: selectedIcon.styleConfig.sendIconDataUrl,
           },
         },
+      }),
+    );
+    if (updated) applyDetail(updated);
+  };
+  const chooseHomeCardImage = async (cardIndex: number) => {
+    setPreviewPage("home");
+    if (themeJsonDirty) {
+      report("请先校验并应用高级配置，或恢复当前配置。");
+      setStudioTab("theme-json");
+      return;
+    }
+    const selectedCard = await run(() =>
+      bridge.chooseHomeCardImage({
+        libraryId: detail.libraryId,
+        expectedRevision: detail.revision,
+        cardIndex,
+      }),
+    );
+    if (!selectedCard) return;
+    if (!changed) {
+      applyDetail(selectedCard);
+      return;
+    }
+    const homeCards = draft.homeCards.map((card, index) =>
+      index === cardIndex ? { ...selectedCard.homeCards[index] } : { ...card },
+    ) as typeof draft.homeCards;
+    const updated = await run(() =>
+      bridge.patchDraft({
+        libraryId: selectedCard.libraryId,
+        expectedRevision: selectedCard.revision,
+        patch: { ...draftPatch, homeCards },
       }),
     );
     if (updated) applyDetail(updated);
@@ -1365,6 +1414,9 @@ function StudioView({
           onDraftChange={setDraft}
           onChooseBackground={() => void chooseBackground()}
           onChooseSendIcon={() => void chooseSendIcon()}
+          onChooseHomeCardImage={(cardIndex) =>
+            void chooseHomeCardImage(cardIndex)
+          }
           onThemeJsonChange={(source) => {
             setThemeJsonSource(source);
             setThemeJsonDirty(true);
@@ -1562,18 +1614,30 @@ function StudioView({
                           className="mock-home-suggestions"
                           aria-label="任务建议"
                         >
-                          <span data-ds-part="home-card">
-                            <i>⌕</i>探索并理解代码
-                          </span>
-                          <span data-ds-part="home-card">
-                            <i>⌁</i>构建新功能、应用或工具
-                          </span>
-                          <span data-ds-part="home-card">
-                            <i>↻</i>审查代码并提出修改建议
-                          </span>
-                          <span data-ds-part="home-card">
-                            <i>♙</i>修复问题和失败
-                          </span>
+                          {HOME_CARD_SUGGESTIONS.map(
+                            ([icon, label], cardIndex) => {
+                              const card = draft.homeCards[cardIndex];
+                              const image =
+                                card.mode === "image" && card.imageDataUrl
+                                  ? `url("${card.imageDataUrl}")`
+                                  : "none";
+                              return (
+                                <span
+                                  data-ds-part="home-card"
+                                  data-home-card-index={cardIndex}
+                                  data-home-card-mode={card.mode}
+                                  key={label}
+                                  style={{
+                                    backgroundColor: card.color,
+                                    backgroundImage: image,
+                                  }}
+                                >
+                                  <i>{icon}</i>
+                                  {label}
+                                </span>
+                              );
+                            },
+                          )}
                         </div>
                       </div>
                       <div className="mock-home-composer-wrap">

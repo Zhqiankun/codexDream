@@ -21,6 +21,7 @@ interface PayloadConfig {
   sendIconMask?: string;
   appearance: ThemeConfiguration["appearance"];
   art: ThemeConfiguration["art"];
+  homeCards: ThemeConfiguration["homeCards"];
   tokens: Array<readonly [string, string]>;
   parts: ReadonlyArray<readonly [string, string]>;
 }
@@ -56,6 +57,7 @@ export function buildThemePayload(
     sendIconMask: builtInSendIconMask(settings.styleConfig.sendIcon),
     appearance: settings.appearance,
     art: settings.art,
+    homeCards: settings.homeCards,
     tokens: themeTokenDeclarations(settings),
     parts: SELECTOR_PARTS,
   };
@@ -65,6 +67,7 @@ export function buildThemePayload(
     const partAttribute = "data-ds-part";
     const partMarkerAttribute = "data-codexstyle-part";
     const styleMarkerAttribute = "data-codexstyle-style";
+    const homeCardIndexAttribute = "data-codexstyle-home-card-index";
     const observingAttribute = "data-codexstyle-observing";
     const styleSelector = 'style[' + styleMarkerAttribute + '="1"][' + ownerAttribute + '="' + config.marker + '"]';
     const assigned = new Set();
@@ -112,11 +115,17 @@ export function buildThemePayload(
         if (!desired.has(node) && node.getAttribute(ownerAttribute) === config.marker) {
           node.removeAttribute(partAttribute);
           node.removeAttribute(partMarkerAttribute);
+          node.removeAttribute(homeCardIndexAttribute);
           node.removeAttribute(ownerAttribute);
           assigned.delete(node);
         }
       }
       for (const [node, part] of desired) setPart(node, part);
+      const ownedHomeCards = Array.from(document.querySelectorAll('[data-ds-part="home-card"][data-codexstyle-owner="' + config.marker + '"]'));
+      for (const [index, node] of ownedHomeCards.entries()) {
+        if (index < config.homeCards.length) node.setAttribute(homeCardIndexAttribute, String(index));
+        else node.removeAttribute(homeCardIndexAttribute);
+      }
       const style = ensureStyle(root);
       root.setAttribute("data-codexstyle-appearance", config.appearance);
       root.setAttribute("data-codexstyle-safe-area", config.art.safeArea);
@@ -164,13 +173,17 @@ export function buildThemePayload(
       const topBarBridge = '\\n' + topBarSelector + ' { background-color: var(--ds-theme-color-top-bar-background) !important; color: var(--ds-theme-color-top-bar-text) !important; }' +
         '\\n' + topBarSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-top-bar-text) !important; }';
       const threadTabSelector = '[data-ds-part="thread-tab"][data-codexstyle-owner="' + config.marker + '"]';
-      const threadTabBridge = '\\n' + threadTabSelector + ' { background-color: var(--ds-theme-color-thread-tab-background) !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-thread-tab-text) !important; }' +
+      const threadTabBridge = '\\n' + threadTabSelector + ' { --app-shell-tab-background: var(--ds-theme-color-thread-tab-background) !important; background-color: var(--ds-theme-color-thread-tab-background) !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-thread-tab-text) !important; }' +
         '\\n' + threadTabSelector + ' :where(a, button, label, p, small, strong, span, svg, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-thread-tab-text) !important; }';
       const homeTitleSelector = '[data-ds-part="home-title"][data-codexstyle-owner="' + config.marker + '"]';
       const homeTitleBridge = '\\n' + homeTitleSelector + ' { color: var(--ds-theme-color-home-title-text) !important; }' +
         '\\n' + homeTitleSelector + ' :where(a, code, em, span, strong, [class*="text-"]) { color: var(--ds-theme-color-home-title-text) !important; }';
       const homeCardSelector = '[data-ds-part="home-card"][data-codexstyle-owner="' + config.marker + '"]';
-      const homeCardBridge = '\\n' + homeCardSelector + ' { background-color: var(--ds-theme-color-home-card-background) !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-home-card-text) !important; }' +
+      const homeCardBridge = config.homeCards.map((card, index) => {
+        const selector = homeCardSelector + '[' + homeCardIndexAttribute + '="' + index + '"]';
+        const image = card.mode === "image" && card.imageDataUrl ? 'url("' + card.imageDataUrl + '")' : 'none';
+        return '\\n' + selector + ' { background-color: ' + card.color + ' !important; background-image: ' + image + ' !important; background-position: center !important; background-repeat: no-repeat !important; background-size: cover !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-home-card-text) !important; }';
+      }).join('') +
         '\\n' + homeCardSelector + ' :where(a, button, code, em, label, p, small, strong, span, [class*="text-"]) { color: var(--ds-theme-color-home-card-text) !important; }';
       const userMessageSelector = '[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="' + config.marker + '"]';
       const userMessageTextBridge = '\\n' + userMessageSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
@@ -246,7 +259,7 @@ export function buildThemePayload(
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["aria-label", "class"],
+        attributeFilter: ["aria-label", "aria-selected", "class"],
       });
     }
     return true;

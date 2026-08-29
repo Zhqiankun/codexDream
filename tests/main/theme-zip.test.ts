@@ -57,6 +57,13 @@ describe("theme zip compatibility", () => {
     await store.init();
     const original = store.listRecords()[0];
     const configuration = readThemeConfiguration(original.json);
+    const cardImage = await sharp({
+      create: { width: 32, height: 18, channels: 3, background: "#336699" },
+    })
+      .webp()
+      .toBuffer();
+    const cardImageDataUrl =
+      "data:image/webp;base64," + cardImage.toString("base64");
     const theme = await store.patch(original.libraryId, original.revision, {
       appearance: "dark",
       art: { ...configuration.art, focusX: 0.31, safeArea: "left" },
@@ -78,6 +85,16 @@ describe("theme zip compatibility", () => {
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
       },
+      homeCards: [
+        { mode: "color", color: "#102030" },
+        {
+          mode: "image",
+          color: "#203040",
+          imageDataUrl: cardImageDataUrl,
+        },
+        { mode: "color", color: "rgba(48, 64, 80, 0.7)" },
+        { mode: "color", color: "#405060" },
+      ],
       styleConfig: {
         ...DEFAULT_CONFIGURED_STYLE,
         recipes: { ...DEFAULT_CONFIGURED_STYLE.recipes, dialog: false },
@@ -110,6 +127,16 @@ describe("theme zip compatibility", () => {
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
       },
+      homeCards: [
+        { mode: "color", color: "#102030" },
+        {
+          mode: "image",
+          color: "#203040",
+          imageDataUrl: cardImageDataUrl,
+        },
+        { mode: "color", color: "rgba(48, 64, 80, 0.7)" },
+        { mode: "color", color: "#405060" },
+      ],
       styleConfig: {
         mode: "configured",
         blur: 27,

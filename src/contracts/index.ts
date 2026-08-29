@@ -1,9 +1,11 @@
 import { z } from "zod";
 import {
   isThemeColor,
+  isThemeHomeCardImageDataUrl,
   type ThemeAppearance,
   type ThemeArt,
   type ThemeColors,
+  type ThemeHomeCards,
   type ThemeStyleConfig,
 } from "./theme-config";
 import { isThemeIconDataUrl } from "./send-icon";
@@ -11,7 +13,7 @@ import { isThemeIconDataUrl } from "./send-icon";
 export * from "./theme-config";
 export * from "./send-icon";
 
-export const PROTOCOL_VERSION = 3 as const;
+export const PROTOCOL_VERSION = 4 as const;
 export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
@@ -96,6 +98,7 @@ export interface ThemeDetail extends ThemeSummary {
   appearance: ThemeAppearance;
   art: ThemeArt;
   colors: ThemeColors;
+  homeCards: ThemeHomeCards;
   styleConfig: ThemeStyleConfig;
   backgroundUrl?: string;
   json: Record<string, unknown>;
@@ -174,6 +177,7 @@ export interface ThemePatch {
   appearance?: ThemeAppearance;
   art?: ThemeArt;
   colors?: ThemeColors;
+  homeCards?: ThemeHomeCards;
   styleConfig?: ThemeStyleConfig;
   themeJson?: string;
 }
@@ -197,7 +201,7 @@ export interface ExportResult {
 
 const VersionField = { v: z.literal(PROTOCOL_VERSION) };
 const MAX_CSS_BYTES = 256 * 1024;
-const MAX_THEME_JSON_BYTES = 64 * 1024;
+const MAX_THEME_JSON_BYTES = 384 * 1024;
 const utf8 = new TextEncoder();
 
 function hasAtMostCssBytes(value: string): boolean {
@@ -248,6 +252,24 @@ const ThemeColorsSchema = z
   })
   .strict();
 
+const ThemeHomeCardSchema = z
+  .object({
+    mode: z.enum(["color", "image"]),
+    color: z.string().refine(isThemeColor),
+    imageDataUrl: z.string().refine(isThemeHomeCardImageDataUrl).optional(),
+  })
+  .strict()
+  .refine((card) => card.mode !== "image" || Boolean(card.imageDataUrl), {
+    message: "home-card-image-required",
+  });
+
+const ThemeHomeCardsSchema = z.tuple([
+  ThemeHomeCardSchema,
+  ThemeHomeCardSchema,
+  ThemeHomeCardSchema,
+  ThemeHomeCardSchema,
+]);
+
 const ThemeStyleConfigSchema = z
   .object({
     mode: z.enum(["configured", "advanced"]),
@@ -289,6 +311,14 @@ export const RevisionSchema = z
     expectedRevision: z.number().int().nonnegative(),
   })
   .strict();
+export const HomeCardImageSchema = z
+  .object({
+    ...VersionField,
+    libraryId: z.string().uuid(),
+    expectedRevision: z.number().int().nonnegative(),
+    cardIndex: z.number().int().min(0).max(3),
+  })
+  .strict();
 export const CreateDraftSchema = z
   .object({ ...VersionField, name: z.string().trim().max(80).optional() })
   .strict();
@@ -312,6 +342,7 @@ export const PatchDraftSchema = z
         appearance: z.enum(["auto", "light", "dark"]).optional(),
         art: ThemeArtSchema.optional(),
         colors: ThemeColorsSchema.optional(),
+        homeCards: ThemeHomeCardsSchema.optional(),
         styleConfig: ThemeStyleConfigSchema.optional(),
         themeJson: z
           .string()
@@ -366,6 +397,9 @@ export interface CodexStyleApi {
   ): Promise<Result<ThemeDetail>>;
   chooseSendIcon(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
+  ): Promise<Result<ThemeDetail>>;
+  chooseHomeCardImage(
+    request: Omit<z.infer<typeof HomeCardImageSchema>, "v">,
   ): Promise<Result<ThemeDetail>>;
   commit(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,

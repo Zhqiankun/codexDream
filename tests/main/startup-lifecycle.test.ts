@@ -287,7 +287,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 3 },
+      data: { appVersion: "1.3.1", protocolVersion: 4 },
     });
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
@@ -323,7 +323,7 @@ describe("CodexStyle startup window lifecycle", () => {
     firstWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 3 },
+      data: { appVersion: "1.3.1", protocolVersion: 4 },
     });
     firstWindow.emitWebContents(
       "render-process-gone",
@@ -336,7 +336,7 @@ describe("CodexStyle startup window lifecycle", () => {
     secondWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 3 },
+      data: { appVersion: "1.3.1", protocolVersion: 4 },
     });
     secondWindow.emitWebContents(
       "render-process-gone",
@@ -366,7 +366,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 3 },
+      data: { appVersion: "1.3.1", protocolVersion: 4 },
     });
     expect(currentWindow.show).not.toHaveBeenCalled();
 

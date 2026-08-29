@@ -45,8 +45,9 @@ describe("theme payload", () => {
       const threadTabController = document.querySelector(
         "[data-app-shell-tab-controller]",
       );
-      const homeTitle = document.querySelector("h2");
-      const homeCard = document.querySelector(
+      const threadTabSurface = document.querySelector('[class~="group/tab"]');
+      const homeTitle = document.querySelector('[data-feature="game-source"]');
+      const homeCards = document.querySelectorAll(
         'section[class~="group/home-suggestions"] button',
       );
       const activity = document.querySelector(
@@ -89,8 +90,14 @@ describe("theme payload", () => {
       expect(threadTabController?.getAttribute("data-ds-part")).toBe(
         "thread-tab",
       );
+      expect(threadTabSurface?.getAttribute("data-ds-part")).toBe("thread-tab");
       expect(homeTitle?.getAttribute("data-ds-part")).toBe("home-title");
-      expect(homeCard?.getAttribute("data-ds-part")).toBe("home-card");
+      expect(homeCards).toHaveLength(4);
+      expect(
+        [...homeCards].map((card) =>
+          card.getAttribute("data-codexstyle-home-card-index"),
+        ),
+      ).toEqual(["0", "1", "2", "3"]);
       expect(activity?.getAttribute("data-ds-part")).toBe("activity");
       expect(composer?.getAttribute("data-ds-part")).toBe("composer");
       expect(composerToolbar?.getAttribute("data-ds-part")).toBe(
@@ -126,13 +133,16 @@ describe("theme payload", () => {
         "background-color: var(--ds-theme-color-thread-tab-background) !important",
       );
       expect(style?.textContent).toContain(
+        "--app-shell-tab-background: var(--ds-theme-color-thread-tab-background) !important",
+      );
+      expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-thread-tab-text) !important",
       );
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-home-title-text) !important",
       );
       expect(style?.textContent).toContain(
-        "background-color: var(--ds-theme-color-home-card-background) !important",
+        'data-codexstyle-home-card-index="0"] { background-color: #2d2d2d !important; background-image: none !important',
       );
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-home-card-text) !important",
@@ -193,6 +203,43 @@ describe("theme payload", () => {
       "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent)",
     );
     expect(style?.textContent).not.toContain('data-ds-part="main-top-fade"');
+  });
+
+  it("applies independent color and image surfaces to the four home cards", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    const imageDataUrl = "data:image/webp;base64,UklGRg==";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+          homeCards: [
+            { mode: "color", color: "#112233" },
+            { mode: "image", color: "#223344", imageDataUrl },
+            { mode: "color", color: "rgba(51, 68, 85, 0.7)" },
+            { mode: "color", color: "#445566" },
+          ],
+        },
+      ),
+    );
+
+    const source =
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent ?? "";
+    expect(source).toContain(
+      'data-codexstyle-home-card-index="0"] { background-color: #112233 !important; background-image: none !important',
+    );
+    expect(source).toContain(
+      'data-codexstyle-home-card-index="1"] { background-color: #223344 !important; background-image: url("data:image/webp;base64,UklGRg==") !important',
+    );
+    expect(source).toContain(
+      'data-codexstyle-home-card-index="2"] { background-color: rgba(51, 68, 85, 0.7) !important',
+    );
   });
 
   it("uses the configured sidebar overlay in window mode", () => {
@@ -688,7 +735,7 @@ describe("theme payload", () => {
 });
 
 function resetDocument(
-  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface" role="main"><header class="app-header-tint"><div data-app-shell-tab-controller><button role="tab" aria-selected="true">主题会话</button></div></header><div data-testid="home-icon"></div><h2>首页标题</h2><section class="group/home-suggestions"><button class="bg-surface"><span class="text-secondary">探索代码</span></button></section><div class="group/activity-header"><strong>运行命令</strong><small class="text-secondary">npm test</small></div><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-testid="change-card" class="bg-surface-elevated-secondary/50 text-default"><div class="group/turn-diff-header"><button><span class="text-secondary">审核</span></button></div><span class="text-default">src/main.ts</span><small class="text-secondary">已编辑</small><span class="diff-added" style="color: green">+4</span><span class="diff-removed" style="color: red">-1</span></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
+  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface" role="main"><header class="app-header-tint"><div data-app-shell-tab-controller><div class="group/tab" style="--app-shell-tab-background:#fff"><div class="pointer-events-none absolute inset-0"></div><button role="tab" aria-selected="true">主题会话</button></div></div></header><div data-testid="home-icon"></div><div class="heading-xl text-default" data-feature="game-source"><span class="group/title"><span class="text-default">首页标题</span></span></div><section class="group/home-suggestions"><div><button class="bg-surface"><span class="text-secondary">探索代码</span></button><button class="bg-surface"><span class="text-secondary">构建功能</span></button><button class="bg-surface"><span class="text-secondary">审查代码</span></button><button class="bg-surface"><span class="text-secondary">修复问题</span></button></div></section><div class="group/activity-header"><strong>运行命令</strong><small class="text-secondary">npm test</small></div><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-testid="change-card" class="bg-surface-elevated-secondary/50 text-default"><div class="group/turn-diff-header"><button><span class="text-secondary">审核</span></button></div><span class="text-default">src/main.ts</span><small class="text-secondary">已编辑</small><span class="diff-added" style="color: green">+4</span><span class="diff-removed" style="color: red">-1</span></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
 ) {
   document.head.innerHTML = "";
   document.body.innerHTML = body;

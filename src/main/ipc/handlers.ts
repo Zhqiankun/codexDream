@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   EmptyRequestSchema,
   ExportSchema,
+  HomeCardImageSchema,
   CreateDraftSchema,
   InstallUpdateSchema,
   LibraryIdSchema,
@@ -101,6 +102,12 @@ export function registerIpc(
     RevisionSchema,
     async ({ libraryId, expectedRevision }) =>
       controller.chooseSendIcon(libraryId, expectedRevision),
+  );
+  handle(
+    "theme.chooseHomeCardImage",
+    HomeCardImageSchema,
+    async ({ libraryId, expectedRevision, cardIndex }) =>
+      controller.chooseHomeCardImage(libraryId, expectedRevision, cardIndex),
   );
   handle(
     "theme.commit",

@@ -63,6 +63,12 @@ const theme: ThemeDetail = {
     muted: "rgba(255, 255, 255, .498)",
     line: "rgba(255, 255, 255, .157)",
   },
+  homeCards: [
+    { mode: "color", color: "#2d2d2d" },
+    { mode: "color", color: "#334155" },
+    { mode: "color", color: "rgba(51, 65, 85, 0.8)" },
+    { mode: "color", color: "#1f2937" },
+  ],
   styleConfig: {
     mode: "advanced",
     sendIcon: "native",
@@ -131,7 +137,7 @@ function makeApi() {
   const api = {
     rendererReady: vi.fn().mockResolvedValue({
       ok: true,
-      data: { appVersion: "1.3.3", protocolVersion: 3 },
+      data: { appVersion: "1.3.8", protocolVersion: 4 },
     }),
     openLogDirectory: vi.fn().mockResolvedValue({ ok: true, data: true }),
     getSnapshot: vi.fn().mockResolvedValue({ ok: true, data: snapshot }),
@@ -143,6 +149,7 @@ function makeApi() {
     discardChanges: vi.fn().mockResolvedValue({ ok: true, data: theme }),
     chooseBackground: vi.fn(),
     chooseSendIcon: vi.fn(),
+    chooseHomeCardImage: vi.fn(),
     commit: vi.fn().mockResolvedValue({
       ok: true,
       data: { ...theme, revision: 4, status: "ready" },
@@ -1137,6 +1144,64 @@ describe("Studio renderer", () => {
       "data-preview-color-target",
       "activityText",
     );
+  });
+
+  it("configures each home shortcut card with an independent color or image", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    const imageDataUrl = "data:image/webp;base64,UklGRg==";
+    api.chooseHomeCardImage.mockResolvedValue({
+      ok: true,
+      data: {
+        ...theme,
+        revision: 3,
+        homeCards: theme.homeCards.map((card, index) =>
+          index === 1 ? { ...card, mode: "image", imageDataUrl } : { ...card },
+        ) as ThemeDetail["homeCards"],
+      },
+    });
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
+
+    expect(screen.getByText("四张快捷卡片")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "图片" })[1]!);
+    await waitFor(() =>
+      expect(api.chooseHomeCardImage).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: theme.revision,
+        cardIndex: 1,
+      }),
+    );
+    await screen.findByRole("button", { name: "更换图片" });
+    fireEvent.change(screen.getByLabelText("选择探索并理解代码背景颜色"), {
+      target: { value: "#123456" },
+    });
+    await waitFor(() =>
+      expect(
+        (
+          document.querySelectorAll(
+            '.mock-home-suggestions [data-ds-part="home-card"]',
+          )[0] as HTMLElement
+        ).style.backgroundColor,
+      ).toBe("rgb(18, 52, 86)"),
+    );
+    fireEvent.change(
+      screen.getByRole("slider", {
+        name: "探索并理解代码背景透明度",
+      }),
+      { target: { value: "65" } },
+    );
+
+    const preview = document.querySelector(".mock-codex") as HTMLElement;
+    expect(preview).toHaveAttribute("data-preview-page", "home");
+    const cards = document.querySelectorAll(
+      '.mock-home-suggestions [data-ds-part="home-card"]',
+    );
+    expect((cards[0] as HTMLElement).style.backgroundColor).toBe(
+      "rgba(18, 52, 86, 0.65)",
+    );
+    expect((cards[0] as HTMLElement).style.backgroundImage).toBe("none");
+    expect(cards[1]).toHaveStyle({ backgroundImage: `url("${imageDataUrl}")` });
   });
 
   it("offers recipe configuration without requiring CSS source edits", async () => {

@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/8" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/9" as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -19,12 +19,24 @@ export const SELECTOR_PARTS = [
     "thread-tab",
     'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"]) [role="tab"][aria-selected="true"]',
   ],
+  [
+    "thread-tab",
+    'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"]) [data-app-shell-tab-controller]:has([role="tab"][aria-selected="true"]) [class~="group/tab"]:has(> button[role="tab"][aria-selected="true"])',
+  ],
   ["main-top-fade", "[data-app-shell-main-content-top-fade]"],
   ["home", '[role="main"]:has([data-testid="home-icon"])'],
   ["home-hero", '[data-testid="home-icon"]'],
   [
     "home-title",
     '[role="main"]:has([data-testid="home-icon"]) :is(h1, h2, h3)',
+  ],
+  [
+    "home-title",
+    '[role="main"]:has([data-testid="home-icon"]) [data-feature="game-source"]',
+  ],
+  [
+    "home-title",
+    '[role="main"]:has([data-testid="home-icon"]) [class~="group/title"]',
   ],
   [
     "home-card",

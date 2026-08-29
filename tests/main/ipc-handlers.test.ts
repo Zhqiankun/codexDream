@@ -31,7 +31,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("session.launch")!(trustedEvent(), {
-      v: 3,
+      v: 4,
     });
 
     expect(result).toEqual({
@@ -51,7 +51,7 @@ describe("IPC handler command boundary", () => {
 
     const result = await handlers.get("update.request")!(
       trustedEvent({ senderId: 99 }),
-      { v: 3 },
+      { v: 4 },
     );
 
     expect(result).toEqual({
@@ -67,7 +67,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.get")!(trustedEvent(), {
-      v: 3,
+      v: 4,
       libraryId: "not-a-uuid",
     });
 
@@ -88,7 +88,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.patchDraft")!(trustedEvent(), {
-      v: 3,
+      v: 4,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       patch: {
@@ -113,7 +113,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.exportZip")!(trustedEvent(), {
-      v: 3,
+      v: 4,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       format: "compatibility",
@@ -139,7 +139,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never, logger as never);
 
     await handlers.get("theme.patchDraft")!(trustedEvent(), {
-      v: 3,
+      v: 4,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       patch: {
@@ -163,7 +163,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const request = {
-      v: 3,
+      v: 4,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -179,11 +179,38 @@ describe("IPC handler command boundary", () => {
     );
   });
 
+  it("validates and delegates an independent home card image selection", async () => {
+    const controller = controllerFixture();
+    controller.chooseHomeCardImage.mockResolvedValue({
+      ok: true,
+      data: "updated",
+    });
+    registerIpc(controller as never);
+    const request = {
+      v: 4,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 3,
+      cardIndex: 2,
+    };
+
+    const result = await handlers.get("theme.chooseHomeCardImage")!(
+      trustedEvent(),
+      request,
+    );
+
+    expect(result).toEqual({ ok: true, data: "updated" });
+    expect(controller.chooseHomeCardImage).toHaveBeenCalledWith(
+      request.libraryId,
+      request.expectedRevision,
+      request.cardIndex,
+    );
+  });
+
   it("rejects stale protocol requests but accepts the bootstrap handshake", async () => {
     const controller = controllerFixture();
     controller.rendererReady.mockReturnValue({
       ok: true,
-      data: { appVersion: "1.3.3", protocolVersion: 3 },
+      data: { appVersion: "1.3.3", protocolVersion: 4 },
     });
     registerIpc(controller as never);
 
@@ -205,7 +232,7 @@ describe("IPC handler command boundary", () => {
     expect(controller.getStudioSnapshot).not.toHaveBeenCalled();
     expect(bootstrap).toMatchObject({
       ok: true,
-      data: { protocolVersion: 3 },
+      data: { protocolVersion: 4 },
     });
     expect(controller.rendererReady).toHaveBeenCalledOnce();
   });
@@ -218,7 +245,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const request = {
-      v: 3,
+      v: 4,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -240,7 +267,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const request = {
-      v: 3,
+      v: 4,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 4,
     };
@@ -274,7 +301,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("update.request")!(trustedEvent(), {
-      v: 3,
+      v: 4,
     });
 
     expect(result).toEqual({
@@ -304,11 +331,11 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const valid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 3,
+      v: 4,
       mode: "now",
     });
     const invalid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 3,
+      v: 4,
       mode: "silent-with-path",
       path: "C:\\untrusted.exe",
     });
@@ -342,6 +369,7 @@ function controllerFixture() {
     discardThemeChanges: vi.fn(),
     chooseBackground: vi.fn(),
     chooseSendIcon: vi.fn(),
+    chooseHomeCardImage: vi.fn(),
     commitTheme: vi.fn(),
     deleteTheme: vi.fn(),
     importTheme: vi.fn(),

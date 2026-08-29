@@ -571,6 +571,7 @@ describe("local theme store", () => {
       delete colors.activityMuted;
       delete colors.topBarBackground;
       delete colors.topBarText;
+      delete json.homeCards;
       theme.fingerprint = themeFingerprint(theme as never);
     }
     store.managedStore.writeFileAtomic(
@@ -599,6 +600,13 @@ describe("local theme store", () => {
       expect(detail.colors.activityMuted).toBe(fallback.muted);
       expect(detail.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
       expect(detail.colors.topBarText).toBe(fallback.muted);
+      expect(
+        detail.homeCards.every(
+          (card) =>
+            card.mode === "color" &&
+            card.color === detail.colors.homeCardBackground,
+        ),
+      ).toBe(true);
     }
   });
 
