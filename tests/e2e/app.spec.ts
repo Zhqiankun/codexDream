@@ -211,6 +211,12 @@ test("starts the real Electron shell with native storage and completes a local w
     await expect(
       page.getByRole("button", { name: "此版本不支持应用内更新" }),
     ).toBeEnabled();
+    await expect(
+      page.getByRole("region", { name: "Codex 会话启动" }),
+    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Codex 会话" })).toHaveCount(0);
+    await page.locator('[data-preview-control-id="homeTitle"]').hover();
+    await expect(page.getByText("点击定位 · 首页标题文字")).toBeVisible();
 
     await mkdir(screenshotDirectory, { recursive: true });
     await page.screenshot({

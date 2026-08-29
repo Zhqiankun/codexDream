@@ -1,4 +1,10 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/9" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/11" as const;
+
+export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
+  'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"])' as const;
+
+export const HOME_COMPOSER_RAIL_SELECTOR =
+  '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -23,6 +29,7 @@ export const SELECTOR_PARTS = [
     "thread-tab",
     'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"]) [data-app-shell-tab-controller]:has([role="tab"][aria-selected="true"]) [class~="group/tab"]:has(> button[role="tab"][aria-selected="true"])',
   ],
+  ["thread-tab", EDGE_SCROLL_THREAD_TITLE_SELECTOR],
   ["main-top-fade", "[data-app-shell-main-content-top-fade]"],
   ["home", '[role="main"]:has([data-testid="home-icon"])'],
   ["home-hero", '[data-testid="home-icon"]'],
@@ -51,6 +58,7 @@ export const SELECTOR_PARTS = [
   ["change-card", 'div:has(> [class~="group/turn-diff-header"])'],
   ["activity", '[class~="group/activity-header"]'],
   ["composer", "[data-codex-composer-root] [data-composer-surface-variant]"],
+  ["composer", HOME_COMPOSER_RAIL_SELECTOR],
   [
     "composer-toolbar",
     "[data-codex-composer-root] [data-composer-footer-responsive]",

@@ -668,7 +668,7 @@ describe("Studio renderer", () => {
         screen.getByRole("button", { name: "放弃本次修改" }),
       ).toBeDisabled(),
     );
-    expect(screen.getByRole("tab", { name: "主题设计" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "设计" })).toHaveFocus();
   });
 
   it("switches the live preview between conversation and home", async () => {
@@ -1144,6 +1144,72 @@ describe("Studio renderer", () => {
       "data-preview-color-target",
       "activityText",
     );
+  });
+
+  it("uses preview hotspots to locate the matching color control", async () => {
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+
+    const preview = document.querySelector(".mock-codex") as HTMLElement;
+    const userMessageText = preview.querySelector<HTMLElement>(
+      '[data-preview-control-id="userMessageText"]',
+    );
+    expect(userMessageText).not.toBeNull();
+    fireEvent.pointerMove(userMessageText!);
+    expect(screen.getByText(/点击定位 · 我的消息文字/u)).toBeInTheDocument();
+
+    fireEvent.click(userMessageText!);
+
+    const control = await screen.findByRole("textbox", {
+      name: "我的消息文字颜色",
+    });
+    await waitFor(() => expect(control).toHaveFocus());
+    expect(screen.getByRole("tab", { name: "设计" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "颜色" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(control.closest(".color-config")).toHaveClass(
+      "studio-control-located",
+    );
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "userMessageText",
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "组件样式" }));
+    expect(screen.getByRole("tab", { name: "组件样式" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "设计" }));
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
+    expect(screen.getByRole("tab", { name: "画面" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    fireEvent.pointerLeave(preview);
+    expect(screen.queryByText(/点击定位 · 我的消息文字/u)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "首页" }));
+    const secondCard = preview.querySelector<HTMLElement>(
+      '[data-preview-control-id="homeCard1"]',
+    );
+    fireEvent.click(secondCard!);
+    const cardControl = await waitFor(() => {
+      const target = document.querySelector<HTMLElement>(
+        '[data-studio-control-id="home-card-1"]',
+      );
+      expect(target).toHaveClass("studio-control-located");
+      return target!;
+    });
+    expect(
+      within(cardControl).getByRole("button", { name: "颜色" }),
+    ).toHaveFocus();
   });
 
   it("configures each home shortcut card with an independent color or image", async () => {
@@ -1635,8 +1701,11 @@ describe("Studio renderer", () => {
   it("blocks managed-session launch until a theme is explicitly selected", async () => {
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
 
+    expect(
+      screen.getByRole("region", { name: "Codex 会话启动" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Codex 会话" })).toBeNull();
     expect(screen.getByRole("button", { name: "启动 Codex" })).toBeDisabled();
     expect(
       (window.codexStyle as ReturnType<typeof makeApi>).launchSession,
@@ -1660,10 +1729,14 @@ describe("Studio renderer", () => {
     window.codexStyle = api;
 
     render(<App />);
-    expect(await screen.findByText("上次会话待确认")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
+    const launcher = await screen.findByRole("region", {
+      name: "Codex 会话启动",
+    });
     expect(
-      await screen.findByText(/当前无法安全确认它仍受控/u),
+      within(launcher).getAllByText("上次会话待确认").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(launcher).getByText(/当前无法安全确认它仍受控/u),
     ).toBeInTheDocument();
     expect(screen.queryByText(/孤儿/u)).toBeNull();
   });
@@ -1698,13 +1771,17 @@ describe("Studio renderer", () => {
       window.codexStyle = api;
 
       render(<App />);
-      expect(await screen.findByText(item.label)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
-      expect(await screen.findByText(item.copy)).toBeInTheDocument();
+      const launcher = await screen.findByRole("region", {
+        name: "Codex 会话启动",
+      });
+      expect(within(launcher).getAllByText(item.label).length).toBeGreaterThan(
+        0,
+      );
+      expect(within(launcher).getByText(item.copy)).toBeInTheDocument();
     },
   );
 
-  it("allows a selected theme to launch only from the managed-session view", async () => {
+  it("allows a selected theme to launch from the theme design page", async () => {
     const api = makeApi();
     api.getSnapshot.mockResolvedValue({
       ok: true,
@@ -1718,7 +1795,6 @@ describe("Studio renderer", () => {
 
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
     const launch = screen.getByRole("button", { name: "启动 Codex" });
     expect(launch).toBeEnabled();
     fireEvent.click(launch);
@@ -1745,7 +1821,6 @@ describe("Studio renderer", () => {
 
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
 
     expect(
       screen.getByText("Store Codex 可启动").closest(".check-row"),
@@ -1777,7 +1852,6 @@ describe("Studio renderer", () => {
 
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
 
     expect(
       screen.getByText("Store Codex 可启动").closest(".check-row"),
@@ -1831,7 +1905,6 @@ describe("Studio renderer", () => {
 
       render(<App />);
       await screen.findByDisplayValue("Midnight Copper");
-      fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
 
       expect(screen.getByText(message)).toBeInTheDocument();
       expect(
@@ -1965,7 +2038,6 @@ describe("Studio renderer", () => {
 
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 会话" }));
     fireEvent.click(screen.getByRole("button", { name: "恢复后续注入" }));
 
     await waitFor(() => expect(api.resumeSession).toHaveBeenCalledOnce());

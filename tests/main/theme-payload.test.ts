@@ -46,6 +46,9 @@ describe("theme payload", () => {
         "[data-app-shell-tab-controller]",
       );
       const threadTabSurface = document.querySelector('[class~="group/tab"]');
+      const threadTitleSurface = document.querySelector(
+        '[data-testid="thread-title-surface"]',
+      );
       const homeTitle = document.querySelector('[data-feature="game-source"]');
       const homeCards = document.querySelectorAll(
         'section[class~="group/home-suggestions"] button',
@@ -55,6 +58,9 @@ describe("theme payload", () => {
       );
       const composer = document.querySelector(
         "[data-composer-surface-variant]",
+      );
+      const homeComposerRail = document.querySelector(
+        "[data-composer-rail-item]",
       );
       const composerToolbar = document.querySelector(
         "[data-composer-footer-responsive]",
@@ -91,6 +97,9 @@ describe("theme payload", () => {
         "thread-tab",
       );
       expect(threadTabSurface?.getAttribute("data-ds-part")).toBe("thread-tab");
+      expect(threadTitleSurface?.getAttribute("data-ds-part")).toBe(
+        "thread-tab",
+      );
       expect(homeTitle?.getAttribute("data-ds-part")).toBe("home-title");
       expect(homeCards).toHaveLength(4);
       expect(
@@ -100,6 +109,7 @@ describe("theme payload", () => {
       ).toEqual(["0", "1", "2", "3"]);
       expect(activity?.getAttribute("data-ds-part")).toBe("activity");
       expect(composer?.getAttribute("data-ds-part")).toBe("composer");
+      expect(homeComposerRail?.getAttribute("data-ds-part")).toBe("composer");
       expect(composerToolbar?.getAttribute("data-ds-part")).toBe(
         "composer-toolbar",
       );
@@ -203,6 +213,40 @@ describe("theme payload", () => {
       "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent)",
     );
     expect(style?.textContent).not.toContain('data-ds-part="main-top-fade"');
+  });
+
+  it("remaps a recreated edge-scroll thread title surface", async () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+      ),
+    );
+
+    const toolbar = document.querySelector('[class*="_Toolbar_"]');
+    document.querySelector('[data-testid="thread-title-surface"]')?.remove();
+    toolbar?.insertAdjacentHTML(
+      "afterbegin",
+      '<div class="text-md flex flex-1" data-testid="replacement-thread-title"><button class="text-base font-medium">切换后的会话</button></div>',
+    );
+    const replacement = document.querySelector(
+      '[data-testid="replacement-thread-title"]',
+    );
+    expect(replacement?.getAttribute("data-ds-part")).toBeNull();
+    expect(
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent,
+    ).toContain(
+      'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"]) { background-color: var(--ds-theme-color-thread-tab-background) !important',
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    expect(replacement?.getAttribute("data-ds-part")).toBe("thread-tab");
+    expect(replacement?.getAttribute("data-codexstyle-owner")).toBe(marker);
   });
 
   it("applies independent color and image surfaces to the four home cards", () => {
@@ -381,6 +425,18 @@ describe("theme payload", () => {
     );
     expect(style?.textContent).toContain(
       "background-color: var(--ds-theme-color-panel) !important",
+    );
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-panel-alt) !important",
+    );
+    expect(style?.textContent).toContain(
+      '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"] { background-color: var(--ds-theme-color-panel-alt) !important',
+    );
+    expect(style?.textContent).not.toContain(
+      "var(--ds-theme-color-panel-alt) 88%, transparent",
+    );
+    expect(style?.textContent).not.toContain(
+      "var(--ds-theme-color-panel-alt) 92%, transparent",
     );
     expect(style?.textContent).not.toContain(
       "var(--ds-theme-color-panel) 88%, transparent",
@@ -735,7 +791,7 @@ describe("theme payload", () => {
 });
 
 function resetDocument(
-  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface" role="main"><header class="app-header-tint"><div data-app-shell-tab-controller><div class="group/tab" style="--app-shell-tab-background:#fff"><div class="pointer-events-none absolute inset-0"></div><button role="tab" aria-selected="true">主题会话</button></div></div></header><div data-testid="home-icon"></div><div class="heading-xl text-default" data-feature="game-source"><span class="group/title"><span class="text-default">首页标题</span></span></div><section class="group/home-suggestions"><div><button class="bg-surface"><span class="text-secondary">探索代码</span></button><button class="bg-surface"><span class="text-secondary">构建功能</span></button><button class="bg-surface"><span class="text-secondary">审查代码</span></button><button class="bg-surface"><span class="text-secondary">修复问题</span></button></div></section><div class="group/activity-header"><strong>运行命令</strong><small class="text-secondary">npm test</small></div><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-testid="change-card" class="bg-surface-elevated-secondary/50 text-default"><div class="group/turn-diff-header"><button><span class="text-secondary">审核</span></button></div><span class="text-default">src/main.ts</span><small class="text-secondary">已编辑</small><span class="diff-added" style="color: green">+4</span><span class="diff-removed" style="color: red">-1</span></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
+  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface" role="main"><header class="app-header-tint" data-app-shell-header-edge-scroll="true"><div class="_Toolbar_fixture"><div class="text-md flex flex-1" data-testid="thread-title-surface"><button class="text-base font-medium">当前会话</button></div></div><div data-app-shell-tab-controller><div class="group/tab" style="--app-shell-tab-background:#fff"><div class="pointer-events-none absolute inset-0"></div><button role="tab" aria-selected="true">主题会话</button></div></div></header><div data-testid="home-icon"></div><div class="heading-xl text-default" data-feature="game-source"><span class="group/title"><span class="text-default">首页标题</span></span></div><section class="group/home-suggestions"><div><button class="bg-surface"><span class="text-secondary">探索代码</span></button><button class="bg-surface"><span class="text-secondary">构建功能</span></button><button class="bg-surface"><span class="text-secondary">审查代码</span></button><button class="bg-surface"><span class="text-secondary">修复问题</span></button></div></section><div class="group/activity-header"><strong>运行命令</strong><small class="text-secondary">npm test</small></div><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-testid="change-card" class="bg-surface-elevated-secondary/50 text-default"><div class="group/turn-diff-header"><button><span class="text-secondary">审核</span></button></div><span class="text-default">src/main.ts</span><small class="text-secondary">已编辑</small><span class="diff-added" style="color: green">+4</span><span class="diff-removed" style="color: red">-1</span></div><div data-composer-placement="home" data-composer-rail-item="present" data-composer-rail-placement="above" data-composer-rail-variant="controls"></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
 ) {
   document.head.innerHTML = "";
   document.body.innerHTML = body;

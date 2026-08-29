@@ -7,7 +7,11 @@ import {
   type BackgroundScope,
   type ThemeConfiguration,
 } from "../../contracts";
-import { SELECTOR_PARTS } from "./selector-profile";
+import {
+  EDGE_SCROLL_THREAD_TITLE_SELECTOR,
+  HOME_COMPOSER_RAIL_SELECTOR,
+  SELECTOR_PARTS,
+} from "./selector-profile";
 
 interface PayloadConfig {
   marker: string;
@@ -22,6 +26,8 @@ interface PayloadConfig {
   appearance: ThemeConfiguration["appearance"];
   art: ThemeConfiguration["art"];
   homeCards: ThemeConfiguration["homeCards"];
+  edgeScrollThreadTitleSelector: string;
+  homeComposerRailSelector: string;
   tokens: Array<readonly [string, string]>;
   parts: ReadonlyArray<readonly [string, string]>;
 }
@@ -58,6 +64,8 @@ export function buildThemePayload(
     appearance: settings.appearance,
     art: settings.art,
     homeCards: settings.homeCards,
+    edgeScrollThreadTitleSelector: EDGE_SCROLL_THREAD_TITLE_SELECTOR,
+    homeComposerRailSelector: HOME_COMPOSER_RAIL_SELECTOR,
     tokens: themeTokenDeclarations(settings),
     parts: SELECTOR_PARTS,
   };
@@ -175,6 +183,9 @@ export function buildThemePayload(
       const threadTabSelector = '[data-ds-part="thread-tab"][data-codexstyle-owner="' + config.marker + '"]';
       const threadTabBridge = '\\n' + threadTabSelector + ' { --app-shell-tab-background: var(--ds-theme-color-thread-tab-background) !important; background-color: var(--ds-theme-color-thread-tab-background) !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-thread-tab-text) !important; }' +
         '\\n' + threadTabSelector + ' :where(a, button, label, p, small, strong, span, svg, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-thread-tab-text) !important; }';
+      const instantThreadTitleSelector = rootSelector + ' ' + config.edgeScrollThreadTitleSelector;
+      const instantThreadTitleBridge = '\\n' + instantThreadTitleSelector + ' { background-color: var(--ds-theme-color-thread-tab-background) !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-thread-tab-text) !important; }' +
+        '\\n' + instantThreadTitleSelector + ' :where(a, button, label, p, small, strong, span, svg, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-thread-tab-text) !important; }';
       const homeTitleSelector = '[data-ds-part="home-title"][data-codexstyle-owner="' + config.marker + '"]';
       const homeTitleBridge = '\\n' + homeTitleSelector + ' { color: var(--ds-theme-color-home-title-text) !important; }' +
         '\\n' + homeTitleSelector + ' :where(a, code, em, span, strong, [class*="text-"]) { color: var(--ds-theme-color-home-title-text) !important; }';
@@ -200,6 +211,7 @@ export function buildThemePayload(
         '\\n' + activitySelector + ' :where(small, [class*="text-secondary"], [class*="text-tertiary"], [class*="text-text/"], [class*="text-codex-description"]) { color: var(--ds-theme-color-activity-muted) !important; }';
       const composerSelector = '[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]';
       const composerToolbarSelector = '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"]';
+      const instantHomeComposerRailSelector = rootSelector + ' ' + config.homeComposerRailSelector;
       const composerPlaceholderSelector = composerSelector + ' :where([data-placeholder], [aria-placeholder])';
       const composerPlaceholderNodeSelector = composerSelector + ' :where([data-placeholder], [aria-placeholder]):not([contenteditable="true"]):not(input):not(textarea)';
       const composerMutedBridge = '\\n' + composerPlaceholderNodeSelector + ' { color: var(--ds-theme-color-muted) !important; }' +
@@ -212,14 +224,15 @@ export function buildThemePayload(
             ? '\\n' + sidebarTextSelector + ' { background-color: var(--ds-theme-color-panel) !important; }'
             : '') +
           (config.configuredRecipes.composer
-            ? '\\n' + composerSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 88%, transparent) !important; }' +
+            ? '\\n' + composerSelector + ' { background-color: var(--ds-theme-color-panel-alt) !important; }' +
+              '\\n' + instantHomeComposerRailSelector + ' { background-color: var(--ds-theme-color-panel-alt) !important; border-color: var(--ds-theme-color-line) !important; }' +
               '\\n' + composerSelector + ':focus-within { border-color: var(--ds-theme-color-accent-alt) !important; }' +
               '\\n' + composerToolbarSelector + ' :where(button, span) { color: var(--ds-theme-color-secondary) !important; }' +
               '\\n' + composerPermissionSelector + ' { color: var(--ds-theme-color-accent) !important; }' +
               '\\n[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-background) !important; }'
             : '') +
           (config.configuredRecipes.message
-            ? '\\n' + userMessageSelector + ' { background-color: color-mix(in srgb, var(--ds-theme-color-panel-alt) 92%, transparent) !important; }'
+            ? '\\n' + userMessageSelector + ' { background-color: var(--ds-theme-color-panel-alt) !important; }'
             : '') +
           (config.configuredRecipes.dialog
             ? '\\n[data-ds-part="dialog"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-panel) !important; }'
@@ -237,7 +250,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-background); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

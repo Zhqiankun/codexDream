@@ -4,6 +4,10 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
 import {
@@ -20,6 +24,7 @@ import { bridge } from "../api/bridge";
 import {
   StudioControls,
   type PreviewColorTarget,
+  type StudioControlLocateRequest,
   type StudioTab,
 } from "../features/studio/StudioControls";
 import { SendIconGlyph } from "../features/studio/SendIconGlyph";
@@ -30,8 +35,152 @@ const MAX_CSS_BYTES = 256 * 1024;
 const RENDERER_PROTOCOL_VERSION = 4;
 const cssTextEncoder = new TextEncoder();
 
-type View = "library" | "session";
 type PreviewPage = "home" | "conversation";
+
+const PREVIEW_CONTROL_DEFINITIONS = {
+  pageBackground: {
+    controlId: "color-background",
+    label: "页面背景",
+    colorTarget: "background",
+  },
+  sidebarPanel: {
+    controlId: "color-panel",
+    label: "左侧面板",
+    colorTarget: "panel",
+  },
+  sidebarText: {
+    controlId: "color-sidebarText",
+    label: "左侧面板文字",
+    colorTarget: "sidebarText",
+  },
+  topBarBackground: {
+    controlId: "color-topBarBackground",
+    label: "顶部栏背景",
+    colorTarget: "topBarBackground",
+  },
+  topBarText: {
+    controlId: "color-topBarText",
+    label: "顶部栏文字",
+    colorTarget: "topBarText",
+  },
+  threadTitle: {
+    controlId: "color-threadTabBackground",
+    label: "会话标题",
+    colorTarget: "threadTabBackground",
+  },
+  homeTitle: {
+    controlId: "color-homeTitleText",
+    label: "首页标题文字",
+    colorTarget: "homeTitleText",
+  },
+  homeCard0: {
+    controlId: "home-card-0",
+    label: "快捷卡片 1",
+    colorTarget: "homeCardBackground",
+  },
+  homeCard1: {
+    controlId: "home-card-1",
+    label: "快捷卡片 2",
+    colorTarget: "homeCardBackground",
+  },
+  homeCard2: {
+    controlId: "home-card-2",
+    label: "快捷卡片 3",
+    colorTarget: "homeCardBackground",
+  },
+  homeCard3: {
+    controlId: "home-card-3",
+    label: "快捷卡片 4",
+    colorTarget: "homeCardBackground",
+  },
+  composerSurface: {
+    controlId: "color-panelAlt",
+    label: "输入框背景",
+    colorTarget: "panelAlt",
+  },
+  composerPlaceholder: {
+    controlId: "color-muted",
+    label: "输入占位文字",
+    colorTarget: "muted",
+  },
+  composerToolbar: {
+    controlId: "color-secondary",
+    label: "输入框工具栏文字",
+    colorTarget: "secondary",
+  },
+  sendButton: {
+    controlId: "color-accent",
+    label: "发送按钮",
+    colorTarget: "accent",
+  },
+  userMessageSurface: {
+    controlId: "color-panelAlt",
+    label: "我的消息背景",
+    colorTarget: "panelAlt",
+  },
+  userMessageText: {
+    controlId: "color-userMessageText",
+    label: "我的消息文字",
+    colorTarget: "userMessageText",
+  },
+  activitySurface: {
+    controlId: "color-activityBackground",
+    label: "命令与思考背景",
+    colorTarget: "activityBackground",
+  },
+  activityText: {
+    controlId: "color-activityText",
+    label: "命令与思考文字",
+    colorTarget: "activityText",
+  },
+  activityMuted: {
+    controlId: "color-activityMuted",
+    label: "命令与思考次要文字",
+    colorTarget: "activityMuted",
+  },
+  assistantSurface: {
+    controlId: "color-assistantPanel",
+    label: "助手回复背景",
+    colorTarget: "assistantPanel",
+  },
+  assistantText: {
+    controlId: "color-assistantMessageText",
+    label: "助手回复文字",
+    colorTarget: "assistantMessageText",
+  },
+  selection: {
+    controlId: "color-highlight",
+    label: "选中文字背景",
+    colorTarget: "highlight",
+  },
+  changeSurface: {
+    controlId: "color-changeCardBackground",
+    label: "文件变更背景",
+    colorTarget: "changeCardBackground",
+  },
+  changeText: {
+    controlId: "color-changeCardText",
+    label: "文件变更文字",
+    colorTarget: "changeCardText",
+  },
+  dialogSurface: {
+    controlId: "color-panel",
+    label: "弹窗背景",
+    colorTarget: "panel",
+  },
+} as const satisfies Record<
+  string,
+  {
+    controlId: string;
+    label: string;
+    colorTarget: PreviewColorTarget;
+  }
+>;
+
+type PreviewControlId = keyof typeof PREVIEW_CONTROL_DEFINITIONS;
+const PREVIEW_CONTROL_IDS = new Set<PreviewControlId>(
+  Object.keys(PREVIEW_CONTROL_DEFINITIONS) as PreviewControlId[],
+);
 
 const CONVERSATION_COLOR_TARGETS = new Set<PreviewColorTarget>([
   "assistantPanel",
@@ -59,6 +208,43 @@ const HOME_CARD_SUGGESTIONS = [
   ["↻", "审查代码并提出修改建议"],
   ["♙", "修复问题和失败"],
 ] as const;
+const HOME_CARD_PREVIEW_CONTROL_IDS = [
+  "homeCard0",
+  "homeCard1",
+  "homeCard2",
+  "homeCard3",
+] as const satisfies ReadonlyArray<PreviewControlId>;
+
+function previewControlAttributes(
+  controlId: PreviewControlId,
+  focusable = true,
+) {
+  const definition = PREVIEW_CONTROL_DEFINITIONS[controlId];
+  return {
+    "data-preview-control-id": controlId,
+    "data-preview-control-label": definition.label,
+    ...(focusable
+      ? {
+          role: "button" as const,
+          tabIndex: 0,
+          "aria-label": `定位到${definition.label}设置`,
+        }
+      : {}),
+  };
+}
+
+function previewControlIdFromTarget(
+  target: EventTarget | null,
+  boundary: HTMLElement,
+): PreviewControlId | undefined {
+  if (!(target instanceof Element)) return undefined;
+  const hotspot = target.closest<HTMLElement>("[data-preview-control-id]");
+  if (!hotspot || !boundary.contains(hotspot)) return undefined;
+  const controlId = hotspot.dataset.previewControlId;
+  return controlId && PREVIEW_CONTROL_IDS.has(controlId as PreviewControlId)
+    ? (controlId as PreviewControlId)
+    : undefined;
+}
 
 const sessionLabels: Record<SessionState, string> = {
   NO_SESSION: "未启动",
@@ -251,7 +437,6 @@ function formatBytes(bytes: number): string {
 export function App() {
   const [snapshot, setSnapshot] = useState<ThemeSnapshot | undefined>();
   const [selected, setSelected] = useState<ThemeDetail | undefined>();
-  const [view, setView] = useState<View>("library");
   const [notice, setNotice] = useState<string>("");
   const [pendingImport, setPendingImport] = useState<ImportResult>();
   const [deleteCandidate, setDeleteCandidate] =
@@ -565,7 +750,6 @@ export function App() {
                   (detail) => {
                     selectedLibraryIdRef.current = detail.libraryId;
                     setSelected(detail);
-                    setView("library");
                   },
                 )
               }
@@ -648,24 +832,6 @@ export function App() {
         </aside>
 
         <main className="main-panel">
-          <nav className="view-tabs" aria-label="工作区" role="tablist">
-            <button
-              className={view === "library" ? "tab active" : "tab"}
-              aria-selected={view === "library"}
-              role="tab"
-              onClick={() => setView("library")}
-            >
-              主题设计
-            </button>
-            <button
-              className={view === "session" ? "tab active" : "tab"}
-              aria-selected={view === "session"}
-              role="tab"
-              onClick={() => setView("session")}
-            >
-              Codex 会话
-            </button>
-          </nav>
           {notice && (
             <div className="notice" role="status">
               {notice}
@@ -812,7 +978,8 @@ export function App() {
               onResolved={() => setPendingImport(undefined)}
             />
           )}
-          {view === "library" && selected && (
+          <SessionLauncher snapshot={snapshot} busy={busy} run={run} />
+          {selected && (
             <StudioView
               detail={selected}
               summary={selectedSummary}
@@ -825,19 +992,11 @@ export function App() {
               }}
             />
           )}
-          {view === "library" && !selected && (
+          {!selected && (
             <EmptyState
               onCreate={() =>
                 void run(() => bridge.createDraft({ name: "新主题" }))
               }
-            />
-          )}
-          {view === "session" && (
-            <SessionView
-              snapshot={snapshot}
-              busy={busy}
-              run={run}
-              onOpenStudio={() => setView("library")}
             />
           )}
         </main>
@@ -944,6 +1103,13 @@ function StudioView({
   const [previewPage, setPreviewPage] = useState<PreviewPage>("conversation");
   const [previewColorTarget, setPreviewColorTarget] =
     useState<PreviewColorTarget>();
+  const [previewHoveredControl, setPreviewHoveredControl] =
+    useState<PreviewControlId>();
+  const [previewFocusedControl, setPreviewFocusedControl] =
+    useState<PreviewControlId>();
+  const [studioLocateRequest, setStudioLocateRequest] =
+    useState<StudioControlLocateRequest>();
+  const studioLocateSequenceRef = useRef(0);
   const handlePreviewColorTargetChange = useCallback(
     (target?: PreviewColorTarget) => {
       setPreviewColorTarget(target);
@@ -953,6 +1119,72 @@ function StudioView({
     },
     [],
   );
+  const activatePreviewControl = useCallback((controlId: PreviewControlId) => {
+    const definition = PREVIEW_CONTROL_DEFINITIONS[controlId];
+    studioLocateSequenceRef.current += 1;
+    setStudioTab("design");
+    setStudioLocateRequest({
+      requestId: studioLocateSequenceRef.current,
+      tab: "design",
+      designSection: "colors",
+      controlId: definition.controlId,
+    });
+  }, []);
+  const handlePreviewPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const controlId = previewControlIdFromTarget(
+        event.target,
+        event.currentTarget,
+      );
+      setPreviewHoveredControl((current) =>
+        current === controlId ? current : controlId,
+      );
+    },
+    [],
+  );
+  const handlePreviewClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const controlId = previewControlIdFromTarget(
+        event.target,
+        event.currentTarget,
+      );
+      if (!controlId) return;
+      event.preventDefault();
+      activatePreviewControl(controlId);
+    },
+    [activatePreviewControl],
+  );
+  const handlePreviewKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.target instanceof HTMLButtonElement) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const controlId = previewControlIdFromTarget(
+        event.target,
+        event.currentTarget,
+      );
+      if (!controlId) return;
+      event.preventDefault();
+      activatePreviewControl(controlId);
+    },
+    [activatePreviewControl],
+  );
+  const handlePreviewFocus = useCallback(
+    (event: ReactFocusEvent<HTMLDivElement>) => {
+      setPreviewFocusedControl(
+        previewControlIdFromTarget(event.target, event.currentTarget),
+      );
+    },
+    [],
+  );
+  const handlePreviewBlur = useCallback(
+    (event: ReactFocusEvent<HTMLDivElement>) => {
+      setPreviewFocusedControl(
+        previewControlIdFromTarget(event.relatedTarget, event.currentTarget),
+      );
+    },
+    [],
+  );
+  const activePreviewControl = previewFocusedControl ?? previewHoveredControl;
   const [themeJsonSource, setThemeJsonSource] = useState(() =>
     serializeThemeJson(detail),
   );
@@ -1410,6 +1642,7 @@ function StudioView({
           themeJsonSource={themeJsonSource}
           themeJsonDirty={themeJsonDirty}
           themeJsonError={themeJsonError}
+          locateRequest={studioLocateRequest}
           onTabChange={setStudioTab}
           onDraftChange={setDraft}
           onChooseBackground={() => void chooseBackground()}
@@ -1459,7 +1692,12 @@ function StudioView({
                   对话
                 </button>
               </div>
-              <span className="preview-mode">离线渲染</span>
+              <span
+                id="preview-inspector-help"
+                className="preview-inspector-help"
+              >
+                悬停查看 · 点击定位
+              </span>
             </div>
           </div>
           <div className="preview-frame">
@@ -1479,6 +1717,14 @@ function StudioView({
               data-preview-shadow={draft.styleConfig.shadow}
               data-preview-page={previewPage}
               data-preview-color-target={previewColorTarget}
+              data-preview-active-control={activePreviewControl}
+              aria-describedby="preview-inspector-help"
+              onPointerMove={handlePreviewPointerMove}
+              onPointerLeave={() => setPreviewHoveredControl(undefined)}
+              onClick={handlePreviewClick}
+              onKeyDown={handlePreviewKeyDown}
+              onFocusCapture={handlePreviewFocus}
+              onBlurCapture={handlePreviewBlur}
               style={previewStyle}
             >
               {draft.backgroundUrl && draft.backgroundScope === "window" && (
@@ -1497,12 +1743,21 @@ function StudioView({
                 <div className="mock-safe-area" aria-hidden="true" />
               )}
               <style ref={previewStyleRef} />
+              {activePreviewControl && (
+                <span className="preview-inspector-tip" aria-hidden="true">
+                  <b>⌖</b> 点击定位 ·{" "}
+                  {PREVIEW_CONTROL_DEFINITIONS[activePreviewControl].label}
+                </span>
+              )}
               <div
                 className="mock-titlebar"
                 data-ds-part="titlebar"
-                aria-hidden="true"
+                {...previewControlAttributes("topBarBackground", false)}
               >
-                <div className="mock-titlebar-menu">
+                <div
+                  className="mock-titlebar-menu"
+                  {...previewControlAttributes("topBarText")}
+                >
                   <span className="mock-app-glyph">◫</span>
                   <span>←</span>
                   <span>→</span>
@@ -1518,12 +1773,22 @@ function StudioView({
                 </div>
               </div>
               <div className="mock-workspace-shell">
-                <div className="mock-sidebar" data-ds-part="sidebar">
-                  <div className="mock-sidebar-head">
+                <div
+                  className="mock-sidebar"
+                  data-ds-part="sidebar"
+                  {...previewControlAttributes("sidebarPanel", false)}
+                >
+                  <div
+                    className="mock-sidebar-head"
+                    {...previewControlAttributes("sidebarText")}
+                  >
                     <strong>Codex⌄</strong>
                     <span aria-hidden="true">⌕ ·</span>
                   </div>
-                  <div className="mock-primary-nav">
+                  <div
+                    className="mock-primary-nav"
+                    {...previewControlAttributes("sidebarText")}
+                  >
                     <div className="mock-nav" data-ds-part="thread">
                       <span aria-hidden="true">✎</span> 新对话
                     </div>
@@ -1544,6 +1809,7 @@ function StudioView({
                   <div
                     className={`mock-project ${previewPage === "home" ? "active" : ""}`}
                     data-ds-part="thread"
+                    {...previewControlAttributes("sidebarText")}
                   >
                     <strong>
                       <span aria-hidden="true">▱</span> CodexStyle
@@ -1553,25 +1819,37 @@ function StudioView({
                   <div
                     className={`mock-project ${previewPage === "conversation" ? "active" : ""}`}
                     data-ds-part="thread"
+                    {...previewControlAttributes("sidebarText")}
                   >
                     <strong>
                       <span aria-hidden="true">▱</span> 主题工作台
                     </strong>
                     <small>调整本地主题预览</small>
                   </div>
-                  <div className="mock-project" data-ds-part="thread">
+                  <div
+                    className="mock-project"
+                    data-ds-part="thread"
+                    {...previewControlAttributes("sidebarText")}
+                  >
                     <strong>
                       <span aria-hidden="true">▱</span> Workspace
                     </strong>
                     <small>暂无聊天</small>
                   </div>
-                  <div className="mock-sidebar-profile">
+                  <div
+                    className="mock-sidebar-profile"
+                    {...previewControlAttributes("sidebarText")}
+                  >
                     <span className="mock-profile-dot">C</span>
                     <strong>本地用户</strong>
                     <span aria-hidden="true">?</span>
                   </div>
                 </div>
-                <div className="mock-main" data-ds-part="main">
+                <div
+                  className="mock-main"
+                  data-ds-part="main"
+                  {...previewControlAttributes("pageBackground", false)}
+                >
                   {draft.backgroundUrl &&
                     draft.backgroundScope === "content" && (
                       <img
@@ -1584,7 +1862,11 @@ function StudioView({
                         }}
                       />
                     )}
-                  <div className="mock-toolbar" data-ds-part="header">
+                  <div
+                    className="mock-toolbar"
+                    data-ds-part="header"
+                    {...previewControlAttributes("topBarBackground", false)}
+                  >
                     <span
                       className="mock-toolbar-title"
                       data-ds-part={
@@ -1592,21 +1874,32 @@ function StudioView({
                           ? "thread-tab"
                           : undefined
                       }
+                      {...previewControlAttributes("threadTitle")}
                     >
                       {previewPage === "conversation" ? "▱ 主题会话  ···" : ""}
                     </span>
-                    <span className="mock-toolbar-actions" aria-hidden="true">
+                    <span
+                      className="mock-toolbar-actions"
+                      {...previewControlAttributes("topBarText")}
+                    >
                       ⇧　☷　▢
                     </span>
                   </div>
                   {previewPage === "home" ? (
-                    <div className="mock-home" aria-label="Codex 首页预览">
+                    <div
+                      className="mock-home"
+                      aria-label="Codex 首页预览"
+                      {...previewControlAttributes("pageBackground", false)}
+                    >
                       <div className="mock-home-center">
                         <div className="mock-home-intro">
                           <span className="mock-home-mark" aria-hidden="true">
                             &gt;_
                           </span>
-                          <h3 data-ds-part="home-title">
+                          <h3
+                            data-ds-part="home-title"
+                            {...previewControlAttributes("homeTitle", false)}
+                          >
                             你想让我们在 <u>CodexStyle</u> 中构建什么？
                           </h3>
                         </div>
@@ -1627,6 +1920,9 @@ function StudioView({
                                   data-home-card-index={cardIndex}
                                   data-home-card-mode={card.mode}
                                   key={label}
+                                  {...previewControlAttributes(
+                                    HOME_CARD_PREVIEW_CONTROL_IDS[cardIndex]!,
+                                  )}
                                   style={{
                                     backgroundColor: card.color,
                                     backgroundImage: image,
@@ -1641,7 +1937,10 @@ function StudioView({
                         </div>
                       </div>
                       <div className="mock-home-composer-wrap">
-                        <div className="mock-workspace-pill">
+                        <div
+                          className="mock-workspace-pill"
+                          {...previewControlAttributes("composerSurface")}
+                        >
                           <span>▱ CodexStyle</span>
                           <span>▣ 本地</span>
                           <span>⑂ main</span>
@@ -1649,13 +1948,24 @@ function StudioView({
                         <div
                           className="mock-composer mock-home-composer"
                           data-ds-part="composer"
+                          {...previewControlAttributes(
+                            "composerSurface",
+                            false,
+                          )}
                         >
-                          <span className="mock-composer-placeholder">
+                          <span
+                            className="mock-composer-placeholder"
+                            {...previewControlAttributes("composerPlaceholder")}
+                          >
                             随心输入
                           </span>
                           <div
                             className="mock-composer-toolbar"
                             data-ds-part="composer-toolbar"
+                            {...previewControlAttributes(
+                              "composerToolbar",
+                              false,
+                            )}
                           >
                             <span>
                               ＋　<em>◉ 完全访问</em>
@@ -1667,6 +1977,7 @@ function StudioView({
                                 className="mock-send-button"
                                 data-ds-part="composer-submit"
                                 aria-label="发送"
+                                {...previewControlAttributes("sendButton")}
                               >
                                 <SendIconGlyph
                                   icon={draft.styleConfig.sendIcon}
@@ -1679,41 +1990,92 @@ function StudioView({
                       </div>
                     </div>
                   ) : (
-                    <div className="mock-conversation">
+                    <div
+                      className="mock-conversation"
+                      {...previewControlAttributes("pageBackground", false)}
+                    >
                       <div className="mock-messages">
                         <div
                           className="mock-user-message"
                           data-ds-part="message"
                           data-user-message-bubble="true"
+                          {...previewControlAttributes(
+                            "userMessageSurface",
+                            false,
+                          )}
                         >
-                          先看看主题预览吧
+                          <span
+                            {...previewControlAttributes("userMessageText")}
+                          >
+                            先看看主题预览吧
+                          </span>
                         </div>
                         <div className="mock-turn-meta">用时 5 秒　›</div>
                         <div
                           className="mock-activity"
                           data-ds-part="activity"
                           aria-label="命令与思考预览"
+                          {...previewControlAttributes(
+                            "activitySurface",
+                            false,
+                          )}
                         >
                           <span>
-                            <strong>⌁ 已编辑 2 个文件</strong>
-                            <small>App.tsx · global.css</small>
+                            <strong
+                              {...previewControlAttributes("activityText")}
+                            >
+                              ⌁ 已编辑 2 个文件
+                            </strong>
+                            <small
+                              {...previewControlAttributes("activityMuted")}
+                            >
+                              App.tsx · global.css
+                            </small>
                           </span>
                           <span>
-                            <strong>› 运行命令</strong>
-                            <small>npm test</small>
+                            <strong
+                              {...previewControlAttributes("activityText")}
+                            >
+                              › 运行命令
+                            </strong>
+                            <small
+                              {...previewControlAttributes("activityMuted")}
+                            >
+                              npm test
+                            </small>
                           </span>
                           <span>
-                            <strong>… 思考中</strong>
-                            <small>分析主题注入目标</small>
+                            <strong
+                              {...previewControlAttributes("activityText")}
+                            >
+                              … 思考中
+                            </strong>
+                            <small
+                              {...previewControlAttributes("activityMuted")}
+                            >
+                              分析主题注入目标
+                            </small>
                           </span>
                         </div>
                         <div
                           className="mock-message"
                           data-ds-part="message"
                           data-markdown-text-style="assistant-message"
+                          {...previewControlAttributes(
+                            "assistantSurface",
+                            false,
+                          )}
                         >
-                          <span>
-                            <span className="mock-selection-sample">
+                          <span
+                            {...previewControlAttributes(
+                              "assistantText",
+                              false,
+                            )}
+                          >
+                            <span
+                              className="mock-selection-sample"
+                              {...previewControlAttributes("selection")}
+                            >
                               主题已加载
                             </span>
                             。助手卡片使用与用户气泡一致的舒展内边距。
@@ -1729,6 +2091,7 @@ function StudioView({
                           className="mock-change-card"
                           data-ds-part="change-card"
                           aria-label="文件变更预览"
+                          {...previewControlAttributes("changeSurface", false)}
                         >
                           <div className="mock-change-card-head">
                             <span
@@ -1737,7 +2100,10 @@ function StudioView({
                             >
                               ↕
                             </span>
-                            <span className="mock-change-card-summary">
+                            <span
+                              className="mock-change-card-summary"
+                              {...previewControlAttributes("changeText")}
+                            >
                               <strong>已编辑 2 个文件</strong>
                               <small>本轮代码变更</small>
                             </span>
@@ -1746,7 +2112,10 @@ function StudioView({
                               <i>−1</i>
                             </span>
                           </div>
-                          <div className="mock-change-card-files">
+                          <div
+                            className="mock-change-card-files"
+                            {...previewControlAttributes("changeText")}
+                          >
                             <span className="mock-change-file-row">
                               <span>src/renderer/app/App.tsx</span>
                               <small>+3 −1</small>
@@ -1757,7 +2126,11 @@ function StudioView({
                             </span>
                           </div>
                         </div>
-                        <div className="mock-dialog" data-ds-part="dialog">
+                        <div
+                          className="mock-dialog"
+                          data-ds-part="dialog"
+                          {...previewControlAttributes("dialogSurface")}
+                        >
                           <span>
                             <b>◉</b> 主题预览
                           </span>
@@ -1765,13 +2138,27 @@ function StudioView({
                         </div>
                       </div>
                       <div className="mock-conversation-composer-wrap">
-                        <div className="mock-composer" data-ds-part="composer">
-                          <span className="mock-composer-placeholder">
+                        <div
+                          className="mock-composer"
+                          data-ds-part="composer"
+                          {...previewControlAttributes(
+                            "composerSurface",
+                            false,
+                          )}
+                        >
+                          <span
+                            className="mock-composer-placeholder"
+                            {...previewControlAttributes("composerPlaceholder")}
+                          >
                             随心输入
                           </span>
                           <div
                             className="mock-composer-toolbar"
                             data-ds-part="composer-toolbar"
+                            {...previewControlAttributes(
+                              "composerToolbar",
+                              false,
+                            )}
                           >
                             <span>
                               ＋　<em>◉ 完全访问</em>
@@ -1783,6 +2170,7 @@ function StudioView({
                                 className="mock-send-button"
                                 data-ds-part="composer-submit"
                                 aria-label="发送"
+                                {...previewControlAttributes("sendButton")}
                               >
                                 <SendIconGlyph
                                   icon={draft.styleConfig.sendIcon}
@@ -1964,7 +2352,9 @@ function useConfirmDialog(
         return;
       }
       document
-        .querySelector<HTMLElement>(".view-tabs .tab.active:not(:disabled)")
+        .querySelector<HTMLElement>(
+          '.studio-tabs [role="tab"][aria-selected="true"]:not(:disabled)',
+        )
         ?.focus();
     };
   }, []);
@@ -2059,99 +2449,90 @@ function ImportConflict({
   );
 }
 
-function SessionView({
+function SessionLauncher({
   snapshot,
   busy,
   run,
-  onOpenStudio,
 }: {
   snapshot?: ThemeSnapshot;
   busy: boolean;
   run: StudioProps["run"];
-  onOpenStudio: () => void;
 }) {
   const state = snapshot?.session.state ?? "NO_SESSION";
   const messageKey = snapshot?.session.messageKey;
   const ownedVerified = Boolean(snapshot?.session.canEnd);
   const checks = sessionCheckStates(state, messageKey, ownedVerified);
   return (
-    <section className="session-page">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">CODEX 会话</p>
-          <h1>受管会话</h1>
-          <p className="muted">
-            只启动和管理由 CodexStyle 完整验证身份的 Store Codex。
-          </p>
+    <section
+      className={`panel-card session-launcher state-${state}`}
+      aria-label="Codex 会话启动"
+    >
+      <div className="session-launcher-main">
+        <div className="session-launcher-icon" aria-hidden="true">
+          C
         </div>
-        <div className={`large-state state-${state}`}>
-          <span className="status-dot" />
-          {sessionLabels[state]}
-        </div>
-      </div>
-      <div className="session-grid">
-        <div className="panel-card session-card">
-          <div className="session-icon">C</div>
-          <h2>
+        <div className="session-launcher-copy">
+          <span>CODEX 会话</span>
+          <strong>
             {snapshot?.session.messageKey === "session.externalRunning"
               ? "检测到外部 Codex"
               : sessionLabels[state]}
-          </h2>
+          </strong>
           <p>{messageForState(state, messageKey)}</p>
-          <div className="session-actions">
-            {snapshot?.paused ? (
-              <button
-                className="primary-button"
-                disabled={busy}
-                onClick={() => void run(() => bridge.resumeSession())}
-              >
-                恢复后续注入
-              </button>
-            ) : state === "THEMED_SESSION" ? (
-              <button
-                className="secondary-button"
-                disabled={busy}
-                onClick={() => void run(() => bridge.pauseSession())}
-              >
-                暂停后续注入
-              </button>
-            ) : (
-              <button
-                className="primary-button"
-                disabled={busy || !snapshot?.selectedLibraryId}
-                onClick={() => void run(() => bridge.launchSession())}
-              >
-                启动 Codex
-              </button>
-            )}
-            {snapshot?.session.canEnd && (
-              <button
-                className="danger-button"
-                disabled={busy}
-                onClick={() => void run(() => bridge.endOwnedSession())}
-              >
-                结束受管会话
-              </button>
-            )}
-          </div>
         </div>
-        <div className="panel-card checklist">
-          <div className="section-title">
-            <span>启动检查</span>
-            <span className="revision">本地验证</span>
-          </div>
+      </div>
+      <div className="session-launcher-side">
+        <div className={`large-state state-${state}`}>
+          <span className="status-dot" /> {sessionLabels[state]}
+        </div>
+        <div className="session-actions">
+          {snapshot?.paused ? (
+            <button
+              className="primary-button"
+              disabled={busy}
+              onClick={() => void run(() => bridge.resumeSession())}
+            >
+              恢复后续注入
+            </button>
+          ) : state === "THEMED_SESSION" ? (
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => void run(() => bridge.pauseSession())}
+            >
+              暂停后续注入
+            </button>
+          ) : (
+            <button
+              className="primary-button"
+              disabled={busy || !snapshot?.selectedLibraryId}
+              onClick={() => void run(() => bridge.launchSession())}
+            >
+              启动 Codex
+            </button>
+          )}
+          {snapshot?.session.canEnd && (
+            <button
+              className="danger-button"
+              disabled={busy}
+              onClick={() => void run(() => bridge.endOwnedSession())}
+            >
+              结束受管会话
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="session-launcher-checks" aria-label="启动检查">
+        <span className="session-checks-label">启动检查</span>
+        <div>
           <CheckRow label="Store Codex 可启动" state={checks.package} />
           <CheckRow label="会话可安全管理" state={checks.ownership} />
           <CheckRow label="主题与当前版本兼容" state={checks.compatibility} />
-          <button className="text-button" onClick={onOpenStudio}>
-            返回主题设计 →
-          </button>
         </div>
       </div>
-      <div className="warning-strip">
-        外部启动的 Codex 不会被注入、关闭、重启或附着。CDP
-        或选择器不兼容时保持原样。
-      </div>
+      <p className="session-launcher-safety">
+        外部启动的 Codex 不受控制；身份或选择器不兼容时保持原样。
+      </p>
     </section>
   );
 }

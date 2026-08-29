@@ -23,7 +23,7 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
-    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/9");
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/11");
     expect(SELECTOR_PARTS).toContainEqual([
       "titlebar",
       'div[class*="_ApplicationMenuTopBar_"]',
@@ -45,6 +45,10 @@ describe("versioned selector profile", () => {
       'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"]) [data-app-shell-tab-controller]:has([role="tab"][aria-selected="true"]) [class~="group/tab"]:has(> button[role="tab"][aria-selected="true"])',
     ]);
     expect(SELECTOR_PARTS).toContainEqual([
+      "thread-tab",
+      'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"])',
+    ]);
+    expect(SELECTOR_PARTS).toContainEqual([
       "home-title",
       '[role="main"]:has([data-testid="home-icon"]) [data-feature="game-source"]',
     ]);
@@ -55,6 +59,10 @@ describe("versioned selector profile", () => {
     expect(SELECTOR_PARTS).toContainEqual([
       "activity",
       '[class~="group/activity-header"]',
+    ]);
+    expect(SELECTOR_PARTS).toContainEqual([
+      "composer",
+      '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]',
     ]);
   });
 

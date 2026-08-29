@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type ThemeAppearance,
   type ThemeColors,
@@ -19,6 +19,14 @@ import {
 
 export type StudioTab = "design" | "css" | "theme-json";
 export type PreviewColorTarget = keyof ThemeColors;
+export type DesignSection = "base" | "canvas" | "colors";
+
+export interface StudioControlLocateRequest {
+  requestId: number;
+  tab: StudioTab;
+  designSection: DesignSection;
+  controlId: string;
+}
 
 interface StudioControlsProps {
   draft: ThemeDetail;
@@ -30,6 +38,7 @@ interface StudioControlsProps {
   themeJsonSource: string;
   themeJsonDirty: boolean;
   themeJsonError?: string;
+  locateRequest?: StudioControlLocateRequest;
   onTabChange: (tab: StudioTab) => void;
   onDraftChange: (draft: ThemeDetail) => void;
   onChooseBackground: () => void;
@@ -231,6 +240,7 @@ export function StudioControls({
   themeJsonSource,
   themeJsonDirty,
   themeJsonError,
+  locateRequest,
   onTabChange,
   onDraftChange,
   onChooseBackground,
@@ -241,8 +251,61 @@ export function StudioControls({
   onResetThemeJson,
   onPreviewColorTargetChange,
 }: StudioControlsProps) {
+  const [designSection, setDesignSection] = useState<DesignSection>("base");
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const locateFeedbackTimerRef = useRef<number | undefined>(undefined);
+  const handledLocateRequestRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (
+      !locateRequest ||
+      handledLocateRequestRef.current === locateRequest.requestId
+    )
+      return;
+    if (tab !== locateRequest.tab) {
+      onTabChange(locateRequest.tab);
+      return;
+    }
+    if (designSection !== locateRequest.designSection) {
+      setDesignSection(locateRequest.designSection);
+      return;
+    }
+    const revealTimer = window.setTimeout(() => {
+      const controls = controlsRef.current;
+      const target = controls?.querySelector<HTMLElement>(
+        `[data-studio-control-id="${locateRequest.controlId}"]`,
+      );
+      if (!target) return;
+      handledLocateRequestRef.current = locateRequest.requestId;
+      controls
+        ?.querySelector(".studio-control-located")
+        ?.classList.remove("studio-control-located");
+      target.classList.add("studio-control-located");
+      const focusTarget = target.querySelector<HTMLElement>(
+        'input:not(.native-color-picker), button:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])',
+      );
+      focusTarget?.focus({ preventScroll: true });
+      target.scrollIntoView?.({
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")
+          .matches
+          ? "auto"
+          : "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+      window.clearTimeout(locateFeedbackTimerRef.current);
+      locateFeedbackTimerRef.current = window.setTimeout(
+        () => target.classList.remove("studio-control-located"),
+        1_200,
+      );
+    }, 0);
+    return () => window.clearTimeout(revealTimer);
+  }, [designSection, locateRequest, onTabChange, tab]);
+  useEffect(
+    () => () => window.clearTimeout(locateFeedbackTimerRef.current),
+    [],
+  );
   return (
-    <div className="form-column panel-card studio-controls">
+    <div ref={controlsRef} className="form-column panel-card studio-controls">
       <div className="studio-tabs" role="tablist" aria-label="主题编辑模式">
         {(
           [
@@ -272,6 +335,8 @@ export function StudioControls({
           draft={draft}
           busy={busy}
           backgroundKey={backgroundKey}
+          section={designSection}
+          onSectionChange={setDesignSection}
           onDraftChange={onDraftChange}
           onChooseBackground={onChooseBackground}
           onChooseHomeCardImage={onChooseHomeCardImage}
@@ -307,6 +372,8 @@ function DesignPanel({
   draft,
   busy,
   backgroundKey,
+  section,
+  onSectionChange,
   onDraftChange,
   onChooseBackground,
   onChooseHomeCardImage,
@@ -320,8 +387,10 @@ function DesignPanel({
   | "onChooseBackground"
   | "onChooseHomeCardImage"
   | "onPreviewColorTargetChange"
->) {
-  const [section, setSection] = useState<"base" | "canvas" | "colors">("base");
+> & {
+  section: DesignSection;
+  onSectionChange: (section: DesignSection) => void;
+}) {
   const [colorDisplay, setColorDisplay] = useState<"simple" | "advanced">(
     "simple",
   );
@@ -376,7 +445,7 @@ function DesignPanel({
             role="tab"
             aria-selected={section === value}
             className={section === value ? "active" : ""}
-            onClick={() => setSection(value)}
+            onClick={() => onSectionChange(value)}
           >
             {label}
           </button>
@@ -642,6 +711,7 @@ function DesignPanel({
                             className={`color-config ${colorValid ? "" : "invalid"}`}
                             key={key}
                             data-color-key={key}
+                            data-studio-control-id={`color-${key}`}
                             onMouseEnter={() => setHoveredColorTarget(key)}
                             onMouseLeave={() =>
                               setHoveredColorTarget(undefined)
@@ -767,6 +837,7 @@ function DesignPanel({
                     <article
                       className={`home-card-config ${colorValid ? "" : "invalid"}`}
                       key={label}
+                      data-studio-control-id={`home-card-${cardIndex}`}
                       onMouseEnter={() =>
                         setHoveredColorTarget("homeCardBackground")
                       }

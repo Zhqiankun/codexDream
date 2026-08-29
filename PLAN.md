@@ -143,6 +143,8 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 17. 当前 Codex 标题与首页卡片：对 Store Codex `26.825.4187.0` 只读核对真实 DOM 后，将 selector profile 升级到 `/9`。当前会话标签同时命中已选中按钮与 `group/tab` 表面，并覆盖实际消费的 `--app-shell-tab-background`；首页标题登记 `data-feature="game-source"` 和 `group/title`。四个 `group/home-suggestions` 卡片按受控 DOM 顺序标记 `0..3`，各自消费结构化颜色或有界 WebP。图片选择、持久化、预览、三件套 ZIP、旧主题默认补全和真实注入使用同一 theme-domain 契约。
 
+18. 响应式表面与单页工作流：selector profile `/11` 登记最大化 edge-scroll 当前会话标题及首页独立 composer rail，并为节点重建提供同一已核对选择器的直接 bridge，消除映射防抖期间的白色闪烁。配置模式对 composer、首页 rail 和用户消息直接消费 `panelAlt`。renderer 通过预览根事件委托与内部 control ID 实现悬停/键盘提示、一次性点击定位、滚动聚焦和短暂反馈，不新增主题/IPC 状态；会话启动卡合并到主题设计页，底层 controller 与 session 状态机保持不变。
+
 ## 验证命令
 
 ```powershell
