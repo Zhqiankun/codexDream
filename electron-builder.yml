@@ -9,6 +9,8 @@ files:
   - resources/presets/**
 asar: true
 extraResources:
+  - from: .agents/plugins/marketplace.json
+    to: .agents/plugins/marketplace.json
   - from: native/secure-store/build/Release/secure_store.node
     to: native/secure_store.node
   - from: resources/icon.png
@@ -17,6 +19,14 @@ extraResources:
     to: tray-icon.png
   - from: resources/tray-icon@2x.png
     to: tray-icon@2x.png
+  - from: plugins/codexstyle-assistant
+    to: plugins/codexstyle-assistant
+    filter:
+      - .codex-plugin/**
+      - .mcp.json
+      - skills/**
+      - mcp/dist/**
+      - runtime/**
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true

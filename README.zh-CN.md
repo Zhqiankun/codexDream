@@ -46,10 +46,12 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 ## 功能亮点
 
 - 提供 Codex 首页与对话页面的 16:9 实时预览；悬停可识别配置区域，点击后自动打开、滚动并聚焦对应 Studio 控件。
-- 内置 13 套壁纸主题预设与二十六项独立颜色，包括当前会话标题、首页标题/卡片、命令/编辑/思考摘要、消息面板及工作区；首页四张快捷卡片还可分别使用独立颜色或本地图片。内置预设只追加一次，不覆盖已有本地主题。
+- 内置 25 套壁纸主题预设与二十九项独立颜色，包括当前会话标题、首页标题/卡片、命令/编辑/思考摘要、输入文字、选区文字、消息面板及工作区；首页四张快捷卡片还可分别使用独立颜色或本地图片。内置预设只追加一次，不覆盖已有本地主题。
+- 可选的本机 CodexStyle Assistant 插件可读取主题库、校验完整配色并新建独立草稿供审核，绝不覆盖已保存主题；用户没有明确颜色或视觉方向时，内置 Skill 才使用项目锁定的克制现代奢华方向。
 - 导入背景图片和自定义图标时进行格式、尺寸与解码校验，并在页面显示明确要求。
 - 本地主题库支持无损的当前主题 ZIP；历史十色、十二色或十八色 ZIP 仍可导入，但不再提供有损的旧版兼容导出。
 - 左侧主题库会优先显示背景缩略图，无自定义背景时回退页面背景色；下次启动主题选择已移动到编辑器上方。
+- 左侧主题库固定在当前视口内独立滚动，支持名称即时搜索、清空与无结果反馈，并对大型列表跳过离屏渲染。
 - 为高级样式提供受约束的 Safe CSS。
 - 独立的 Windows 应用图标、托盘图标和打包身份。
 - 主题设计页内即可启动 Codex；受管流程包含 Store 包检测、会话隔离、CDP 身份校验和版本选择器兼容性检查。
@@ -59,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.11`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.12`：
 
-- `CodexStyle-1.3.11-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.11-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.12-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.12-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.11` 允许 Studio 读取由有界未来 selector profile 写入的完整 ownership 记录；这类记录只显示“上次会话待确认”，绝不会重新连接或注入，真实会话管理仍要求当前 profile 完全一致。该版本包含 v1.3.10 的预览反向定位、单页启动、响应式标题与首页输入框修复。直接覆盖原安装即可，无需卸载或重启电脑。
+`v1.3.12` 新增 25 套逐图调色壁纸主题、15 套现代奢华基础预设、29 项结构化颜色、本机 CodexStyle Assistant 插件，以及可搜索且独立滚动的主题库。MCP 始终派生独立草稿，不能覆盖已保存主题。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。首次启用插件后只需新建 Codex 任务或重启一次 Codex。
 
 ## 运行要求
 
@@ -83,8 +85,10 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 1. 从最新 Release 安装或解压 CodexStyle。
 2. 打开**主题设计**，选择预设或新建主题。
 3. 调整颜色、透明度、面板、背景图、消息面板和发送图标，并通过实时预览确认效果。
-4. 保存主题，然后打开 **Codex 会话**。
+4. 保存主题，然后使用同一主题设计页中的受管启动卡片。
 5. 关闭从外部启动的 Codex 窗口，选择已保存主题，再点击**启动 Codex**。
+
+如需让 Codex 设计配色草稿，只需在 CodexStyle Assistant 卡片中点击一次**安装 / 更新**。CodexStyle 会注册随包本地 marketplace，并用插件自带的专用 Node.js 运行时安装固定插件。以后打开 CodexStyle 就会自动启动带认证的本机连接，不需要终端、外部 Node.js、端口或密钥设置。首次安装后请新建一个 Codex 任务，让 Codex 加载插件。
 
 需要保留全部当前字段时使用**导出主题 ZIP**。未编辑的正式导入包可以原样导出，一旦编辑便不能再重建原始正式包；CodexStyle 不再为 v1.0.x 至 v1.2.x 客户端生成有损降级 ZIP。
 
@@ -98,7 +102,7 @@ CodexStyle 会严格限制自身作用范围：
 - 不接管、关闭、重启或注入从 CodexStyle 外部启动的 Codex 会话。
 - 只在运行时向由本工具拥有且验证通过的会话应用主题。
 - 存储或应用前会校验导入的 ZIP、图片、图标和 Safe CSS。
-- 不进行后台更新检查，不包含静默自动安装器，也不接入远程分析服务。只有用户点击**检查并更新**时才会访问 GitHub；仅 NSIS 正式安装版可下载更新，并且 SHA-512 校验通过后仍需用户明确选择安装时机。
+- 正式安装版只会从固定 GitHub 来源执行版本元数据检查，不包含静默下载/安装器，也不接入远程分析服务。只有用户点击**检查并更新**后才会下载；仅 NSIS 正式安装版可用，并且 SHA-512 校验通过后仍需用户再次明确选择安装时机。
 - 受管数据固定保存在当前 Windows 用户的 `%LOCALAPPDATA%\CodexStyle`。
 
 隐私、发布完整性、产品和安全契约请查看 [PRIVACY.md](PRIVACY.md)、[CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) 与 [REQUIREMENTS.md](REQUIREMENTS.md)。
@@ -131,6 +135,7 @@ npm run typecheck
 npm run test:unit
 npm run test:renderer
 npm run test:integration
+npm run test:mcp
 npm run test:e2e
 npm run architecture:check
 ```
@@ -155,11 +160,13 @@ src/contracts/          IPC 与主题共享契约
 src/main/app/           主进程应用编排
 src/main/domain/        主题领域模型
 src/main/infra/         本地存储、ZIP、图片、CSS 与原生适配
+src/main/assistant/     带认证的本机 Codex 助手连接
 src/main/platform/      Windows Store 与进程集成
 src/main/session/       受管 Codex 会话及主题注入
 src/preload/            收窄后的 Electron preload 桥接层
 src/renderer/           React 主题工作室与会话界面
 native/secure-store/    Windows x64 N-API secure-store 源码
+plugins/                随包 Codex 插件、MCP 服务与主题 Skill
 tests/                  单元、渲染层、验收与 Electron E2E 测试
 ```
 

@@ -20,17 +20,36 @@ const metadata = JSON.parse(
 const presetCatalogPath = resolve(root, "resources", "presets", "catalog.json");
 const presetCatalogBytes = readFileSync(presetCatalogPath);
 const presetCatalog = JSON.parse(presetCatalogBytes.toString("utf8"));
+const pluginRoot = "plugins/codexstyle-assistant";
+const marketplaceManifest = ".agents/plugins/marketplace.json";
+const pluginFiles = [
+  ".codex-plugin/plugin.json",
+  ".mcp.json",
+  "mcp/dist/server.mjs",
+  "runtime/node.exe",
+  "runtime/LICENSE-node.txt",
+  "skills/codexstyle-theme-designer/SKILL.md",
+  "skills/codexstyle-theme-designer/agents/openai.yaml",
+  "skills/codexstyle-theme-designer/references/palette-contract.md",
+];
 const presetThemes = Array.isArray(presetCatalog.themes)
   ? presetCatalog.themes
   : [];
 if (
-  presetCatalog.schemaVersion !== 3 ||
+  presetCatalog.schemaVersion !== 4 ||
   typeof presetCatalog.packId !== "string" ||
   !Array.isArray(presetCatalog.replacesPackIds) ||
-  presetCatalog.replacesPackIds.length !== 2 ||
+  presetCatalog.replacesPackIds.length !== 6 ||
   presetCatalog.replacesPackIds[0] !== "user-wallpapers-2026-08-29-v1" ||
   presetCatalog.replacesPackIds[1] !== "user-wallpapers-2026-08-29-v2" ||
-  presetThemes.length !== 13 ||
+  presetCatalog.replacesPackIds[2] !== "user-wallpapers-2026-08-29-v3" ||
+  presetCatalog.replacesPackIds[3] !== "user-wallpapers-2026-08-30-v4" ||
+  presetCatalog.replacesPackIds[4] !== "user-wallpapers-2026-08-30-v5" ||
+  presetCatalog.replacesPackIds[5] !== "user-wallpapers-2026-08-30-v6" ||
+  !Array.isArray(presetCatalog.introducedThemeIds) ||
+  presetCatalog.introducedThemeIds.length !== 12 ||
+  new Set(presetCatalog.introducedThemeIds).size !== 12 ||
+  presetThemes.length !== 25 ||
   presetThemes.some(
     (theme) =>
       !isRecord(theme) ||
@@ -38,8 +57,13 @@ if (
       !/^[a-z0-9][a-z0-9.-]{0,79}\.(?:png|jpg|webp)$/u.test(theme.image) ||
       typeof theme.imageSha256 !== "string" ||
       !/^[a-f0-9]{64}$/u.test(theme.imageSha256) ||
+      !Array.isArray(theme.previousImageSha256) ||
+      theme.previousImageSha256.length > 8 ||
+      theme.previousImageSha256.some(
+        (fingerprint) => !/^[a-f0-9]{64}$/u.test(fingerprint),
+      ) ||
       !Array.isArray(theme.previousFingerprints) ||
-      theme.previousFingerprints.length !== 2 ||
+      theme.previousFingerprints.length > 8 ||
       theme.previousFingerprints.some(
         (fingerprint) => !/^[a-f0-9]{64}$/u.test(fingerprint),
       ),
@@ -66,6 +90,13 @@ const archive = resolve(
   "release",
   `CodexStyle-${metadata.version}-x64.zip`,
 );
+const pluginRuntime = resolve(
+  unpacked,
+  "resources",
+  pluginRoot,
+  "runtime",
+  "node.exe",
+);
 const blockmap = `${installer}.blockmap`;
 const latestManifest = resolve(root, "release", "latest.yml");
 const packagedUpdateConfig = resolve(unpacked, "resources", "app-update.yml");
@@ -84,11 +115,17 @@ const required = [
   "resources/tray-icon@2x.png",
   "resources/presets/catalog.json",
   ...presetThemes.map((theme) => `resources/presets/${theme.image}`),
+  ...pluginFiles.map((file) => `${pluginRoot}/${file}`),
+  marketplaceManifest,
   "release/win-unpacked/resources/app.asar",
   "release/win-unpacked/resources/icon.png",
   "release/win-unpacked/resources/native/secure_store.node",
   "release/win-unpacked/resources/tray-icon.png",
   "release/win-unpacked/resources/tray-icon@2x.png",
+  ...pluginFiles.map(
+    (file) => `release/win-unpacked/resources/${pluginRoot}/${file}`,
+  ),
+  `release/win-unpacked/resources/${marketplaceManifest}`,
   "release/win-unpacked/CodexStyle.exe",
   `release/CodexStyle-${metadata.version}-x64.exe`,
   `release/CodexStyle-${metadata.version}-x64.exe.blockmap`,
@@ -100,6 +137,17 @@ const required = [
 const missing = required.filter((entry) => !existsSync(resolve(root, entry)));
 if (missing.length) {
   console.error(`Package verification failed; missing: ${missing.join(", ")}`);
+  process.exit(1);
+}
+
+if (
+  !readFileSync(resolve(root, marketplaceManifest)).equals(
+    readFileSync(resolve(unpacked, "resources", marketplaceManifest)),
+  )
+) {
+  console.error(
+    "Package verification failed; CodexStyle marketplace manifest differs.",
+  );
   process.exit(1);
 }
 
@@ -217,6 +265,7 @@ if (
 for (const [label, path] of [
   ["application", executable],
   ["native addon", nativeAddon],
+  ["plugin Node runtime", pluginRuntime],
 ]) {
   if (peMachine(path) !== 0x8664) {
     console.error(`Package verification failed; ${label} is not Windows x64.`);
@@ -266,6 +315,24 @@ try {
     )
   )
     throw new Error("electron-updater runtime missing");
+  if (
+    entries.some((entry) =>
+      entry
+        .replaceAll("\\", "/")
+        .startsWith("/node_modules/@modelcontextprotocol/sdk/"),
+    )
+  )
+    throw new Error("MCP build-only SDK leaked into app.asar");
+  const packagedYaml = JSON.parse(
+    asar
+      .extractFile(
+        asarPath,
+        asarLookupPath("node_modules/js-yaml/package.json"),
+      )
+      .toString("utf8"),
+  );
+  if (packagedYaml.version !== "4.3.2")
+    throw new Error("fixed js-yaml runtime missing");
   const packagedCatalog = asar.extractFile(
     asarPath,
     asarLookupPath("resources/presets/catalog.json"),
@@ -284,6 +351,14 @@ try {
     const hash = createHash("sha256").update(bytes).digest("hex");
     if (hash !== theme.imageSha256)
       throw new Error(`preset asset hash changed: ${theme.image}`);
+  }
+  for (const file of pluginFiles) {
+    const sourceBytes = readFileSync(resolve(root, pluginRoot, file));
+    const packagedBytes = readFileSync(
+      resolve(unpacked, "resources", pluginRoot, file),
+    );
+    if (!packagedBytes.equals(sourceBytes))
+      throw new Error(`plugin asset changed during packaging: ${file}`);
   }
 } catch (error) {
   console.error(

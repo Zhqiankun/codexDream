@@ -8,6 +8,7 @@ import {
   protocol,
   shell,
   Tray,
+  type MenuItemConstructorOptions,
 } from "electron";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -17,6 +18,7 @@ import { WindowsPlatform } from "../platform/windows";
 import { CodexSessionService } from "../session/session-service";
 import {
   PROTOCOL_VERSION,
+  type CodexAssistantPluginInstallResult,
   type ErrorCode,
   type ExportResult,
   type ImportResult,
@@ -33,6 +35,9 @@ import { UpdateService } from "./update-service";
 import { ElectronUpdaterGateway } from "../infra/electron-updater-gateway";
 import type { MainLogger } from "../infra/main-logger";
 import { createBundledPresetSource } from "../infra/bundled-presets";
+import { CodexAssistantBridge } from "../assistant/assistant-bridge";
+import { CodexAssistantService } from "../assistant/assistant-service";
+import { CodexPluginInstaller } from "../assistant/plugin-installer";
 
 const STUDIO_STARTUP_TIMEOUT_MS = 10_000;
 const STUDIO_RETRY_DELAY_MS = 250;
@@ -47,6 +52,9 @@ export class AppController {
   readonly platform = new WindowsPlatform();
   readonly session: CodexSessionService;
   readonly themeService: ThemeService;
+  readonly assistantService: CodexAssistantService;
+  readonly assistantBridge: CodexAssistantBridge;
+  private assistantPluginInstaller?: CodexPluginInstaller;
   private readonly operationGate = new MainOperationGate();
   private quitting = false;
   private showStudioRequested = true;
@@ -101,6 +109,23 @@ export class AppController {
       () => this.mainWindow,
       () => this.snapshot(),
     );
+    this.assistantService = new CodexAssistantService({
+      appVersion: currentVersion,
+      snapshot: () => this.snapshot(),
+      getTheme: (libraryId) => this.getTheme(libraryId),
+      createDraft: (name) => this.createDraft(name),
+      createDraftFrom: (sourceLibraryId, name) =>
+        this.createDraftFrom(sourceLibraryId, name),
+      patchDraft: (libraryId, expectedRevision, patch) =>
+        this.patchDraft(libraryId, expectedRevision, patch),
+      selectTheme: (libraryId, expectedRevision) =>
+        this.selectThemeForNextLaunch(libraryId, expectedRevision),
+    });
+    this.assistantBridge = new CodexAssistantBridge(
+      this.store.managedStore,
+      this.assistantService,
+      () => this.broadcast(),
+    );
   }
 
   dispose(): void {
@@ -111,12 +136,19 @@ export class AppController {
     this.updatePollTimer = undefined;
     if (this.updateService.snapshot().status === "downloading")
       this.updateService.cancel();
+    this.assistantBridge.stop();
     this.store.managedStore.close();
   }
 
   async init(): Promise<void> {
     await this.store.init();
     await this.session.restoreOrphanedState();
+    try {
+      await this.assistantBridge.start();
+      this.logger?.info("assistant.bridge.ready");
+    } catch (error) {
+      this.logger?.error("assistant.bridge.failed", error);
+    }
     protocol.handle("app", async (request) => {
       let url: URL;
       try {
@@ -190,17 +222,21 @@ export class AppController {
       return new Response("Not found", { status: 404 });
     });
     registerIpc(this, this.logger);
+    this.installApplicationMenu();
     this.createTray();
     this.createWindow();
     this.scheduleUpdateAvailabilityCheck(UPDATE_INITIAL_CHECK_DELAY_MS);
   }
 
   snapshot(): ThemeSnapshot {
-    return this.store.snapshot(
-      this.session.snapshot(),
-      this.updateService.snapshot(),
-      "app://theme-asset",
-    );
+    return {
+      ...this.store.snapshot(
+        this.session.snapshot(),
+        this.updateService.snapshot(),
+        "app://theme-asset",
+      ),
+      assistant: this.assistantBridge.snapshot(),
+    };
   }
 
   broadcast(snapshot: ThemeSnapshot = this.snapshot()): void {
@@ -242,6 +278,22 @@ export class AppController {
     return { ok: true, data: true };
   }
 
+  installAssistantPlugin(): Promise<Result<CodexAssistantPluginInstallResult>> {
+    return this.runSideEffect(async () => {
+      try {
+        const data = await this.getAssistantPluginInstaller().install();
+        this.logger?.info("assistant.plugin.installed", {
+          status: data.status,
+          version: data.version,
+        });
+        return { ok: true, data };
+      } catch (error) {
+        this.logger?.error("assistant.plugin.installFailed", error);
+        return resultError("UNKNOWN", assistantPluginMessageKey(error));
+      }
+    });
+  }
+
   getStudioSnapshot(): Result<ThemeSnapshot> {
     return { ok: true, data: this.snapshot() };
   }
@@ -252,6 +304,15 @@ export class AppController {
 
   createDraft(name?: string): Promise<Result<ThemeDetail>> {
     return this.runSideEffect(() => this.themeService.createDraft(name));
+  }
+
+  createDraftFrom(
+    sourceLibraryId: string,
+    name?: string,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(() =>
+      this.themeService.createDraftFrom(sourceLibraryId, name),
+    );
   }
 
   patchDraft(
@@ -620,6 +681,14 @@ export class AppController {
     }
   }
 
+  private getAssistantPluginInstaller(): CodexPluginInstaller {
+    if (!this.assistantPluginInstaller) {
+      const root = app.isPackaged ? process.resourcesPath : app.getAppPath();
+      this.assistantPluginInstaller = new CodexPluginInstaller(root);
+    }
+    return this.assistantPluginInstaller;
+  }
+
   private async runMainOperation<T>(
     operation: () => Promise<T> | T,
   ): Promise<T> {
@@ -733,6 +802,62 @@ export class AppController {
       .catch((error: unknown) =>
         this.recoverStudioWindow(window, `loadURL ${formatError(error)}`),
       );
+  }
+
+  private installApplicationMenu(): void {
+    const viewItems: MenuItemConstructorOptions[] = [];
+    if (!app.isPackaged) {
+      viewItems.push(
+        { label: "重新加载", accelerator: "CmdOrCtrl+R", role: "reload" },
+        {
+          label: "开发者工具",
+          accelerator: "CmdOrCtrl+Shift+I",
+          role: "toggleDevTools",
+        },
+        { type: "separator" },
+      );
+    }
+    viewItems.push(
+      { label: "实际大小", accelerator: "CmdOrCtrl+0", role: "resetZoom" },
+      { label: "放大", accelerator: "CmdOrCtrl+Plus", role: "zoomIn" },
+      { label: "缩小", accelerator: "CmdOrCtrl+-", role: "zoomOut" },
+      { type: "separator" },
+      { label: "全屏", accelerator: "F11", role: "togglefullscreen" },
+    );
+
+    const template: MenuItemConstructorOptions[] = [
+      {
+        label: "文件",
+        submenu: [
+          { label: "关闭工作台", accelerator: "CmdOrCtrl+W", role: "close" },
+          { type: "separator" },
+          { label: "退出应用", accelerator: "Alt+F4", role: "quit" },
+        ],
+      },
+      {
+        label: "编辑",
+        submenu: [
+          { label: "撤销", accelerator: "CmdOrCtrl+Z", role: "undo" },
+          { label: "重做", accelerator: "CmdOrCtrl+Y", role: "redo" },
+          { type: "separator" },
+          { label: "剪切", accelerator: "CmdOrCtrl+X", role: "cut" },
+          { label: "复制", accelerator: "CmdOrCtrl+C", role: "copy" },
+          { label: "粘贴", accelerator: "CmdOrCtrl+V", role: "paste" },
+          { label: "删除", role: "delete" },
+          { type: "separator" },
+          { label: "全选", accelerator: "CmdOrCtrl+A", role: "selectAll" },
+        ],
+      },
+      { label: "视图", submenu: viewItems },
+      {
+        label: "窗口",
+        submenu: [
+          { label: "最小化", role: "minimize" },
+          { label: "关闭", role: "close" },
+        ],
+      },
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   }
 
   private showStudioWindowIfReady(window: BrowserWindow): void {
@@ -881,6 +1006,18 @@ export class AppController {
 
 function resultError<T>(code: ErrorCode, messageKey: string): Result<T> {
   return { ok: false, error: { code, messageKey } };
+}
+
+function assistantPluginMessageKey(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("codex-cli")) return "assistant.codexCliUnavailable";
+  if (
+    message.includes("asset-missing") ||
+    message.includes("marketplace") ||
+    message.includes("manifest")
+  )
+    return "assistant.pluginAssetsUnavailable";
+  return "assistant.pluginInstallFailed";
 }
 
 function updateError<T>(

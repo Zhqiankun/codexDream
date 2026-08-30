@@ -15,6 +15,8 @@ const api: CodexStyleApi = {
     invoke("studio.rendererReady", { v: BOOTSTRAP_PROTOCOL_VERSION }),
   openLogDirectory: () =>
     invoke("diagnostics.openLogs", { v: PROTOCOL_VERSION }),
+  installAssistantPlugin: () =>
+    invoke("assistant.installPlugin", { v: PROTOCOL_VERSION }),
   getSnapshot: () => invoke("studio.getSnapshot", { v: PROTOCOL_VERSION }),
   getTheme: (request) =>
     invoke("theme.get", { v: PROTOCOL_VERSION, ...request }),

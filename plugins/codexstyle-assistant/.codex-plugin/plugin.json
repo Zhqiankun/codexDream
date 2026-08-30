@@ -1,0 +1,30 @@
+{
+  "name": "codexstyle-assistant",
+  "version": "0.1.1",
+  "description": "Connect Codex to CodexStyle for safe theme discovery and palette drafting.",
+  "author": {
+    "name": "CodexStyle",
+    "url": "https://github.com/Zhqiankun/codexDream"
+  },
+  "homepage": "https://github.com/Zhqiankun/codexDream",
+  "repository": "https://github.com/Zhqiankun/codexDream",
+  "license": "MIT",
+  "keywords": ["codex", "theme", "colors", "design", "mcp"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CodexStyle Assistant",
+    "shortDescription": "Generate safe CodexStyle theme drafts with Codex.",
+    "longDescription": "Read the local CodexStyle theme library, validate complete color systems, derive non-destructive drafts, and select reviewed themes for the next Codex launch.",
+    "developerName": "CodexStyle",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/Zhqiankun/codexDream",
+    "defaultPrompt": [
+      "基于当前 CodexStyle 主题生成一套现代奢华配色草稿。",
+      "检查当前主题的文字对比度并新建一个改进草稿。",
+      "列出 CodexStyle 主题并选择我指定的已保存主题。"
+    ],
+    "brandColor": "#F5B94C"
+  },
+  "mcpServers": "./.mcp.json"
+}

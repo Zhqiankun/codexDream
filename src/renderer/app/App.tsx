@@ -1,6 +1,8 @@
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -11,6 +13,7 @@ import {
   type RefObject,
 } from "react";
 import {
+  type CodexAssistantSnapshot,
   type ImportResult,
   type Result,
   type SessionState,
@@ -32,8 +35,9 @@ import { isStudioThemeColor } from "../features/studio/theme-color-input";
 
 const MAX_CSS_CHARACTERS = 262_144;
 const MAX_CSS_BYTES = 256 * 1024;
-const RENDERER_PROTOCOL_VERSION = 4;
+const RENDERER_PROTOCOL_VERSION = 5;
 const cssTextEncoder = new TextEncoder();
+const EMPTY_THEME_SUMMARIES: ThemeSnapshot["themes"] = [];
 
 type PreviewPage = "home" | "conversation";
 
@@ -98,6 +102,11 @@ const PREVIEW_CONTROL_DEFINITIONS = {
     label: "输入框背景",
     colorTarget: "panelAlt",
   },
+  composerText: {
+    controlId: "color-composerText",
+    label: "输入文字",
+    colorTarget: "composerText",
+  },
   composerPlaceholder: {
     controlId: "color-muted",
     label: "输入占位文字",
@@ -110,8 +119,13 @@ const PREVIEW_CONTROL_DEFINITIONS = {
   },
   sendButton: {
     controlId: "color-accent",
-    label: "发送按钮",
+    label: "主要按钮背景",
     colorTarget: "accent",
+  },
+  sendButtonText: {
+    controlId: "color-accentText",
+    label: "主要按钮文字",
+    colorTarget: "accentText",
   },
   userMessageSurface: {
     controlId: "color-panelAlt",
@@ -153,6 +167,11 @@ const PREVIEW_CONTROL_DEFINITIONS = {
     label: "选中文字背景",
     colorTarget: "highlight",
   },
+  selectionText: {
+    controlId: "color-selectionText",
+    label: "选区文字",
+    colorTarget: "selectionText",
+  },
   changeSurface: {
     controlId: "color-changeCardBackground",
     label: "文件变更背景",
@@ -183,6 +202,9 @@ const PREVIEW_CONTROL_IDS = new Set<PreviewControlId>(
 );
 
 const CONVERSATION_COLOR_TARGETS = new Set<PreviewColorTarget>([
+  "accent",
+  "accentAlt",
+  "accentText",
   "assistantPanel",
   "assistantMessageText",
   "activityBackground",
@@ -284,6 +306,12 @@ const errorMessages: Record<string, string> = {
   "ipc.unauthorized": "当前页面无权执行此操作。",
   "diagnostics.logsUnavailable": "诊断日志当前不可用。",
   "diagnostics.logsOpenFailed": "无法打开日志目录，请稍后重试。",
+  "assistant.codexCliUnavailable":
+    "未找到 Codex 插件命令，请更新或重新启动 Codex 后再试。",
+  "assistant.pluginAssetsUnavailable":
+    "随包插件资源不完整，请重新安装最新版 CodexStyle。",
+  "assistant.pluginInstallFailed":
+    "插件安装未完成，请确认 Codex 已安装并稍后重试。",
   "session.externalRunning": "外部 Codex 正在运行，请自行关闭后再试。",
   "session.storePackageNotFound": "未找到受支持的 Microsoft Store Codex。",
   "session.launchFailed": "Windows 未能启动 Store Codex，请重试。",
@@ -434,6 +462,10 @@ function formatBytes(bytes: number): string {
   return `${value >= 100 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
 }
 
+function normalizeThemeQuery(value: string): string {
+  return value.trim().normalize("NFKC").toLocaleLowerCase("zh-CN");
+}
+
 export function App() {
   const [snapshot, setSnapshot] = useState<ThemeSnapshot | undefined>();
   const [selected, setSelected] = useState<ThemeDetail | undefined>();
@@ -446,6 +478,10 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [manualUpdatePending, setManualUpdatePending] = useState(false);
   const [runtimeMismatch, setRuntimeMismatch] = useState(false);
+  const [themeQuery, setThemeQuery] = useState("");
+  const [assistantInstallBusy, setAssistantInstallBusy] = useState(false);
+  const [assistantInstalledVersion, setAssistantInstalledVersion] =
+    useState<string>();
   const selectedLibraryIdRef = useRef<string | undefined>(undefined);
   const selectedRevisionRef = useRef<number | undefined>(undefined);
 
@@ -544,6 +580,19 @@ export function App() {
   const selectedSummary = snapshot?.themes.find(
     (theme) => theme.libraryId === selected?.libraryId,
   );
+  const themes = snapshot?.themes ?? EMPTY_THEME_SUMMARIES;
+  const deferredThemeQuery = useDeferredValue(themeQuery);
+  const normalizedThemeQuery = normalizeThemeQuery(deferredThemeQuery);
+  const visibleThemes = useMemo(
+    () =>
+      normalizedThemeQuery
+        ? themes.filter((theme) =>
+            normalizeThemeQuery(theme.name).includes(normalizedThemeQuery),
+          )
+        : themes,
+    [normalizedThemeQuery, themes],
+  );
+  const themeSearchPending = themeQuery !== deferredThemeQuery;
   const readyCount =
     snapshot?.themes.filter((theme) => theme.status === "ready").length ?? 0;
   const update = snapshot?.update;
@@ -654,6 +703,28 @@ export function App() {
     }
   };
 
+  const installAssistantPlugin = async () => {
+    setAssistantInstallBusy(true);
+    try {
+      const result = unwrap(await bridge.installAssistantPlugin(), report);
+      if (!result) return;
+      if (result.status === "needs-enable") {
+        report("插件已安装；请在 Codex 插件设置中启用后新建任务。");
+        return;
+      }
+      setAssistantInstalledVersion(result.version);
+      report(
+        result.status === "already-installed"
+          ? `CodexStyle Assistant v${result.version} 已是最新版。`
+          : `CodexStyle Assistant v${result.version} 已安装；请新建 Codex 任务或重启 Codex。`,
+      );
+    } catch {
+      report(messageForError("assistant.pluginInstallFailed"));
+    } finally {
+      setAssistantInstallBusy(false);
+    }
+  };
+
   const activateTheme = (theme: ThemeSnapshot["themes"][number]) => {
     if (theme.status !== "ready") {
       report("请先保存主题，再双击启用。");
@@ -748,6 +819,7 @@ export function App() {
                 void run(
                   () => bridge.createDraft({ name: "新主题" }),
                   (detail) => {
+                    setThemeQuery("");
                     selectedLibraryIdRef.current = detail.libraryId;
                     setSelected(detail);
                   },
@@ -775,8 +847,56 @@ export function App() {
               导入 ZIP
             </button>
           </div>
-          <div className="theme-list">
-            {snapshot?.themes.map((theme) => (
+          <div
+            className="theme-search-wrap"
+            role="search"
+            aria-label="主题库搜索"
+          >
+            <div className="theme-search-control">
+              <svg
+                className="theme-search-icon"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+              >
+                <circle cx="8.5" cy="8.5" r="5.25" />
+                <path d="m12.4 12.4 4 4" />
+              </svg>
+              <input
+                className="theme-search-input"
+                type="search"
+                value={themeQuery}
+                onChange={(event) => setThemeQuery(event.currentTarget.value)}
+                placeholder="搜索主题名称…"
+                aria-label="搜索主题"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <span
+                className="theme-search-count"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {visibleThemes.length}/{themes.length}
+              </span>
+              {themeQuery ? (
+                <button
+                  className="theme-search-clear"
+                  type="button"
+                  onClick={() => setThemeQuery("")}
+                  aria-label="清空主题搜索"
+                  title="清空搜索"
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <div
+            className={`theme-list ${themeSearchPending ? "is-filtering" : ""}`}
+            aria-label="主题列表"
+            aria-busy={themeSearchPending}
+          >
+            {visibleThemes.map((theme) => (
               <button
                 key={theme.libraryId}
                 className={`theme-row ${selected?.libraryId === theme.libraryId ? "active" : ""}`}
@@ -818,6 +938,18 @@ export function App() {
                 )}
               </button>
             ))}
+            {visibleThemes.length === 0 ? (
+              <div className="theme-list-empty" role="status">
+                <span className="theme-list-empty-mark" aria-hidden="true">
+                  ◌
+                </span>
+                <strong>没有匹配的主题</strong>
+                <small>换个名称，或清空搜索后查看全部主题。</small>
+                <button type="button" onClick={() => setThemeQuery("")}>
+                  清空搜索
+                </button>
+              </div>
+            ) : null}
           </div>
           <div className="sidebar-footer">
             <div className="library-stat">
@@ -979,6 +1111,12 @@ export function App() {
             />
           )}
           <SessionLauncher snapshot={snapshot} busy={busy} run={run} />
+          <CodexAssistantCard
+            assistant={snapshot?.assistant}
+            installBusy={assistantInstallBusy}
+            installedVersion={assistantInstalledVersion}
+            onInstall={() => void installAssistantPlugin()}
+          />
           {selected && (
             <StudioView
               detail={selected}
@@ -1010,6 +1148,83 @@ export function App() {
         />
       )}
     </div>
+  );
+}
+
+function CodexAssistantCard({
+  assistant,
+  installBusy,
+  installedVersion,
+  onInstall,
+}: {
+  assistant?: CodexAssistantSnapshot;
+  installBusy: boolean;
+  installedVersion?: string;
+  onInstall: () => void;
+}) {
+  const state = assistant?.state ?? "unavailable";
+  const title =
+    state === "connected"
+      ? "Codex 已调用主题工具"
+      : state === "listening"
+        ? "CodexStyle MCP 已就绪"
+        : "CodexStyle MCP 未启动";
+  const description =
+    state === "connected"
+      ? "本机连接正常；无需手动填写端口或密钥。"
+      : state === "listening"
+        ? "本机连接已自动启动；Codex 第一次调用后会显示“已连接”。"
+        : "请重新启动 CodexStyle；主题编辑功能不受影响。";
+  return (
+    <section
+      className={`assistant-card state-${state}`}
+      aria-label="Codex 助手"
+    >
+      <div className="assistant-card-mark" aria-hidden="true">
+        ✦
+      </div>
+      <div className="assistant-card-copy">
+        <span>CODEXSTYLE MCP</span>
+        <strong>{title}</strong>
+        <p>{description}</p>
+      </div>
+      <div className="assistant-card-guide" aria-label="MCP 使用方法">
+        <ol>
+          <li className="assistant-card-guide-row is-once">
+            <span>首次一次</span>
+            <strong>安装并启用插件；已打开 Codex 时新建任务或重启</strong>
+            <button
+              type="button"
+              onClick={onInstall}
+              disabled={installBusy || Boolean(installedVersion)}
+            >
+              {installBusy
+                ? "安装中…"
+                : installedVersion
+                  ? `已安装 v${installedVersion}`
+                  : "一键安装 / 更新"}
+            </button>
+          </li>
+          <li className="assistant-card-guide-row is-daily">
+            <span>以后每次</span>
+            <strong>只需启动 CodexStyle；本机连接自动就绪</strong>
+          </li>
+          <li className="assistant-card-guide-row is-design">
+            <span>开始设计</span>
+            <strong>在 Codex 描述配色 → 回到这里预览并保存草稿</strong>
+          </li>
+        </ol>
+        <code>例如：基于当前主题生成一套现代奢华配色</code>
+      </div>
+      <div className="assistant-card-status" title={assistant?.lastSeenAt}>
+        <span />
+        {state === "connected"
+          ? "已连接"
+          : state === "listening"
+            ? "本机就绪"
+            : "未启动"}
+      </div>
+    </section>
   );
 }
 
@@ -1431,6 +1646,7 @@ function StudioView({
     "--preview-home-card-background": draft.colors.homeCardBackground,
     "--preview-home-card-text": draft.colors.homeCardText,
     "--preview-panel-alt": draft.colors.panelAlt,
+    "--preview-composer-text": draft.colors.composerText,
     "--preview-assistant-panel": draft.colors.assistantPanel,
     "--preview-assistant-message-text": draft.colors.assistantMessageText,
     "--preview-user-message-text": draft.colors.userMessageText,
@@ -1442,9 +1658,11 @@ function StudioView({
     "--preview-top-bar-background": draft.colors.topBarBackground,
     "--preview-top-bar-text": draft.colors.topBarText,
     "--preview-accent": draft.colors.accent,
+    "--preview-accent-text": draft.colors.accentText,
     "--preview-accent-alt": draft.colors.accentAlt,
     "--preview-secondary": draft.colors.secondary,
     "--preview-highlight": draft.colors.highlight,
+    "--preview-selection-text": draft.colors.selectionText,
     "--preview-text": draft.colors.text,
     "--preview-muted": draft.colors.muted,
     "--preview-line": draft.colors.line,
@@ -1461,6 +1679,7 @@ function StudioView({
     "--ds-theme-color-home-card-background": draft.colors.homeCardBackground,
     "--ds-theme-color-home-card-text": draft.colors.homeCardText,
     "--ds-theme-color-panel-alt": draft.colors.panelAlt,
+    "--ds-theme-color-composer-text": draft.colors.composerText,
     "--ds-theme-color-assistant-panel": draft.colors.assistantPanel,
     "--ds-theme-color-assistant-message-text":
       draft.colors.assistantMessageText,
@@ -1474,9 +1693,11 @@ function StudioView({
     "--ds-theme-color-top-bar-background": draft.colors.topBarBackground,
     "--ds-theme-color-top-bar-text": draft.colors.topBarText,
     "--ds-theme-color-accent": draft.colors.accent,
+    "--ds-theme-color-accent-text": draft.colors.accentText,
     "--ds-theme-color-accent-alt": draft.colors.accentAlt,
     "--ds-theme-color-secondary": draft.colors.secondary,
     "--ds-theme-color-highlight": draft.colors.highlight,
+    "--ds-theme-color-selection-text": draft.colors.selectionText,
     "--ds-theme-color-text": draft.colors.text,
     "--ds-theme-color-muted": draft.colors.muted,
     "--ds-theme-color-line": draft.colors.line,
@@ -1941,9 +2162,11 @@ function StudioView({
                           className="mock-workspace-pill"
                           {...previewControlAttributes("composerSurface")}
                         >
-                          <span>▱ CodexStyle</span>
-                          <span>▣ 本地</span>
-                          <span>⑂ main</span>
+                          <span
+                            {...previewControlAttributes("composerToolbar")}
+                          >
+                            ▱ 选择项目
+                          </span>
                         </div>
                         <div
                           className="mock-composer mock-home-composer"
@@ -1953,12 +2176,22 @@ function StudioView({
                             false,
                           )}
                         >
-                          <span
-                            className="mock-composer-placeholder"
-                            {...previewControlAttributes("composerPlaceholder")}
-                          >
-                            随心输入
-                          </span>
+                          <div className="mock-composer-editor">
+                            <span
+                              className="mock-composer-input-text"
+                              {...previewControlAttributes("composerText")}
+                            >
+                              输入文字示例
+                            </span>
+                            <span
+                              className="mock-composer-placeholder"
+                              {...previewControlAttributes(
+                                "composerPlaceholder",
+                              )}
+                            >
+                              随心输入
+                            </span>
+                          </div>
                           <div
                             className="mock-composer-toolbar"
                             data-ds-part="composer-toolbar"
@@ -1979,10 +2212,17 @@ function StudioView({
                                 aria-label="发送"
                                 {...previewControlAttributes("sendButton")}
                               >
-                                <SendIconGlyph
-                                  icon={draft.styleConfig.sendIcon}
-                                  dataUrl={draft.styleConfig.sendIconDataUrl}
-                                />
+                                <span
+                                  className="mock-send-button-glyph"
+                                  {...previewControlAttributes(
+                                    "sendButtonText",
+                                  )}
+                                >
+                                  <SendIconGlyph
+                                    icon={draft.styleConfig.sendIcon}
+                                    dataUrl={draft.styleConfig.sendIconDataUrl}
+                                  />
+                                </span>
                               </button>
                             </span>
                           </div>
@@ -2076,7 +2316,13 @@ function StudioView({
                               className="mock-selection-sample"
                               {...previewControlAttributes("selection")}
                             >
-                              主题已加载
+                              选中
+                              <span
+                                className="mock-selection-text"
+                                {...previewControlAttributes("selectionText")}
+                              >
+                                文字
+                              </span>
                             </span>
                             。助手卡片使用与用户气泡一致的舒展内边距。
                           </span>
@@ -2107,9 +2353,37 @@ function StudioView({
                               <strong>已编辑 2 个文件</strong>
                               <small>本轮代码变更</small>
                             </span>
-                            <span className="mock-change-card-counts">
-                              <b>+4</b>
-                              <i>−1</i>
+                            <span className="mock-change-card-head-side">
+                              <span className="mock-change-card-counts">
+                                <b>+4</b>
+                                <i>−1</i>
+                              </span>
+                              <span className="mock-change-card-actions">
+                                <button
+                                  type="button"
+                                  className="mock-change-action mock-change-undo"
+                                  {...previewControlAttributes("changeText")}
+                                  aria-label="撤销按钮，定位到文件变更文字设置"
+                                >
+                                  撤销
+                                </button>
+                                <button
+                                  type="button"
+                                  className="mock-change-action mock-change-review"
+                                  {...previewControlAttributes("sendButton")}
+                                  aria-label="审核按钮，定位到主要按钮背景设置"
+                                >
+                                  <span
+                                    className="mock-change-review-label"
+                                    {...previewControlAttributes(
+                                      "sendButtonText",
+                                      false,
+                                    )}
+                                  >
+                                    审核
+                                  </span>
+                                </button>
+                              </span>
                             </span>
                           </div>
                           <div
@@ -2146,12 +2420,22 @@ function StudioView({
                             false,
                           )}
                         >
-                          <span
-                            className="mock-composer-placeholder"
-                            {...previewControlAttributes("composerPlaceholder")}
-                          >
-                            随心输入
-                          </span>
+                          <div className="mock-composer-editor">
+                            <span
+                              className="mock-composer-input-text"
+                              {...previewControlAttributes("composerText")}
+                            >
+                              输入文字示例
+                            </span>
+                            <span
+                              className="mock-composer-placeholder"
+                              {...previewControlAttributes(
+                                "composerPlaceholder",
+                              )}
+                            >
+                              随心输入
+                            </span>
+                          </div>
                           <div
                             className="mock-composer-toolbar"
                             data-ds-part="composer-toolbar"
@@ -2172,10 +2456,17 @@ function StudioView({
                                 aria-label="发送"
                                 {...previewControlAttributes("sendButton")}
                               >
-                                <SendIconGlyph
-                                  icon={draft.styleConfig.sendIcon}
-                                  dataUrl={draft.styleConfig.sendIconDataUrl}
-                                />
+                                <span
+                                  className="mock-send-button-glyph"
+                                  {...previewControlAttributes(
+                                    "sendButtonText",
+                                  )}
+                                >
+                                  <SendIconGlyph
+                                    icon={draft.styleConfig.sendIcon}
+                                    dataUrl={draft.styleConfig.sendIconDataUrl}
+                                  />
+                                </span>
                               </button>
                             </span>
                           </div>

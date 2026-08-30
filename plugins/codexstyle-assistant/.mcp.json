@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "codexstyle": {
+      "command": "./runtime/node.exe",
+      "args": ["./mcp/dist/server.mjs"],
+      "cwd": ".",
+      "enabled": true,
+      "default_tools_approval_mode": "approve",
+      "tools": {
+        "create_theme_draft": { "approval_mode": "prompt" },
+        "update_theme_draft": { "approval_mode": "prompt" },
+        "select_theme": { "approval_mode": "prompt" }
+      },
+      "env_vars": ["LOCALAPPDATA", "USERPROFILE", "PATH"],
+      "startup_timeout_sec": 10,
+      "tool_timeout_sec": 30
+    }
+  }
+}

@@ -1,0 +1,15 @@
+interface:
+  display_name: "CodexStyle Theme Designer"
+  short_description: "Generate and validate CodexStyle theme palettes"
+  brand_color: "#F5B94C"
+  default_prompt: "Use $codexstyle-theme-designer to create a polished color draft from my selected CodexStyle theme."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "codexstyle"
+      description: "Read themes, validate palettes, and create safe CodexStyle drafts"
+      transport: "stdio"
+
+policy:
+  allow_implicit_invocation: true

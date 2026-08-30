@@ -13,7 +13,7 @@ import { isThemeIconDataUrl } from "./send-icon";
 export * from "./theme-config";
 export * from "./send-icon";
 
-export const PROTOCOL_VERSION = 4 as const;
+export const PROTOCOL_VERSION = 5 as const;
 export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
@@ -118,6 +118,35 @@ export interface ThemeSnapshot {
   paused: boolean;
   session: SessionSnapshot;
   update: UpdateSnapshot;
+  assistant?: CodexAssistantSnapshot;
+}
+
+export const CODEX_ASSISTANT_PROTOCOL_VERSION = 1 as const;
+
+export interface CodexAssistantSnapshot {
+  state: "unavailable" | "listening" | "connected";
+  protocolVersion: typeof CODEX_ASSISTANT_PROTOCOL_VERSION;
+  lastSeenAt?: string;
+}
+
+export interface CodexAssistantPluginInstallResult {
+  status: "installed" | "already-installed" | "needs-enable";
+  pluginId: "codexstyle-assistant@codexstyle";
+  version: string;
+  requiresCodexRestart: true;
+}
+
+export interface PaletteContrastCheck {
+  foreground: keyof ThemeColors;
+  background: keyof ThemeColors;
+  ratio: number;
+  minimum: number;
+  passed: boolean;
+}
+
+export interface PaletteValidationResult {
+  valid: boolean;
+  checks: PaletteContrastCheck[];
 }
 
 export type SessionState =
@@ -221,7 +250,7 @@ const ThemeArtSchema = z
   })
   .strict();
 
-const ThemeColorsSchema = z
+export const ThemeColorsSchema = z
   .object({
     background: z.string().refine(isThemeColor),
     panel: z.string().refine(isThemeColor),
@@ -232,6 +261,7 @@ const ThemeColorsSchema = z
     homeCardBackground: z.string().refine(isThemeColor),
     homeCardText: z.string().refine(isThemeColor),
     panelAlt: z.string().refine(isThemeColor),
+    composerText: z.string().refine(isThemeColor),
     assistantPanel: z.string().refine(isThemeColor),
     assistantMessageText: z.string().refine(isThemeColor),
     userMessageText: z.string().refine(isThemeColor),
@@ -243,14 +273,129 @@ const ThemeColorsSchema = z
     topBarBackground: z.string().refine(isThemeColor),
     topBarText: z.string().refine(isThemeColor),
     accent: z.string().refine(isThemeColor),
+    accentText: z.string().refine(isThemeColor),
     accentAlt: z.string().refine(isThemeColor),
     secondary: z.string().refine(isThemeColor),
     highlight: z.string().refine(isThemeColor),
+    selectionText: z.string().refine(isThemeColor),
     text: z.string().refine(isThemeColor),
     muted: z.string().refine(isThemeColor),
     line: z.string().refine(isThemeColor),
   })
   .strict();
+
+export const CodexAssistantEndpointSchema = z
+  .object({
+    v: z.literal(CODEX_ASSISTANT_PROTOCOL_VERSION),
+    port: z.number().int().min(1).max(65535),
+    token: z.string().regex(/^[a-f0-9]{64}$/u),
+    pid: z.number().int().positive(),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+
+const AssistantRequestBase = {
+  v: z.literal(CODEX_ASSISTANT_PROTOCOL_VERSION),
+  id: z.string().uuid(),
+};
+const AssistantEmptyParams = z.object({}).strict();
+
+export const CodexAssistantRequestSchema = z.discriminatedUnion("method", [
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("status"),
+      params: AssistantEmptyParams,
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("list_themes"),
+      params: AssistantEmptyParams,
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("get_theme"),
+      params: z.object({ libraryId: z.string().uuid() }).strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("validate_palette"),
+      params: z.object({ colors: ThemeColorsSchema }).strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("create_theme_draft"),
+      params: z
+        .object({
+          name: z.string().trim().min(1).max(80),
+          sourceLibraryId: z.string().uuid().optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("update_theme_draft"),
+      params: z
+        .object({
+          libraryId: z.string().uuid(),
+          expectedRevision: z.number().int().nonnegative(),
+          colors: ThemeColorsSchema,
+          appearance: z.enum(["auto", "light", "dark"]).optional(),
+          description: z.string().max(2000).optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("select_theme"),
+      params: z
+        .object({
+          libraryId: z.string().uuid(),
+          expectedRevision: z.number().int().nonnegative(),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+export type CodexAssistantRequest = z.infer<typeof CodexAssistantRequestSchema>;
+
+export type CodexAssistantErrorCode =
+  | "APP_NOT_READY"
+  | "INVALID_REQUEST"
+  | "NOT_FOUND"
+  | "STALE_REVISION"
+  | "OPERATION_BUSY"
+  | "READY_THEME_IMMUTABLE"
+  | "PALETTE_CONTRAST_FAILED"
+  | "INCOMPLETE_THEME"
+  | "UNKNOWN";
+
+export type CodexAssistantResponse =
+  | {
+      v: typeof CODEX_ASSISTANT_PROTOCOL_VERSION;
+      id: string;
+      ok: true;
+      data: unknown;
+    }
+  | {
+      v: typeof CODEX_ASSISTANT_PROTOCOL_VERSION;
+      id: string;
+      ok: false;
+      error: { code: CodexAssistantErrorCode; message: string };
+    };
 
 const ThemeHomeCardSchema = z
   .object({
@@ -379,6 +524,7 @@ export const ExportSchema = z
 export interface CodexStyleApi {
   rendererReady(): Promise<Result<StudioRuntimeInfo>>;
   openLogDirectory(): Promise<Result<boolean>>;
+  installAssistantPlugin(): Promise<Result<CodexAssistantPluginInstallResult>>;
   getSnapshot(): Promise<Result<ThemeSnapshot>>;
   getTheme(
     request: Omit<z.infer<typeof LibraryIdSchema>, "v">,

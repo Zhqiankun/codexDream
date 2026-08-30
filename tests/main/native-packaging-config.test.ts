@@ -19,12 +19,22 @@ describe("native secure-store packaging", () => {
     );
 
     expect(packageJson.devDependencies["node-gyp"]).toBe("12.4.0");
+    expect(packageJson.devDependencies["@modelcontextprotocol/sdk"]).toBe(
+      "1.30.0",
+    );
+    expect(packageJson.devDependencies["js-yaml"]).toBe("4.3.2");
+    expect(
+      packageJson.dependencies["@modelcontextprotocol/sdk"],
+    ).toBeUndefined();
     expect(packageJson.dependencies["electron-updater"]).toBe("6.8.9");
     expect(packageJson.scripts["build:native"]).toBe(
       "node scripts/build-native.mjs",
     );
+    expect(packageJson.scripts["build:plugin"]).toBe(
+      "node scripts/build-codexstyle-plugin.mjs",
+    );
     expect(packageJson.scripts.build).toBe(
-      "npm run build:icons && npm run build:native && electron-vite build",
+      "npm run build:icons && npm run build:native && npm run build:plugin && electron-vite build",
     );
     expect(packageJson.scripts["package:win"]).toContain(
       "npm run release:checksums",
@@ -39,6 +49,13 @@ describe("native secure-store packaging", () => {
     expect(builderConfig).toMatch(
       /extraResources:\s*[\s\S]*from: native\/secure-store\/build\/Release\/secure_store\.node\s*[\s\S]*to: native\/secure_store\.node/u,
     );
+    expect(builderConfig).toMatch(
+      /from: \.agents\/plugins\/marketplace\.json\s*[\s\S]*to: \.agents\/plugins\/marketplace\.json/u,
+    );
+    expect(builderConfig).toMatch(
+      /from: plugins\/codexstyle-assistant\s*[\s\S]*to: plugins\/codexstyle-assistant/u,
+    );
+    expect(builderConfig).toContain("runtime/**");
     expect(builderConfig).toMatch(
       /from: resources\/icon\.png\s*[\s\S]*to: icon\.png/u,
     );

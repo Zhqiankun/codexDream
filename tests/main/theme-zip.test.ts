@@ -77,6 +77,7 @@ describe("theme zip compatibility", () => {
         homeCardText: "#ddeeff",
         assistantMessageText: "rgba(101, 102, 103, 0.8)",
         userMessageText: "rgba(12, 34, 56, 0.72)",
+        composerText: "#c0ffee",
         changeCardBackground: "rgba(61, 62, 63, 0.64)",
         changeCardText: "#fedcba",
         activityBackground: "rgba(41, 42, 43, 0.5)",
@@ -84,6 +85,8 @@ describe("theme zip compatibility", () => {
         activityMuted: "#789abc",
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
+        accentText: "#102030",
+        selectionText: "#fefefe",
       },
       homeCards: [
         { mode: "color", color: "#102030" },
@@ -119,6 +122,7 @@ describe("theme zip compatibility", () => {
         homeCardText: "#ddeeff",
         assistantMessageText: "rgba(101, 102, 103, 0.8)",
         userMessageText: "rgba(12, 34, 56, 0.72)",
+        composerText: "#c0ffee",
         changeCardBackground: "rgba(61, 62, 63, 0.64)",
         changeCardText: "#fedcba",
         activityBackground: "rgba(41, 42, 43, 0.5)",
@@ -126,6 +130,8 @@ describe("theme zip compatibility", () => {
         activityMuted: "#789abc",
         topBarBackground: "rgba(90, 80, 70, 0.35)",
         topBarText: "#abcdef",
+        accentText: "#102030",
+        selectionText: "#fefefe",
       },
       homeCards: [
         { mode: "color", color: "#102030" },
@@ -162,6 +168,9 @@ describe("theme zip compatibility", () => {
       homeCardText: _homeCardText,
       assistantMessageText: _assistantMessageText,
       userMessageText: _userMessageText,
+      composerText: _composerText,
+      accentText: _accentText,
+      selectionText: _selectionText,
       changeCardBackground: _changeCardBackground,
       changeCardText: _changeCardText,
       activityBackground: _activityBackground,
@@ -196,6 +205,9 @@ describe("theme zip compatibility", () => {
     const colors = readThemeConfiguration(parsed.record.json).colors;
     expect(colors.assistantMessageText).toBe(previousColors.text);
     expect(colors.userMessageText).toBe(previousColors.text);
+    expect(colors.composerText).toBe(previousColors.text);
+    expect(colors.accentText).toBe(previousColors.background);
+    expect(colors.selectionText).toBe(previousColors.background);
     expect(colors.changeCardBackground).toBe(previousColors.panelAlt);
     expect(colors.changeCardText).toBe(previousColors.text);
     expect(colors.threadTabBackground).toBe("rgba(0, 0, 0, 0)");

@@ -1,16 +1,26 @@
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import sharp from "sharp";
 import {
   createBundledPresetSource,
   DEFAULT_BUNDLED_PRESET_PACK_ID,
+  FIFTH_BUNDLED_PRESET_PACK_ID,
   FIRST_BUNDLED_PRESET_PACK_ID,
+  FOURTH_BUNDLED_PRESET_PACK_ID,
   PREVIOUS_BUNDLED_PRESET_PACK_ID,
+  SECOND_BUNDLED_PRESET_PACK_ID,
+  THIRD_BUNDLED_PRESET_PACK_ID,
   type PreparedBundledPresetTheme,
 } from "../../src/main/infra/bundled-presets";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
-import { MANAGED_FILES } from "../../src/main/infra/secure-store";
+import { validateImage } from "../../src/main/infra/image";
+import {
+  MANAGED_FILES,
+  managedThemeFile,
+} from "../../src/main/infra/secure-store";
 import { readThemeConfiguration } from "../../src/contracts";
 import {
   themeFingerprint,
@@ -19,6 +29,29 @@ import {
 import { createManagedRoot } from "../fixtures/managed-root";
 
 const presetRoot = resolve(process.cwd(), "resources", "presets");
+const releasedV3Themes = JSON.parse(
+  readFileSync(
+    resolve(process.cwd(), "tests", "fixtures", "preset-themes-v3.json"),
+    "utf8",
+  ),
+) as Record<
+  string,
+  Pick<
+    PreparedBundledPresetTheme,
+    | "description"
+    | "backgroundScope"
+    | "sidebarOverlayOpacity"
+    | "appearance"
+    | "art"
+    | "colors"
+    | "style"
+  >
+>;
+const replacedImagePresetIds = new Set([
+  "hundred-yuan",
+  "line-dogs",
+  "warm-tuntun",
+]);
 const cleanup: Array<() => Promise<void>> = [];
 
 afterEach(async () => {
@@ -124,6 +157,9 @@ function withoutV3Colors(
     homeTitleText: _homeTitleText,
     homeCardBackground: _homeCardBackground,
     homeCardText: _homeCardText,
+    composerText: _composerText,
+    accentText: _accentText,
+    selectionText: _selectionText,
     activityBackground: _activityBackground,
     activityText: _activityText,
     activityMuted: _activityMuted,
@@ -134,18 +170,44 @@ function withoutV3Colors(
 
 function predecessorPreset(
   current: PreparedBundledPresetTheme,
-  generation: 1 | 2,
+  generation: 1 | 2 | 3 | 4 | 5,
 ): PreparedBundledPresetTheme {
-  const legacyColors = withoutV3Colors(current.colors);
+  const released = releasedV3Themes[current.presetId];
+  if (!released) throw new Error("missing v3 preset: " + current.presetId);
+  const releasedPreset: PreparedBundledPresetTheme = {
+    ...current,
+    ...released,
+    art: { ...released.art },
+    colors: { ...released.colors },
+    style: { ...released.style, recipes: { ...released.style.recipes } },
+  };
+  if (generation === 3) return releasedPreset;
+  if (generation === 4)
+    return {
+      ...releasedPreset,
+      colors: {
+        ...releasedPreset.colors,
+        composerText: releasedPreset.colors.text,
+      },
+    };
+  if (generation === 5)
+    return {
+      ...releasedPreset,
+      colors: {
+        ...releasedPreset.colors,
+        line: releasedPreset.colors.line.replace(/, 0\.1\)$/u, ", 0)"),
+      },
+    };
+  const legacyColors = withoutV3Colors(releasedPreset.colors);
   if (generation === 2)
     return {
-      ...current,
+      ...releasedPreset,
       colors: legacyColors,
     };
   const previous = PREVIOUS_PRESET_SURFACES[current.presetId];
   if (!previous) throw new Error(`missing predecessor: ${current.presetId}`);
   return {
-    ...current,
+    ...releasedPreset,
     sidebarOverlayOpacity: previous.sidebarOverlayOpacity,
     colors: {
       ...legacyColors,
@@ -166,6 +228,7 @@ function predecessorPackSource(
       return {
         packId,
         replacesPackIds: [],
+        introducedThemeIds: [],
         themes,
       };
     },
@@ -181,17 +244,22 @@ function restorePreHomeCardFingerprint(records: ThemeRecord[]): void {
 }
 
 describe("bundled image theme presets", () => {
-  it("strictly loads all 13 catalog themes and verifies every image hash", async () => {
+  it("strictly loads all 25 catalog themes and verifies every image hash", async () => {
     const pack = await createBundledPresetSource(presetRoot).load();
 
     expect(pack.packId).toBe(DEFAULT_BUNDLED_PRESET_PACK_ID);
     expect(pack.replacesPackIds).toEqual([
       FIRST_BUNDLED_PRESET_PACK_ID,
+      SECOND_BUNDLED_PRESET_PACK_ID,
+      THIRD_BUNDLED_PRESET_PACK_ID,
+      FOURTH_BUNDLED_PRESET_PACK_ID,
+      FIFTH_BUNDLED_PRESET_PACK_ID,
       PREVIOUS_BUNDLED_PRESET_PACK_ID,
     ]);
-    expect(pack.themes).toHaveLength(13);
-    expect(new Set(pack.themes.map((theme) => theme.themeId)).size).toBe(13);
-    expect(new Set(pack.themes.map((theme) => theme.image)).size).toBe(13);
+    expect(pack.introducedThemeIds).toHaveLength(12);
+    expect(pack.themes).toHaveLength(25);
+    expect(new Set(pack.themes.map((theme) => theme.themeId)).size).toBe(25);
+    expect(new Set(pack.themes.map((theme) => theme.image)).size).toBe(25);
     expect(
       pack.themes.every(
         (theme) =>
@@ -201,13 +269,21 @@ describe("bundled image theme presets", () => {
           theme.sidebarOverlayOpacity === 20 &&
           theme.colors.background.endsWith(", 0.2)") &&
           theme.colors.panel.endsWith(", 0.2)") &&
-          theme.colors.line.endsWith(", 0.1)") &&
-          theme.colors.threadTabBackground === theme.colors.panel &&
-          theme.colors.homeCardBackground === theme.colors.panel &&
-          theme.colors.activityBackground === theme.colors.panel &&
-          theme.previousFingerprints.length === 2,
+          theme.colors.line.endsWith(", 0.2)") &&
+          theme.colors.composerText !== theme.colors.background &&
+          theme.colors.accentText !== theme.colors.background &&
+          theme.colors.selectionText !== theme.colors.highlight &&
+          (pack.introducedThemeIds.includes(theme.themeId)
+            ? theme.previousFingerprints.length === 0
+            : theme.previousFingerprints.length >= 5),
       ),
     ).toBe(true);
+    expect(
+      pack.themes
+        .filter((theme) => theme.previousImageSha256.length > 0)
+        .map((theme) => theme.presetId)
+        .sort(),
+    ).toEqual(["hundred-yuan", "line-dogs", "warm-tuntun"]);
   });
 
   it("rejects a catalog whose declared image hash does not match", async () => {
@@ -216,9 +292,11 @@ describe("bundled image theme presets", () => {
     const catalog = JSON.parse(
       await readFile(join(presetRoot, "catalog.json"), "utf8"),
     ) as {
+      introducedThemeIds: string[];
       themes: Array<{ image: string; imageSha256: string }>;
     };
     catalog.themes = [catalog.themes[0]];
+    catalog.introducedThemeIds = [];
     catalog.themes[0].imageSha256 = "0".repeat(64);
     await writeFile(join(root, "catalog.json"), JSON.stringify(catalog));
     await copyFile(
@@ -246,7 +324,7 @@ describe("bundled image theme presets", () => {
     const upgraded = new LocalThemeStore(managed.root, [source]);
     await upgraded.init();
     const themes = upgraded.listRecords();
-    expect(themes).toHaveLength(15);
+    expect(themes).toHaveLength(27);
     expect(themes.slice(0, 2).map((theme) => theme.libraryId)).toEqual(
       originalIds,
     );
@@ -292,13 +370,26 @@ describe("bundled image theme presets", () => {
     ]);
     await reloaded.init();
     expect(load).not.toHaveBeenCalled();
-    expect(reloaded.listRecords()).toHaveLength(14);
+    expect(reloaded.listRecords()).toHaveLength(26);
     expect(reloaded.get(removed.libraryId)).toBeUndefined();
   });
 
   it.each([
     ["v1", FIRST_BUNDLED_PRESET_PACK_ID, 1, 0],
-    ["v2", PREVIOUS_BUNDLED_PRESET_PACK_ID, 2, 1],
+    ["v2", SECOND_BUNDLED_PRESET_PACK_ID, 2, 1],
+    ["v3", THIRD_BUNDLED_PRESET_PACK_ID, 3, 2],
+    [
+      "v4 marker with v3 development colors",
+      FOURTH_BUNDLED_PRESET_PACK_ID,
+      4,
+      3,
+    ],
+    [
+      "v5 marker with zero-alpha legacy lines",
+      FIFTH_BUNDLED_PRESET_PACK_ID,
+      5,
+      4,
+    ],
   ] as const)(
     "upgrades all untouched %s presets in place",
     async (_label, predecessorPackId, generation, fingerprintIndex) => {
@@ -306,22 +397,26 @@ describe("bundled image theme presets", () => {
       cleanup.push(managed.cleanup);
       const currentSource = createBundledPresetSource(presetRoot);
       const currentPack = await currentSource.load();
-      const previousThemes = currentPack.themes.map((theme) =>
-        predecessorPreset(theme, generation),
-      );
+      const previousThemes = currentPack.themes
+        .filter(
+          (theme) =>
+            releasedV3Themes[theme.presetId] &&
+            !replacedImagePresetIds.has(theme.presetId),
+        )
+        .map((theme) => predecessorPreset(theme, generation));
       const previous = previousThemes[0];
       const legacy = new LocalThemeStore(managed.root, [
         predecessorPackSource(predecessorPackId, previousThemes),
       ]);
       await legacy.init();
-      restorePreHomeCardFingerprint(legacy.listRecords());
+      if (generation < 3) restorePreHomeCardFingerprint(legacy.listRecords());
       const originals = new Map(
         legacy
           .listRecords()
           .filter((theme) => theme.themeId.startsWith("builtin-"))
           .map((theme) => [theme.themeId, theme]),
       );
-      expect(originals.size).toBe(13);
+      expect(originals.size).toBe(10);
       for (const preset of previousThemes)
         expect(originals.get(preset.themeId)?.fingerprint).toBe(
           preset.previousFingerprints[fingerprintIndex],
@@ -337,9 +432,12 @@ describe("bundled image theme presets", () => {
       const migratedThemes = upgraded
         .listRecords()
         .filter((theme) => theme.themeId.startsWith("builtin-"));
-      expect(migratedThemes).toHaveLength(13);
-      for (const migratedTheme of migratedThemes) {
-        const predecessor = originals.get(migratedTheme.themeId)!;
+      expect(migratedThemes).toHaveLength(22);
+      for (const preset of previousThemes) {
+        const migratedTheme = migratedThemes.find(
+          (theme) => theme.themeId === preset.themeId,
+        )!;
+        const predecessor = originals.get(preset.themeId)!;
         const migratedConfiguration = readThemeConfiguration(
           migratedTheme.json,
         );
@@ -352,8 +450,13 @@ describe("bundled image theme presets", () => {
         });
         expect(migratedConfiguration.colors.background).toMatch(/, 0\.2\)$/u);
         expect(migratedConfiguration.colors.panel).toMatch(/, 0\.2\)$/u);
-        expect(migratedConfiguration.colors.line).toMatch(/, 0\.1\)$/u);
+        expect(migratedConfiguration.colors.line).toMatch(/, 0\.2\)$/u);
       }
+      expect(
+        migratedThemes.filter((theme) =>
+          currentPack.introducedThemeIds.includes(theme.themeId),
+        ),
+      ).toHaveLength(12);
       const migrated = migratedThemes.find(
         (theme) => theme.themeId === previous.themeId,
       )!;
@@ -366,8 +469,11 @@ describe("bundled image theme presets", () => {
       });
       expect(configuration.colors).toMatchObject({
         background: "rgba(111, 18, 13, 0.2)",
-        panel: "rgba(136, 24, 18, 0.2)",
-        line: "rgba(255, 212, 56, 0.1)",
+        panel: "rgba(83, 10, 8, 0.2)",
+        composerText: "#fff8ea",
+        accentText: "#56100b",
+        selectionText: "#4c0c08",
+        line: "rgba(255, 212, 59, 0.2)",
       });
       expect(upgraded.selected()?.libraryId).toBe(original.libraryId);
       const stored = JSON.parse(
@@ -378,6 +484,7 @@ describe("bundled image theme presets", () => {
         DEFAULT_BUNDLED_PRESET_PACK_ID,
       ]);
     },
+    15_000,
   );
 
   it("preserves a user-edited predecessor preset while completing the pack migration", async () => {
@@ -385,9 +492,12 @@ describe("bundled image theme presets", () => {
     cleanup.push(managed.cleanup);
     const currentSource = createBundledPresetSource(presetRoot);
     const currentPack = await currentSource.load();
-    const previous = predecessorPreset(currentPack.themes[0], 2);
+    const previous = predecessorPreset(
+      currentPack.themes.find((theme) => theme.presetId === "red-belief")!,
+      2,
+    );
     const legacy = new LocalThemeStore(managed.root, [
-      predecessorPackSource(PREVIOUS_BUNDLED_PRESET_PACK_ID, [previous]),
+      predecessorPackSource(SECOND_BUNDLED_PRESET_PACK_ID, [previous]),
     ]);
     await legacy.init();
     const original = legacy
@@ -407,7 +517,7 @@ describe("bundled image theme presets", () => {
       fingerprint: edited.fingerprint,
       status: "draft",
     });
-    expect(upgraded.listRecords()).toHaveLength(3);
+    expect(upgraded.listRecords()).toHaveLength(15);
   });
 
   it("does not revive a predecessor preset deleted before the migration", async () => {
@@ -415,9 +525,12 @@ describe("bundled image theme presets", () => {
     cleanup.push(managed.cleanup);
     const currentSource = createBundledPresetSource(presetRoot);
     const currentPack = await currentSource.load();
-    const previous = predecessorPreset(currentPack.themes[0], 2);
+    const previous = predecessorPreset(
+      currentPack.themes.find((theme) => theme.presetId === "red-belief")!,
+      2,
+    );
     const legacy = new LocalThemeStore(managed.root, [
-      predecessorPackSource(PREVIOUS_BUNDLED_PRESET_PACK_ID, [previous]),
+      predecessorPackSource(SECOND_BUNDLED_PRESET_PACK_ID, [previous]),
     ]);
     await legacy.init();
     const original = legacy
@@ -433,7 +546,181 @@ describe("bundled image theme presets", () => {
         .listRecords()
         .some((theme) => theme.themeId === previous.themeId),
     ).toBe(false);
-    expect(upgraded.listRecords()).toHaveLength(2);
+    expect(upgraded.listRecords()).toHaveLength(14);
+  });
+
+  it("replaces a changed bundled image only for an exact untouched predecessor", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const prepared = await createBundledPresetSource(presetRoot).load();
+    const template = prepared.themes.find(
+      (theme) => theme.presetId === "red-belief",
+    )!;
+    const oldBytes = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: "#553322" },
+    })
+      .jpeg()
+      .toBuffer();
+    const newBytes = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: "#225577" },
+    })
+      .jpeg()
+      .toBuffer();
+    const oldInfo = await validateImage(oldBytes, "old.jpg");
+    const newInfo = await validateImage(newBytes, "new.jpg");
+    const predecessor: PreparedBundledPresetTheme = {
+      ...template,
+      presetId: "image-replacement-test",
+      themeId: "builtin-image-replacement-test-v1",
+      image: "old.jpg",
+      imageSha256: oldInfo.sha256,
+      previousImageSha256: [],
+      previousFingerprints: [],
+      imageBytes: oldBytes,
+      imageInfo: oldInfo,
+    };
+    const oldPackId = "image-replacement-old";
+    const legacy = new LocalThemeStore(managed.root, [
+      predecessorPackSource(oldPackId, [predecessor]),
+    ]);
+    await legacy.init();
+    const original = legacy
+      .listRecords()
+      .find((theme) => theme.themeId === predecessor.themeId)!;
+    legacy.managedStore.close();
+
+    const replacement: PreparedBundledPresetTheme = {
+      ...predecessor,
+      name: "Replaced Image",
+      image: "new.jpg",
+      imageSha256: newInfo.sha256,
+      previousImageSha256: [oldInfo.sha256],
+      previousFingerprints: [original.fingerprint],
+      imageBytes: newBytes,
+      imageInfo: newInfo,
+    };
+    const source = {
+      packId: "image-replacement-new",
+      async load() {
+        return {
+          packId: "image-replacement-new",
+          replacesPackIds: [oldPackId],
+          introducedThemeIds: [],
+          themes: [replacement],
+        };
+      },
+    };
+    const upgraded = new LocalThemeStore(managed.root, [source]);
+    await upgraded.init();
+    const migrated = upgraded.get(original.libraryId)!;
+
+    expect(migrated).toMatchObject({
+      libraryId: original.libraryId,
+      revision: original.revision + 1,
+      name: "Replaced Image",
+      backgroundFile: original.backgroundFile,
+      backgroundSha256: newInfo.sha256,
+      backgroundBytes: newInfo.bytes,
+    });
+    expect(upgraded.getBackground(original.libraryId)).toEqual(newBytes);
+  });
+
+  it("restores an overwritten preset image when the pack transaction fails", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const prepared = await createBundledPresetSource(presetRoot).load();
+    const template = prepared.themes.find(
+      (theme) => theme.presetId === "red-belief",
+    )!;
+    const oldBytes = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: "#664422" },
+    })
+      .jpeg()
+      .toBuffer();
+    const newBytes = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: "#226688" },
+    })
+      .jpeg()
+      .toBuffer();
+    const oldInfo = await validateImage(oldBytes, "old.jpg");
+    const newInfo = await validateImage(newBytes, "new.jpg");
+    const predecessor: PreparedBundledPresetTheme = {
+      ...template,
+      presetId: "image-rollback-test",
+      themeId: "builtin-image-rollback-test-v1",
+      image: "old.jpg",
+      imageSha256: oldInfo.sha256,
+      previousImageSha256: [],
+      previousFingerprints: [],
+      imageBytes: oldBytes,
+      imageInfo: oldInfo,
+    };
+    const oldPackId = "image-rollback-old";
+    const legacy = new LocalThemeStore(managed.root, [
+      predecessorPackSource(oldPackId, [predecessor]),
+    ]);
+    await legacy.init();
+    const original = legacy
+      .listRecords()
+      .find((theme) => theme.themeId === predecessor.themeId)!;
+    legacy.managedStore.close();
+
+    const replacement: PreparedBundledPresetTheme = {
+      ...predecessor,
+      image: "new.jpg",
+      imageSha256: newInfo.sha256,
+      previousImageSha256: [oldInfo.sha256],
+      previousFingerprints: [original.fingerprint],
+      imageBytes: newBytes,
+      imageInfo: newInfo,
+    };
+    const introduced: PreparedBundledPresetTheme = {
+      ...replacement,
+      presetId: "image-rollback-introduced",
+      themeId: "builtin-image-rollback-introduced-v1",
+      name: "Introduced During Rollback",
+      description: "Distinct transaction record",
+      colors: { ...replacement.colors, accent: "#123456" },
+      previousImageSha256: [],
+      previousFingerprints: [],
+    };
+    const source = {
+      packId: "image-rollback-new",
+      async load() {
+        return {
+          packId: "image-rollback-new",
+          replacesPackIds: [oldPackId],
+          introducedThemeIds: [introduced.themeId],
+          themes: [replacement, introduced],
+        };
+      },
+    };
+    const failing = new LocalThemeStore(managed.root, [source]);
+    const originalWrite = failing.managedStore.writeFileAtomic.bind(
+      failing.managedStore,
+    );
+    let themeWrites = 0;
+    vi.spyOn(failing.managedStore, "writeFileAtomic").mockImplementation(
+      (file, data) => {
+        if (file.directory === "themes") {
+          themeWrites += 1;
+          if (themeWrites === 2) throw new Error("simulated image migration");
+        }
+        originalWrite(file, data);
+      },
+    );
+
+    await expect(failing.init()).rejects.toThrow("simulated image migration");
+    const restored = failing.managedStore.readFile(
+      managedThemeFile(original.backgroundFile!),
+    );
+    expect(restored).toEqual(oldBytes);
+    expect(failing.getBackground(original.libraryId)).toEqual(oldBytes);
+    expect(failing.get(original.libraryId)).toMatchObject({
+      fingerprint: original.fingerprint,
+      backgroundSha256: oldInfo.sha256,
+      revision: original.revision,
+    });
   });
 
   it("rolls back every staged image when a pack write fails", async () => {
@@ -450,6 +737,7 @@ describe("bundled image theme presets", () => {
       load: vi.fn(async () => ({
         packId: "test-pack",
         replacesPackIds: [],
+        introducedThemeIds: [],
         themes: prepared.themes.slice(0, 2),
       })),
     };

@@ -45,6 +45,7 @@ const theme: ThemeDetail = {
     homeCardBackground: "rgba(45, 45, 45, 0.9)",
     homeCardText: "#f1f5f9",
     panelAlt: "#2d2d2d",
+    composerText: "#f8fafc",
     assistantPanel: "#2d2d2d",
     assistantMessageText: "#ffffff",
     userMessageText: "#ffffff",
@@ -56,9 +57,11 @@ const theme: ThemeDetail = {
     topBarBackground: "rgba(0, 0, 0, 0)",
     topBarText: "rgba(255, 255, 255, .498)",
     accent: "#f59e0b",
+    accentText: "#181818",
     accentAlt: "#d9d9d9",
     secondary: "#808080",
     highlight: "#f2f2f2",
+    selectionText: "#181818",
     text: "#ffffff",
     muted: "rgba(255, 255, 255, .498)",
     line: "rgba(255, 255, 255, .157)",
@@ -131,15 +134,28 @@ const snapshot: ThemeSnapshot = {
     launchedByTool: false,
   },
   update: { configured: true, status: "idle", currentVersion: "1.0.0" },
+  assistant: {
+    state: "listening",
+    protocolVersion: 1,
+  },
 };
 
 function makeApi() {
   const api = {
     rendererReady: vi.fn().mockResolvedValue({
       ok: true,
-      data: { appVersion: "1.3.8", protocolVersion: 4 },
+      data: { appVersion: "1.3.8", protocolVersion: 5 },
     }),
     openLogDirectory: vi.fn().mockResolvedValue({ ok: true, data: true }),
+    installAssistantPlugin: vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        status: "installed",
+        pluginId: "codexstyle-assistant@codexstyle",
+        version: "0.1.1",
+        requiresCodexRestart: true,
+      },
+    }),
     getSnapshot: vi.fn().mockResolvedValue({ ok: true, data: snapshot }),
     getTheme: vi.fn().mockResolvedValue({ ok: true, data: theme }),
     createDraft: vi.fn(),
@@ -205,6 +221,27 @@ describe("Studio renderer", () => {
     ).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("实时预览")).toBeInTheDocument();
     expect(screen.getByText("安全样式已通过")).toBeInTheDocument();
+    expect(screen.getByLabelText("Codex 助手")).toHaveTextContent(
+      "CodexStyle MCP 已就绪",
+    );
+    const assistantGuide = screen.getByLabelText("MCP 使用方法");
+    expect(within(assistantGuide).getAllByRole("listitem")).toHaveLength(3);
+    expect(assistantGuide).toHaveTextContent(
+      "首次一次安装并启用插件；已打开 Codex 时新建任务或重启",
+    );
+    expect(assistantGuide).toHaveTextContent(
+      "以后每次只需启动 CodexStyle；本机连接自动就绪",
+    );
+    expect(assistantGuide).toHaveTextContent(
+      "开始设计在 Codex 描述配色 → 回到这里预览并保存草稿",
+    );
+    expect(screen.getByLabelText("Codex 助手")).toHaveTextContent(
+      "本机连接已自动启动",
+    );
+    expect(screen.getByLabelText("Codex 助手")).not.toHaveTextContent(
+      "安装 CodexStyle Assistant 插件后，在新对话中直接描述想要的配色",
+    );
+    expect(screen.getByLabelText("Codex 助手")).toHaveTextContent("现代奢华");
     fireEvent.click(screen.getByRole("tab", { name: "画面" }));
     expect(
       screen.getByRole("note", { name: "背景图片要求" }),
@@ -232,15 +269,20 @@ describe("Studio renderer", () => {
       "data-ds-part",
       "thread-tab",
     );
-    expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
-      "已编辑 2 个文件",
-    );
-    expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
-      "src/renderer/app/App.tsx",
-    );
-    expect(screen.getByLabelText("文件变更预览")).toHaveTextContent(
-      "src/renderer/styles/global.css",
-    );
+    const changePreview = screen.getByLabelText("文件变更预览");
+    expect(changePreview).toHaveTextContent("已编辑 2 个文件");
+    expect(changePreview).toHaveTextContent("src/renderer/app/App.tsx");
+    expect(changePreview).toHaveTextContent("src/renderer/styles/global.css");
+    expect(
+      within(changePreview).getByRole("button", {
+        name: "撤销按钮，定位到文件变更文字设置",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(changePreview).getByRole("button", {
+        name: "审核按钮，定位到主要按钮背景设置",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("uses background thumbnails in the theme list and falls back to the page color", async () => {
@@ -272,6 +314,68 @@ describe("Studio renderer", () => {
     expect(fallback?.querySelector("img")).toBeNull();
   });
 
+  it("filters a large theme library without changing the selected theme", async () => {
+    const api = makeApi();
+    const colorOnlySummary = {
+      ...snapshot.themes[0],
+      libraryId: "22222222-2222-4222-8222-222222222222",
+      name: "Color Only",
+      backgroundThumbnailUrl: undefined,
+    };
+    const colorOnlyDetail: ThemeDetail = {
+      ...theme,
+      ...colorOnlySummary,
+      themeId: "color-only",
+    };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: {
+        ...snapshot,
+        themes: [snapshot.themes[0], colorOnlySummary],
+      },
+    });
+    api.getTheme.mockImplementation(async ({ libraryId }) => ({
+      ok: true,
+      data: libraryId === colorOnlySummary.libraryId ? colorOnlyDetail : theme,
+    }));
+    window.codexStyle = api;
+
+    render(<App />);
+    const list = await screen.findByLabelText("主题列表");
+    const search = screen.getByRole("searchbox", { name: "搜索主题" });
+    expect(within(list).getAllByRole("button")).toHaveLength(2);
+
+    fireEvent.change(search, { target: { value: "color" } });
+    await waitFor(() =>
+      expect(within(list).getAllByRole("button")).toHaveLength(1),
+    );
+    expect(
+      within(list).queryByRole("button", { name: /Midnight/u }),
+    ).toBeNull();
+    expect(
+      within(screen.getByRole("search", { name: "主题库搜索" })).getByText(
+        "1/2",
+      ),
+    ).toBeVisible();
+
+    fireEvent.click(within(list).getByRole("button", { name: /Color Only/u }));
+    await waitFor(() =>
+      expect(api.getTheme).toHaveBeenLastCalledWith({
+        libraryId: colorOnlySummary.libraryId,
+      }),
+    );
+
+    fireEvent.change(search, { target: { value: "不存在的主题" } });
+    expect(await within(list).findByText("没有匹配的主题")).toBeVisible();
+    expect(screen.getByDisplayValue("Color Only")).toBeVisible();
+
+    fireEvent.click(within(list).getByRole("button", { name: "清空搜索" }));
+    await waitFor(() =>
+      expect(within(list).getAllByRole("button")).toHaveLength(2),
+    );
+    expect(search).toHaveValue("");
+  });
+
   it("places next-launch theme selection above the editor workspace", async () => {
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
@@ -301,6 +405,25 @@ describe("Studio renderer", () => {
     expect(
       await screen.findByText("已打开日志目录；诊断日志自动保留 7 天。"),
     ).toBeInTheDocument();
+  });
+
+  it("installs the bundled assistant plugin from the usage guide", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "一键安装 / 更新" }),
+    );
+
+    await waitFor(() => expect(api.installAssistantPlugin).toHaveBeenCalled());
+    expect(
+      await screen.findByRole("button", { name: "已安装 v0.1.1" }),
+    ).toBeDisabled();
+    expect(
+      await screen.findByText(
+        "CodexStyle Assistant v0.1.1 已安装；请新建 Codex 任务或重启 Codex。",
+      ),
+    ).toBeVisible();
   });
 
   it("blocks a renderer loaded by an incompatible resident main process", async () => {
@@ -559,27 +682,32 @@ describe("Studio renderer", () => {
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
 
-    const auroraPreset = screen.getByRole("button", {
-      name: "应用极光青预设",
+    expect(
+      screen.getAllByRole("button", { name: /^应用.+预设$/u }),
+    ).toHaveLength(15);
+    const amethystPreset = screen.getByRole("button", {
+      name: "应用紫晶珍珠预设",
     });
-    fireEvent.click(auroraPreset);
+    fireEvent.click(amethystPreset);
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "应用极光青预设" }),
+        screen.getByRole("button", { name: "应用紫晶珍珠预设" }),
       ).toHaveAttribute("aria-pressed", "true"),
     );
     fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText("页面背景颜色")).toHaveValue("#071b22"),
+      expect(screen.getByLabelText("页面背景颜色")).toHaveValue(
+        "rgba(44, 25, 68, 0.2)",
+      ),
     );
-    expect(screen.getByLabelText("权限状态与发送按钮颜色")).toHaveValue(
-      "#5eead4",
-    );
+    expect(screen.getByLabelText("主要按钮背景颜色")).toHaveValue("#ddd4e9");
+    expect(screen.getByLabelText("输入文字颜色")).toHaveValue("#f7f2fb");
+    expect(screen.getByLabelText("选区文字颜色")).toHaveValue("#301b48");
     fireEvent.click(screen.getByRole("tab", { name: "基础" }));
     expect(screen.getByDisplayValue("Midnight Copper")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "应用极光青预设" }),
+      screen.getByRole("button", { name: "应用紫晶珍珠预设" }),
     ).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -872,22 +1000,22 @@ describe("Studio renderer", () => {
       target: { value: "80" },
     });
     fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
-    const accentPicker = screen.getByLabelText("选择权限状态与发送按钮颜色");
+    const accentPicker = screen.getByLabelText("选择主要按钮背景颜色");
     expect(accentPicker).toHaveValue("#f59e0b");
     fireEvent.change(accentPicker, {
       target: { value: "#336699" },
     });
     expect(
-      screen.getByRole("textbox", { name: "权限状态与发送按钮颜色" }),
+      screen.getByRole("textbox", { name: "主要按钮背景颜色" }),
     ).toHaveValue("#336699");
     fireEvent.change(
-      screen.getByRole("slider", { name: "权限状态与发送按钮透明度" }),
+      screen.getByRole("slider", { name: "主要按钮背景透明度" }),
       {
         target: { value: "42" },
       },
     );
     expect(
-      screen.getByRole("textbox", { name: "权限状态与发送按钮颜色" }),
+      screen.getByRole("textbox", { name: "主要按钮背景颜色" }),
     ).toHaveValue("rgba(51, 102, 153, 0.42)");
     expect(
       screen.getByRole("textbox", { name: "左侧面板文字颜色" }),
@@ -1038,7 +1166,12 @@ describe("Studio renderer", () => {
     expect(screen.getByText("命令与思考")).toBeInTheDocument();
     expect(screen.getByText("操作与状态")).toBeInTheDocument();
     expect(screen.getByText("文字与边界")).toBeInTheDocument();
-    expect(screen.getByText("权限状态与发送按钮")).toBeInTheDocument();
+    expect(screen.getByText("29 项 · 均支持透明度")).toBeInTheDocument();
+    expect(screen.getByText("主要按钮背景")).toBeInTheDocument();
+    expect(screen.getByText("主要按钮文字")).toBeInTheDocument();
+    expect(screen.getByText("焦点与按钮边框")).toBeInTheDocument();
+    expect(screen.getByText("选区文字")).toBeInTheDocument();
+    expect(screen.getByText("输入文字")).toBeInTheDocument();
     expect(screen.getByText("输入框工具栏文字")).toBeInTheDocument();
     expect(screen.getByText("输入占位与说明文字")).toBeInTheDocument();
     expect(screen.queryByText("accentAlt")).toBeNull();
@@ -1068,6 +1201,15 @@ describe("Studio renderer", () => {
     const muted = screen.getByRole("textbox", {
       name: "输入占位与说明文字颜色",
     });
+    const composerText = screen.getByRole("textbox", {
+      name: "输入文字颜色",
+    });
+    const accentText = screen.getByRole("textbox", {
+      name: "主要按钮文字颜色",
+    });
+    const selectionText = screen.getByRole("textbox", {
+      name: "选区文字颜色",
+    });
     const homeTitleText = screen.getByRole("textbox", {
       name: "首页标题文字颜色",
     });
@@ -1076,6 +1218,19 @@ describe("Studio renderer", () => {
     });
     fireEvent.change(muted, { target: { value: "#4a90e2" } });
     expect(preview.style.getPropertyValue("--preview-muted")).toBe("#4a90e2");
+    fireEvent.change(composerText, { target: { value: "#123456" } });
+    expect(preview.style.getPropertyValue("--preview-composer-text")).toBe(
+      "#123456",
+    );
+    fireEvent.change(accentText, { target: { value: "#234567" } });
+    expect(preview.style.getPropertyValue("--preview-accent-text")).toBe(
+      "#234567",
+    );
+    fireEvent.change(selectionText, { target: { value: "#345678" } });
+    expect(preview.style.getPropertyValue("--preview-selection-text")).toBe(
+      "#345678",
+    );
+    expect(document.querySelector(".mock-composer-input-text")).not.toBeNull();
     expect(document.querySelector(".mock-composer-placeholder")).not.toBeNull();
     expect(
       changeCardBackground.closest(".color-config")?.nextElementSibling,
@@ -1096,6 +1251,13 @@ describe("Studio renderer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "首页" }));
     expect(preview).toHaveAttribute("data-preview-page", "home");
+    fireEvent.focus(composerText);
+    expect(preview).toHaveAttribute("data-preview-page", "home");
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "composerText",
+    );
+    fireEvent.blur(composerText, { relatedTarget: null });
     fireEvent.focus(userMessageText);
     expect(preview).toHaveAttribute("data-preview-page", "conversation");
     expect(preview).toHaveAttribute(
@@ -1178,6 +1340,44 @@ describe("Studio renderer", () => {
     expect(preview).toHaveAttribute(
       "data-preview-color-target",
       "userMessageText",
+    );
+
+    const reviewButton = preview.querySelector<HTMLElement>(
+      ".mock-change-review",
+    );
+    expect(reviewButton).not.toBeNull();
+    fireEvent.pointerMove(reviewButton!);
+    expect(screen.getByText(/点击定位 · 主要按钮背景/u)).toBeInTheDocument();
+    fireEvent.click(reviewButton!);
+    const mainButtonBackground = await screen.findByRole("textbox", {
+      name: "主要按钮背景颜色",
+    });
+    await waitFor(() => expect(mainButtonBackground).toHaveFocus());
+    expect(preview).toHaveAttribute("data-preview-page", "conversation");
+    expect(preview).toHaveAttribute("data-preview-color-target", "accent");
+
+    const reviewLabel = reviewButton!.querySelector<HTMLElement>(
+      ".mock-change-review-label",
+    );
+    fireEvent.click(reviewLabel!);
+    const mainButtonText = await screen.findByRole("textbox", {
+      name: "主要按钮文字颜色",
+    });
+    await waitFor(() => expect(mainButtonText).toHaveFocus());
+    expect(preview).toHaveAttribute("data-preview-color-target", "accentText");
+
+    const composerTextSample = preview.querySelector<HTMLElement>(
+      '[data-preview-control-id="composerText"]',
+    );
+    expect(composerTextSample).not.toBeNull();
+    fireEvent.click(composerTextSample!);
+    const composerTextControl = await screen.findByRole("textbox", {
+      name: "输入文字颜色",
+    });
+    await waitFor(() => expect(composerTextControl).toHaveFocus());
+    expect(preview).toHaveAttribute(
+      "data-preview-color-target",
+      "composerText",
     );
 
     fireEvent.click(screen.getByRole("tab", { name: "组件样式" }));

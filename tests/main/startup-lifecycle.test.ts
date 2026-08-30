@@ -21,6 +21,8 @@ const state = vi.hoisted(() => ({
   checkAvailability: vi.fn<() => Promise<unknown>>(),
   quit: vi.fn(),
   showErrorBox: vi.fn(),
+  menuTemplates: [] as unknown[][],
+  setApplicationMenu: vi.fn(),
 }));
 
 vi.mock("electron", () => {
@@ -135,7 +137,13 @@ vi.mock("electron", () => {
       showMessageBox: vi.fn(),
       showErrorBox: state.showErrorBox,
     },
-    Menu: { buildFromTemplate: vi.fn(() => ({})) },
+    Menu: {
+      buildFromTemplate: vi.fn((template: unknown[]) => {
+        state.menuTemplates.push(template);
+        return {};
+      }),
+      setApplicationMenu: state.setApplicationMenu,
+    },
     nativeImage: { createFromPath: vi.fn(() => image) },
     net: { fetch: vi.fn() },
     protocol: {
@@ -187,6 +195,21 @@ vi.mock("../../src/main/app/theme-service", () => ({
   },
 }));
 
+vi.mock("../../src/main/assistant/assistant-service", () => ({
+  CodexAssistantService: class CodexAssistantService {},
+}));
+
+vi.mock("../../src/main/assistant/assistant-bridge", () => ({
+  CodexAssistantBridge: class CodexAssistantBridge {
+    readonly start = vi.fn(async () => undefined);
+    readonly stop = vi.fn();
+    readonly snapshot = vi.fn(() => ({
+      state: "listening",
+      protocolVersion: 1,
+    }));
+  },
+}));
+
 vi.mock("../../src/main/infra/electron-updater-gateway", () => ({
   ElectronUpdaterGateway: class ElectronUpdaterGateway {},
 }));
@@ -214,6 +237,8 @@ describe("CodexStyle startup window lifecycle", () => {
     state.checkAvailability.mockReset().mockResolvedValue(updateSnapshot());
     state.quit.mockReset();
     state.showErrorBox.mockReset();
+    state.menuTemplates.length = 0;
+    state.setApplicationMenu.mockReset();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -228,6 +253,14 @@ describe("CodexStyle startup window lifecycle", () => {
         ["protocol", "ipc", "tray", "loadURL"].includes(entry),
       ),
     ).toEqual(["protocol", "ipc", "tray", "loadURL"]);
+    expect(state.setApplicationMenu).toHaveBeenCalledOnce();
+    expect(
+      state.menuTemplates[0]?.map((item) =>
+        typeof item === "object" && item && "label" in item
+          ? (item as { label?: string }).label
+          : undefined,
+      ),
+    ).toEqual(["文件", "编辑", "视图", "窗口"]);
   });
 
   it("checks quietly after startup and then every twenty minutes", async () => {
@@ -287,7 +320,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 4 },
+      data: { appVersion: "1.3.1", protocolVersion: 5 },
     });
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
@@ -323,7 +356,7 @@ describe("CodexStyle startup window lifecycle", () => {
     firstWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 4 },
+      data: { appVersion: "1.3.1", protocolVersion: 5 },
     });
     firstWindow.emitWebContents(
       "render-process-gone",
@@ -336,7 +369,7 @@ describe("CodexStyle startup window lifecycle", () => {
     secondWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 4 },
+      data: { appVersion: "1.3.1", protocolVersion: 5 },
     });
     secondWindow.emitWebContents(
       "render-process-gone",
@@ -366,7 +399,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 4 },
+      data: { appVersion: "1.3.1", protocolVersion: 5 },
     });
     expect(currentWindow.show).not.toHaveBeenCalled();
 

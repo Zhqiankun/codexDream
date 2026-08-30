@@ -203,33 +203,46 @@ export function buildThemePayload(
       const assistantMessageTextBridge = '\\n' + assistantMessageSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; }' +
         '\\n' + assistantMessageSelector + ' :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) { color: var(--ds-theme-color-assistant-message-text) !important; }';
       const changeCardSelector = '[data-ds-part="change-card"][data-codexstyle-owner="' + config.marker + '"]';
+      const changeCardOrdinaryTextSelector = changeCardSelector + ' :where([class~="text-default"], [class~="text-secondary"]):not(button *)';
+      const changeCardPrimaryActionSelector = changeCardSelector + ' [class~="group/turn-diff-header"] button:is([class~="bg-primary-solid"], [class~="bg-primary-soft-alpha"], [data-variant="primary"])';
+      const changeCardPlainActionSelector = changeCardSelector + ' [class~="group/turn-diff-header"] button:not(:is([class~="bg-primary-solid"], [class~="bg-primary-soft-alpha"], [data-variant="primary"]))';
       const changeCardBridge = '\\n' + changeCardSelector + ' { --codex-diffs-surface-override: var(--ds-theme-color-change-card-background) !important; background-color: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }' +
-        '\\n' + changeCardSelector + ' :where(button, [class~="text-default"], [class~="text-secondary"]) { color: var(--ds-theme-color-change-card-text) !important; }';
+        '\\n' + changeCardOrdinaryTextSelector + ' { color: var(--ds-theme-color-change-card-text) !important; }' +
+        '\\n' + changeCardPlainActionSelector + ', ' + changeCardPlainActionSelector + ' :where(span, svg, [class*="text-"]) { color: var(--ds-theme-color-change-card-text) !important; -webkit-text-fill-color: var(--ds-theme-color-change-card-text) !important; }' +
+        '\\n' + changeCardPrimaryActionSelector + ' { background-color: var(--ds-theme-color-accent) !important; border-color: var(--ds-theme-color-accent-alt) !important; color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }' +
+        '\\n' + changeCardPrimaryActionSelector + ' :where(span, svg, [class*="text-"]) { color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }' +
+        '\\n' + changeCardPrimaryActionSelector + ':hover { background-color: color-mix(in srgb, var(--ds-theme-color-accent) 84%, var(--ds-theme-color-accent-text)) !important; color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }';
       const activitySelector = '[data-ds-part="activity"][data-codexstyle-owner="' + config.marker + '"]';
-      const activityBridge = '\\n' + activitySelector + ' { background-color: var(--ds-theme-color-activity-background) !important; border-radius: var(--ds-theme-surface-radius); box-shadow: inset 0 0 0 1px var(--ds-theme-color-line); color: var(--ds-theme-color-activity-text) !important; }' +
-        '\\n' + activitySelector + ' :where(a, button, code, em, p, span, strong, svg) { color: var(--ds-theme-color-activity-text) !important; }' +
-        '\\n' + activitySelector + ' :where(small, [class*="text-secondary"], [class*="text-tertiary"], [class*="text-text/"], [class*="text-codex-description"]) { color: var(--ds-theme-color-activity-muted) !important; }';
+      const activityOwnedSelector = rootSelector + ' ' + activitySelector + '[data-codexstyle-part="1"]';
+      const activityBridge = '\\n' + activityOwnedSelector + ' { background-color: var(--ds-theme-color-activity-background) !important; border-radius: var(--ds-theme-surface-radius); box-shadow: inset 0 0 0 1px var(--ds-theme-color-line); color: var(--ds-theme-color-activity-text) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-text) !important; }' +
+        '\\n' + activityOwnedSelector + ' :where(a, button, code, em, p, span, strong, svg) { color: var(--ds-theme-color-activity-text) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-text) !important; }' +
+        '\\n' + activityOwnedSelector + ' :where(small, [class*="text-secondary"], [class*="text-tertiary"], [class*="text-text/40"], [class*="text-codex-description"]) { color: var(--ds-theme-color-activity-muted) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-muted) !important; }';
       const composerSelector = '[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]';
       const composerToolbarSelector = '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"]';
       const instantHomeComposerRailSelector = rootSelector + ' ' + config.homeComposerRailSelector;
+      const composerBodySelector = composerSelector + ' > [data-composer-layout]:not([data-composer-surface-variant])';
+      const composerInputSelector = composerSelector + ' :where([data-codex-composer][contenteditable="true"], input[data-codex-composer], textarea[data-codex-composer])';
       const composerPlaceholderSelector = composerSelector + ' :where([data-placeholder], [aria-placeholder])';
       const composerPlaceholderNodeSelector = composerSelector + ' :where([data-placeholder], [aria-placeholder]):not([contenteditable="true"]):not(input):not(textarea)';
       const composerMutedBridge = '\\n' + composerPlaceholderNodeSelector + ' { color: var(--ds-theme-color-muted) !important; }' +
         '\\n' + composerPlaceholderSelector + '::before, ' + composerPlaceholderSelector + '::after { color: var(--ds-theme-color-muted) !important; }' +
         '\\n' + composerSelector + ' :where(input, textarea)::placeholder { color: var(--ds-theme-color-muted) !important; opacity: 1 !important; }';
+      const composerTextBridge = '\\n' + composerInputSelector + ' { color: var(--ds-theme-color-composer-text) !important; caret-color: var(--ds-theme-color-composer-text) !important; }';
       const composerPermissionSelector = composerToolbarSelector + ' [data-permission-mode]';
       const configuredSurfaceBridge = config.configuredRecipes
-        ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-background); }' +
+        ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-selection-text); }' +
           (config.configuredRecipes.sidebar && config.backgroundScope === "content"
             ? '\\n' + sidebarTextSelector + ' { background-color: var(--ds-theme-color-panel) !important; }'
             : '') +
           (config.configuredRecipes.composer
             ? '\\n' + composerSelector + ' { background-color: var(--ds-theme-color-panel-alt) !important; }' +
+              '\\n' + composerBodySelector + ' { background-color: transparent !important; color: var(--ds-theme-color-composer-text) !important; }' +
               '\\n' + instantHomeComposerRailSelector + ' { background-color: var(--ds-theme-color-panel-alt) !important; border-color: var(--ds-theme-color-line) !important; }' +
+              '\\n' + instantHomeComposerRailSelector + ' :where(button, span, svg, [class*="text-"]) { color: var(--ds-theme-color-secondary) !important; }' +
               '\\n' + composerSelector + ':focus-within { border-color: var(--ds-theme-color-accent-alt) !important; }' +
               '\\n' + composerToolbarSelector + ' :where(button, span) { color: var(--ds-theme-color-secondary) !important; }' +
               '\\n' + composerPermissionSelector + ' { color: var(--ds-theme-color-accent) !important; }' +
-              '\\n[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-background) !important; }'
+              '\\n[data-ds-part="composer-submit"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-accent-text) !important; }'
             : '') +
           (config.configuredRecipes.message
             ? '\\n' + userMessageSelector + ' { background-color: var(--ds-theme-color-panel-alt) !important; }'
@@ -248,9 +261,9 @@ export function buildThemePayload(
           (config.sendIcon === "custom" && config.sendIconDataUrl
             ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-image: url("' + config.sendIconDataUrl + '"); background-position: center; background-repeat: no-repeat; background-size: contain; }'
             : config.sendIconMask
-              ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-background); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
+              ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

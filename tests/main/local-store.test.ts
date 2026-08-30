@@ -214,6 +214,43 @@ describe("local theme store", () => {
     expect(updated.validation.css).toBe("valid");
   });
 
+  it("derives an isolated draft while preserving the source background", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const source = store.listRecords()[0];
+    const sourceSnapshot = structuredClone(source);
+    const sourceImage = store.getBackground(source.libraryId)!;
+
+    const derived = await store.createDraftFrom(
+      source.libraryId,
+      "Derived palette",
+    );
+
+    expect(derived).toMatchObject({
+      name: "Derived palette",
+      status: "draft",
+      revision: 1,
+      signed: false,
+      packageFormat: "simplified",
+    });
+    expect(derived.libraryId).not.toBe(source.libraryId);
+    expect(derived.themeId).not.toBe(source.themeId);
+    expect(derived.backgroundFile).not.toBe(source.backgroundFile);
+    expect(store.getBackground(derived.libraryId)).toEqual(sourceImage);
+    expect(store.get(source.libraryId)).toEqual(sourceSnapshot);
+
+    const reloaded = new LocalThemeStore(managed.root);
+    await reloaded.init();
+    expect(reloaded.get(derived.libraryId)).toMatchObject({
+      name: "Derived palette",
+      status: "draft",
+      revision: 1,
+    });
+    expect(reloaded.getBackground(derived.libraryId)).toEqual(sourceImage);
+  });
+
   it("creates drafts with a safe transparent PNG that can be committed directly", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);

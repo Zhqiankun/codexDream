@@ -21,6 +21,7 @@ src/main/ipc/                          sender/schema 校验与 handler
 src/main/domain/                       主题、选择、会话不变量与端口
 src/main/infra/                        原子存储、ZIP、图片、Safe CSS
 src/main/infra/secure-store/           受限 TypeScript 端口与 native binding adapter
+src/main/assistant/                    Codex 本机 RPC、调色板校验与非破坏草稿策略
 src/main/platform/                     Windows AppX/进程/端口查询
 src/main/session/                      CDP 启动、身份锚点、watcher、清理
 src/main/tray/                         托盘与窗口生命周期
@@ -33,19 +34,22 @@ src/renderer/components/               无业务通用 UI
 src/renderer/api/bridge.ts             renderer 唯一 API 入口
 src/renderer/styles/                   设计 tokens 与全局样式
 native/secure-store/                   Windows x64 N-API 源码、预定义路径表与 native 测试支撑
+plugins/codexstyle-assistant/          Codex 插件、STDIO MCP 与主题设计 Skill
 ```
 
-`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:4`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
+`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:5`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
 
-公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`theme.get/createDraft/patchDraft/discardChanges/chooseBackground/chooseSendIcon/chooseHomeCardImage/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`。
+公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`assistant.installPlugin`；`theme.get/createDraft/patchDraft/discardChanges/chooseBackground/chooseSendIcon/chooseHomeCardImage/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`；助手安装调用不接收路径或命令，只能让 main 从固定随包 marketplace 经已核对的当前用户 Codex CLI 安装固定插件 ID。
 
 主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责协议校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏遮罩使用固定 `rgb(15 23 42)`，由注入 bridge 以受控样式覆盖主题侧栏背景，防止 Safe CSS 顺序造成预览与真实结果偏差。
 
-结构化主题配置同样归属 theme domain：`appearance`、`art`、二十六色 `colors`、固定四项 `homeCards` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted` 为可选兼容扩展；旧主题缺少 `homeCards` 时从 `homeCardBackground` 生成四项纯色默认值。规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整二十六色和四张卡片。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色与卡片图片 Data URL 边界、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是图片解码压缩、CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
+结构化主题配置同样归属 theme domain：`appearance`、`art`、二十九色 `colors`、固定四项 `homeCards` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/composerText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted/accentText/selectionText` 为可选兼容扩展；旧主题缺少 `homeCards` 时从 `homeCardBackground` 生成四项纯色默认值。规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整二十九色和四张卡片。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色与卡片图片 Data URL 边界、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是图片解码压缩、CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
 
-`theme.patchDraft` 在普通 IPC `v:4` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/homeCards/styleConfig 与高级 CSS；`theme.chooseHomeCardImage` 只接收 library ID、revision 和 `0..3` 卡片索引，main 将选定的 PNG/JPEG/WebP 有界解码并尝试多档尺寸/质量，最终只写入不超过 48 KiB 的 WebP Data URL。`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；四张卡片图嵌入 `theme.json`，不改变三件套 ZIP。旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
+`theme.patchDraft` 在普通 IPC `v:5` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/homeCards/styleConfig 与高级 CSS；`theme.chooseHomeCardImage` 只接收 library ID、revision 和 `0..3` 卡片索引，main 将选定的 PNG/JPEG/WebP 有界解码并尝试多档尺寸/质量，最终只写入不超过 48 KiB 的 WebP Data URL。`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；四张卡片图嵌入 `theme.json`，不改变三件套 ZIP。旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
 
-内置图片主题包归属 main infrastructure：`resources/presets/catalog.json` 与图片作为固定 app.asar 资源，`bundled-presets.ts` 负责有界读取、严格 schema、稳定 pack/theme ID、图片格式和 SHA-256 校验。`LocalThemeStore` 只接收已验证字节，并以 v2 `installedPresetPacks` 标记执行一次批量事务；catalog v3 通过 `replacesPackIds` 与有界 `previousFingerprints` 列表兼容从 catalog v1 或 v2 直接升级，只迁移未编辑内置项，删除或编辑过的项跳过。随机受管 UUID 图片、ready 记录与 pack 标记由同一次索引提交生效。`ThemeSummary` 仅新增页面背景色与 main 生成的受控缩略图 URL，不暴露文件路径、字节或新 IPC 方法。
+内置图片主题包归属 main infrastructure：`resources/presets/catalog.json` 与 25 张图片作为固定 app.asar 资源，`bundled-presets.ts` 负责 schema v4 有界读取、稳定 pack/theme ID、图片格式与 SHA-256 校验，并区分 `introducedThemeIds`、`previousFingerprints` 和 `previousImageSha256`。`LocalThemeStore` 以 pack v7 单事务追加 12 个新增主题、升级精确未编辑旧项，并在三张图片内容变化时原子替换旧受管字节；删除/编辑过的项跳过，任何写入或持久化失败同时回滚索引、新文件和被覆盖的旧图片。`ThemeSummary` 只返回页面背景色与受控缩略图 URL，不暴露文件路径、图片字节或新 IPC 方法。
+
+CodexStyle Assistant 归属独立本机集成边界：主进程只在字面 `127.0.0.1` 随机端口提供版本化 RPC，并把端口与每次启动轮换的 bearer token 写入 native secure-store 的 `assistant/endpoint.json`；浏览器 Origin、非回环访问、错误路径/方法/content-type、超限正文与错误 token 一律拒绝。随应用打包的 `codexstyle-assistant` 插件通过 STDIO MCP 读取该端点，不直接读取主题库、背景字节或用户 CSS。公开工具仅允许查询、完整二十九色校验、从已有主题派生独立草稿、更新草稿和显式选择已保存主题；已保存主题不可被 MCP 覆盖，保存、删除、导入、导出和启动 Codex 不对插件开放。Skill 在用户没有明确指定颜色或视觉方向时才采用“现代奢华美学，浓郁而克制的配色，深色基调搭配少量高亮点缀，宝石色调，高级材质，丝绒、漆面、玻璃与金属细节，精致光影，强烈但优雅的明暗对比，高端品牌广告质感，简洁构图，大量留白，华丽但不俗艳”作为默认方向；用户明确要求始终优先。
 
 ## Native secure-store 架构契约
 
@@ -63,6 +67,7 @@ transactions/index.backup
 transactions/<controlled-temp-name>
 lock/store.lock
 ownership/owned-session.json
+assistant/endpoint.json
 ```
 
 动态文件名只能来自已验证的内部 ID、内容哈希或 native 生成的临时 token，并由受限 adapter 映射；禁止调用方提交分隔符、盘符、UNC、ADS、`.` 或 `..`。主题导入源与用户选择的导出 ZIP 是受保护域外的显式边界，不得复用 managed-store API。
@@ -127,7 +132,7 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 9. 多页面 LIVE PREVIEW：预览根继续由 Studio 草稿唯一驱动，页面状态仅保留在 renderer 内；首页与对话共享背景、侧栏、结构化变量和 Safe CSS 注入，不扩展 IPC、主题数据或持久化边界。
 
-10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、二十六色和透明磨砂表面提供实际消费者。
+10. 主题库交互与设置收敛：在既有 `RevisionSchema` 上增加 `theme.delete`，由 store 负责索引/背景资产删除与失败回滚，controller 在工具拥有会话期间拒绝删除；renderer 增加确认对话框与 ready 主题双击选择，移除普通“应用草稿”并保留 patch-before-commit 的单一保存动作。启动检查仅合并展示项，不删除任何底层身份或兼容验证。配置模式 bridge 为背景画布、焦点、当前二十九色和透明磨砂表面提供实际消费者。
 
 11. 颜色语义与预览定位：颜色面板按可见区域分组并以页面位置命名，默认隐藏内部 token 字段名，高级显示只作为排障入口；悬停与键盘聚焦通过 renderer 本地状态标记预览目标，不进入主题契约、IPC 或持久化。助手回复文字、用户消息文字、文件变更卡片、顶部栏、当前会话标题、首页标题/快捷卡片和命令/编辑/思考摘要由独立颜色 token 驱动；顶部栏背景默认完全透明。真实注入只作用于版本化 selector profile 已登记节点，不扩大任意 DOM 选择范围。
 
@@ -147,6 +152,14 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 19. Ownership 前向解析：保留 native 受管文件与完整字段验证，把 profile 解析从“仅当前及历史版本”改为有界 `openai-codex-shell/1..64`。`restoreOrphanedState` 对任何合法非当前记录只设置 `ORPHANED`；不读取其 PID/端口重新连接，不删除记录，不关闭外部进程。`verifyOwnedIdentity` 的严格当前 profile 等值判断保持不变，以 E2E 预置 `current + 1` 记录证明 Studio 可启动，并以越界/畸形单测证明 fail-closed 边界仍在。
 
+20. Composer 与前景语义：在统一颜色契约中新增 composerText、accentText 与 selectionText；旧主题按 text 或 background 补全，catalog 预设显式保存。真实 payload 仅把 composerText 桥接到已核对的 data-codex-composer 可编辑节点与光标，不侵入 placeholder 或 footer；发送箭头消费 accentText，文本选区消费 highlight/selectionText 成对颜色，首页独立 composer rail 继续消费 secondary。LIVE PREVIEW 为这些消费者提供独立热点并可点击定位。
+
+21. 现代奢华预设重构：删除 Studio 原六套基础预设，建立 15 套宝石深色、金属冷调、丝绒暖色和珍珠浅色预设；每套拥有独立的主要前景、次要前景、输入表面、助手表面、accent、focus、发送图标及选区配对。catalog v7 以用户目录当前 25 张图片为唯一来源逐图重做 25 套主题，页面背景、panel 和 line 统一为 20% alpha，并用图片平均色合成后的 WCAG 对比度测试约束正文、输入、操作与选区。原 13 套保留稳定 ID，三张变化图片用旧 image hash 与 v6 fingerprint 双重约束替换，12 套新主题通过 introducedThemeIds 首次加入；历史 v3 配置仅保存在测试 fixture。
+
+22. CodexStyle Assistant：主进程增加带 native 受管端点描述的认证回环 RPC，应用关闭时删除描述文件；插件用官方 MCP SDK 暴露 `status/list_themes/get_theme/validate_palette/create_theme_draft/update_theme_draft/select_theme` 七项工具。所有写操作继续经过 controller operation gate 与 revision，ready 主题只可派生、不允许原位修改，完整调色板写入前必须通过语义和 WCAG 对比度校验。插件随包携带固定 Node.js 22.22.0 x64 专用运行时及许可证；显式 `assistant.installPlugin` 仅允许 main 经当前用户固定 Codex CLI、随包 marketplace 和固定插件 ID 安装/更新，renderer 不提供参数。Studio 展示未启动、本机就绪与已调用三态，并固定区分“首次一次：安装并启用插件”“以后每次：只需启动 CodexStyle”“开始设计：在 Codex 描述配色后回到 Studio 预览并保存”；不得把 listening 误写成插件未安装，也不要求用户维护端口或密钥。Skill 仅在用户未给出颜色/视觉方向时采用锁定的现代奢华默认提示。
+
+23. 大型主题库导航：桌面端把应用工作区约束到动态视口，左侧标题、操作、名称搜索和统计保持固定，仅主题列表独立纵向滚动；主编辑区使用独立滚动容器。搜索只在 renderer 对现有 snapshot 派生过滤，不新增 IPC、持久状态或主题排序，使用延迟查询与 `content-visibility` 保持百项以上列表输入流畅。无结果提供明确反馈与清空入口；搜索不改变总数、ready 计数、当前编辑主题、双击选择和缩略图回退。窄屏继续使用自动高度与横向主题列表。
+
 ## 验证命令
 
 ```powershell
@@ -157,6 +170,7 @@ npm run typecheck
 npm run test:unit
 npm run test:renderer
 npm run test:integration
+npm run test:mcp
 npm run test:e2e
 npm run build
 npm run package:win
@@ -165,7 +179,7 @@ npm run verify:package
 
 native 阶段还必须在 Visual Studio x64 开发环境中实际编译 addon，并覆盖：根及每一层 junction/symlink/reparse、非法 managed path、句柄关闭/替换、并发锁、写入/flush/rename 崩溃点、journal/backup 恢复、Node `fs` fallback 静态禁用、`.node` 缺失/错架构、ASAR-unpacked 布局，以及外部导出 ZIP 不受 managed root 限制但不能反向访问保护域。
 
-完整主题 ZIP 必须覆盖当前二十六色与结构化配置的无损往返；历史十色、十二色或十八色 ZIP 只验证安全导入与默认值补全，不再生成面向旧客户端的降级包。实机 smoke 的实际版本、命令、截图/日志和未验证项必须记录。
+完整主题 ZIP 必须覆盖当前二十九色与结构化配置的无损往返；历史十色、十二色、十八色或二十六色 ZIP 只验证安全导入与默认值补全，不再生成面向旧客户端的降级包。实机 smoke 的实际版本、命令、截图/日志和未验证项必须记录。
 
 ## 风险与完成门槛
 

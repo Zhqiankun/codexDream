@@ -1,6 +1,6 @@
 # CodexStyle 任务进度
 
-更新时间：2026-08-29
+更新时间：2026-08-30
 
 ## 目标与范围
 
@@ -28,20 +28,22 @@
 - [x] LIVE PREVIEW 增加首页 / 对话即时切换；两个页面共享主题草稿、背景作用域、焦点、颜色和 Safe CSS，未新增持久化或 IPC 状态。
 - [x] 编辑器增加“放弃本次修改”，由受管 checkpoint 恢复最近保存或新建起点，并保留 revision 与下次启动选择语义。
 - [x] 主进程增加启动后及每 20 分钟静默更新检查；只提示新版，不自动下载，顶部更新入口改用安装语义图标与状态胶囊。
-- [x] 13 张用户提供图片已分别形成内置主题预设；主进程严格校验并一次性原子追加，已有主题及选择状态不被覆盖。
+- [x] 用户目录当前 25 张图片已逐张形成现代奢华内置主题；schema v4 / pack v7 严格校验 25 份资源，原 13 套稳定 ID 安全升级、三张变化图片原子替换、12 套新主题首次加入，用户编辑与删除语义不变。
 - [x] v1.3.6 预设透明度、无覆盖 catalog v2 迁移、主题库缩略图、顶部启动主题选择及旧版兼容导出移除已完成。
 - [x] v1.3.7 二十六色契约已接通：会话标题、首页标题/快捷卡片、命令/编辑/思考摘要均有独立颜色、双页面预览定位和 selector profile `/8` 真实注入；catalog v3 可从 v1 或 v2 安全迁移，用户编辑与删除语义保持。
 - [x] v1.3.8 ownership 升级兼容热修复：v1.3.6 写入的合法 selector profile `/7` 按过期会话恢复，不再阻断启动；当前 `/8` 运行时验证和未知状态 fail-closed 边界保持不变。
 - [x] v1.3.9 会话标签与首页标题真实 DOM 修复完成；selector profile `/9` 覆盖当前 Codex 的标签表面变量与标题结构，首页四张快捷卡片可分别使用颜色/透明度或本地图片并随主题 ZIP 往返。
 - [x] v1.3.10 响应式标题、首页 composer rail、`panelAlt` 最终透明度、LIVE PREVIEW 反向定位及主题设计页内受管 Codex 启动已完成；selector profile 升级到 `/11`。
 - [x] v1.3.11 ownership 前向解析完成：合法 `1..64` 非当前 profile 仅恢复为 `ORPHANED`，runtime 连接与注入仍严格要求当前 `/11`；未知前缀、非规范值与 `/65` 继续 fail closed。
+- [x] CodexStyle Assistant 本机集成完成：认证回环 RPC、native 受管端点、七项 STDIO MCP 工具、非破坏派生草稿、完整二十九色对比度校验、Studio 连接三态和随包插件资源已接通；主题设计 Skill 仅在用户未明确配色/视觉方向时使用锁定的现代奢华默认提示。助手卡片已把首次安装、日常自动连接及 Codex 生成后回到 Studio 预览保存拆成固定三步，并提供无参数的一键安装/更新；插件自带 Node.js 22.22.0 x64 运行时与许可证。
+- [x] 左侧主题库已改为视口内独立滚动，并增加名称搜索、匹配/总数、清空与无结果反馈；百项列表使用延迟过滤和跳过离屏渲染，搜索不改变选择、排序或主题数据，窄屏仍为横向列表。
 
 ### Native secure-store 阶段
 
 - [x] 用户明确授权安装 Microsoft 官方 Build Tools 与 Windows SDK。
 - [x] 工具链实测可用：MSVC x64 `19.44.35228`、Windows SDK `10.0.26100.0`、Build Tools 2022 `17.14.37`，无需重启。
 - [x] 将固定 `%LOCALAPPDATA%\\CodexStyle` 根、预定义 managed path、根句柄生命周期、逐段 handle-relative/reparse-aware I/O、原子提交、无 Node `fs` fallback、ASAR-unpacked 和模块缺失 fail-closed 写入 `.agents.md`、`REQUIREMENTS.md`、`PLAN.md`。
-- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不放宽 IPC `v: 4`、bootstrap 握手、preload、renderer 或 `../old/`。
+- [ ] 软件架构师独立审核并明确“审核通过”，必要时只细化内部边界，不放宽 IPC `v: 5`、bootstrap 握手、preload、renderer 或 `../old/`。
 - [x] 已实施 native addon、main adapter、local/session 接入、构建打包和 main tests。
 - [ ] 测试工程师独立执行 native 行为测试、完整回归、构建与打包验证。
 - [ ] 高风险安全审计师独立复核 reparse/TOCTOU、原子提交、锁、模块加载和 fail-closed 证据。
@@ -60,9 +62,15 @@
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
 - 当前用户安装的 Store 包：`OpenAI.Codex 26.825.4187.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其当前会话标签、首页卡片和活动摘要标记，未修改 Store 包。
-- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前发布基线为 `v1.3.8`，本轮 `v1.3.9` 改动将在完整验证后统一提交并打标签。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.11`，本轮改动将在完整验证后以 `v1.3.12` 统一提交并打标签。
 
 ## 验证证据
+
+- 2026-08-30 `v1.3.12` 发布候选：25 套逐图调色壁纸、15 套现代奢华基础预设、29 色真实注入、CodexStyle Assistant/MCP、条件式默认美学、主题库搜索与独立滚动，以及首次/日常/设计三步说明和一键安装/更新已统一进入发布版本。普通 IPC 升级为 v5；插件 v0.1.1 随包携带 Node.js 22.22.0 x64 专用运行时与完整许可证，真实安装缓存按 `.mcp.json` 成功启动七项工具，E2E 也直接使用该运行时。`npm ci`、格式、lint、typecheck、architecture check、226 项主进程测试、58 项 renderer 测试、7 项集成测试、1 项 Electron+MCP E2E、官方 registry 生产依赖 0 漏洞审计、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.12-x64.exe` 为 156,063,340 字节，SHA-256 `e13103f228308ea33d649c5163013457bf1e02328f031370bc3a079f7524d135`；便携包 `CodexStyle-1.3.12-x64.zip` 为 208,729,040 字节，SHA-256 `064993750a299c41f28281edd1cee9385fae216df33ae9950ad57fd5276c163e`。包校验同时验证 native secure-store、固定 `js-yaml 4.3.2`、25 张 catalog 资产、随包插件、Skill、MCP bundle、Node runtime/PE 架构/许可证与本地 marketplace manifest。
+
+- 2026-08-30 大型主题库导航：真实开发窗口 1245×813 下确认左侧新建、导入、搜索与统计固定，26 项主题只在内部列表滚动，右侧编辑器独立滚动；名称搜索、匹配/总数、清空和无结果均由 renderer 回归覆盖。57 项 renderer 测试、最终生产构建、真实 Electron 中“赤金信念”过滤后 1 项/清空后 27 项的 E2E、格式、lint、类型和架构检查全部通过。
+
+- 2026-08-30 CodexStyle Assistant：官方插件/Skill 校验通过；本机 `codexstyle` marketplace 已注册，`codexstyle-assistant@codexstyle` v0.1.1 已安装并启用。源码目录与 Codex 安装缓存均按各自 `.mcp.json` 原样启动，固定七项工具可读取 v1.3.12 状态与 26 个真实本地主题。认证回环覆盖错误 token、浏览器 Origin、错误路径、错误 content-type 和超限正文；配色校验补充半透明页面只合成一次与 RGB 通道 `0..255` 边界。真实 E2E 必须在当前 Windows 用户上下文运行；沙箱账号创建的 `%TEMP%` 根被 native secure-store 拒绝属于预期 fail-closed 行为。
 
 - 2026-08-30 `v1.3.11` 发布候选：本机只读确认启动失败记录包含完整 14 字段且 profile 为 `/10`，实际启动程序却是 `D:\\codexDream\\CodexStyle\\CodexStyle.exe` v1.3.9/profile `/9`，属于新版数据被旧便携版读取的降级场景。持久 ownership 解析现接受有界 `1..64` 并只恢复 `ORPHANED`，runtime 当前 profile 严格等值检查未改。25 项 session 定向测试覆盖全部历史值、`current + 1`、`/64` 及未知/非规范/越界拒绝。`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run architecture:check`、201 项主进程测试、54 项 renderer 测试、7 项集成测试、预置未来 `/12` 的 1 项真实 Electron E2E、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.11-x64.exe` 为 121,790,715 字节，SHA-256 `f7abdaf6584f58228f7794200b838f51e06c93e002b46815d7b1de08c8e24665`；便携包 `CodexStyle-1.3.11-x64.zip` 为 164,888,602 字节，SHA-256 `ee7e2ef049790a36fcd07a6d2ea873825a77a4d3ee214a636d1265de8a272650`。
 

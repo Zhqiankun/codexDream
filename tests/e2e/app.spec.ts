@@ -1,7 +1,9 @@
 import { _electron as electron, expect, test } from "@playwright/test";
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
   MANAGED_FILES,
   SecureManagedStore,
@@ -37,6 +39,7 @@ test("starts the real Electron shell with native storage and completes a local w
       NODE_ENV: "production",
     },
   });
+  let mcpClient: Client | undefined;
 
   try {
     const page = await application.firstWindow();
@@ -50,6 +53,59 @@ test("starts the real Electron shell with native storage and completes a local w
       .toBe("ORPHANED");
     await expect(page.getByText("Midnight Copper").first()).toBeVisible();
     await expect(page.getByText("Paper Light").first()).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Codex 助手" }),
+    ).toContainText("CodexStyle MCP 已就绪");
+    const assistantGuide = page.getByLabel("MCP 使用方法");
+    await expect(assistantGuide.getByRole("listitem")).toHaveCount(3);
+    await expect(
+      assistantGuide.getByRole("button", { name: "一键安装 / 更新" }),
+    ).toBeVisible();
+    await expect(assistantGuide).toContainText(
+      "以后每次只需启动 CodexStyle；本机连接自动就绪",
+    );
+    const pluginRoot = resolve(projectRoot, "plugins", "codexstyle-assistant");
+    const mcpConfig = JSON.parse(
+      await readFile(resolve(pluginRoot, ".mcp.json"), "utf8"),
+    ) as {
+      mcpServers: {
+        codexstyle: { command: string; args: string[]; cwd: string };
+      };
+    };
+    const mcpDefinition = mcpConfig.mcpServers.codexstyle;
+    mcpClient = new Client({ name: "codexstyle-e2e", version: "1.0.0" });
+    await mcpClient.connect(
+      new StdioClientTransport({
+        command: resolve(pluginRoot, mcpDefinition.command),
+        args: mcpDefinition.args,
+        cwd: resolve(pluginRoot, mcpDefinition.cwd),
+        env: {
+          LOCALAPPDATA: localAppData,
+          USERPROFILE: environment.USERPROFILE ?? "",
+          PATH: environment.PATH ?? "",
+        },
+        stderr: "pipe",
+      }),
+    );
+    const mcpTools = await mcpClient.listTools();
+    expect(mcpTools.tools.map((tool) => tool.name).sort()).toEqual([
+      "create_theme_draft",
+      "get_theme",
+      "list_themes",
+      "select_theme",
+      "status",
+      "update_theme_draft",
+      "validate_palette",
+    ]);
+    const mcpStatus = await mcpClient.callTool({
+      name: "status",
+      arguments: {},
+    });
+    expect(mcpStatus.isError).toBeFalsy();
+    expect(mcpStatus.structuredContent).toMatchObject({
+      appVersion: expect.any(String),
+      protocolVersion: 1,
+    });
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -61,19 +117,31 @@ test("starts the real Electron shell with native storage and completes a local w
       )
       .toEqual(
         expect.arrayContaining([
+          "安全黄标",
+          "橘柿大利",
           "赤金信念",
+          "慢工树懒",
           "银辉侧影",
+          "发财掌柜",
+          "打工箴言",
           "森语慢生活",
+          "柿影暖阁",
+          "宫阙祈愿",
+          "紫墨武藏",
           "墨锋",
           "樱粉猫眸",
+          "心动小狗",
+          "虎兔来财",
           "白熊暖茶",
+          "荣华祈愿",
+          "清事书香",
+          "橙城搭档",
           "霆闪善逸",
           "云海孤侠",
           "好运爆棚",
+          "红团向前",
           "做大做强",
-          "暖橙豚豚",
-          "百元绯影",
-          "晴绿线条小狗",
+          "唐风健身",
         ]),
       );
 
@@ -98,17 +166,29 @@ test("starts the real Electron shell with native storage and completes a local w
         sidebarOverlayOpacity: 20,
         colors: {
           background: "rgba(111, 18, 13, 0.2)",
-          panel: "rgba(136, 24, 18, 0.2)",
-          threadTabBackground: "rgba(136, 24, 18, 0.2)",
-          homeTitleText: "#fff6dc",
-          homeCardBackground: "rgba(136, 24, 18, 0.2)",
-          activityBackground: "rgba(136, 24, 18, 0.2)",
-          activityText: "#fff6dc",
-          line: "rgba(255, 212, 56, 0.1)",
+          panel: "rgba(83, 10, 8, 0.2)",
+          threadTabBackground: "rgba(93, 13, 9, 0.88)",
+          homeTitleText: "#fff7e6",
+          homeCardBackground: "rgba(92, 14, 10, 0.82)",
+          activityBackground: "rgba(93, 13, 9, 0.76)",
+          activityText: "#ffe9ba",
+          composerText: "#fff8ea",
+          accentText: "#56100b",
+          selectionText: "#4c0c08",
+          line: "rgba(255, 212, 59, 0.2)",
         },
       },
     });
-    await expect(page.locator(".theme-swatch img")).toHaveCount(13);
+    await expect(page.locator(".theme-swatch img")).toHaveCount(25);
+    const themeList = page.getByLabel("主题列表");
+    const themeSearch = page.getByRole("searchbox", { name: "搜索主题" });
+    await themeSearch.fill("赤金信念");
+    await expect(themeList.getByRole("button")).toHaveCount(1);
+    await expect(
+      themeList.getByRole("button", { name: /赤金信念/u }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "清空主题搜索" }).click();
+    await expect(themeList.getByRole("button")).toHaveCount(27);
     await expect(
       page.getByRole("button", { name: "导出旧版兼容 ZIP" }),
     ).toHaveCount(0);
@@ -144,9 +224,9 @@ test("starts the real Electron shell with native storage and completes a local w
     expect(presetSurfaces).toEqual({
       relativeColorSupported: true,
       main: "rgba(111, 18, 13, 0.2)",
-      sidebar: "color(srgb 0.533333 0.0941176 0.0705882 / 0.2)",
-      dialog: "rgba(136, 24, 18, 0.2)",
-      line: "rgba(255, 212, 56, 0.1)",
+      sidebar: "color(srgb 0.32549 0.0392157 0.0313726 / 0.2)",
+      dialog: "rgba(83, 10, 8, 0.2)",
+      line: "rgba(255, 212, 59, 0.2)",
     });
 
     await page.getByRole("button", { name: "＋ 新建主题" }).click();
@@ -182,7 +262,7 @@ test("starts the real Electron shell with native storage and completes a local w
       globalThis.window.codexStyle.getSnapshot(),
     );
     expect(snapshot.ok).toBe(true);
-    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(16);
+    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(28);
     const createdDetail = await page.evaluate(async () => {
       const snapshot = await globalThis.window.codexStyle.getSnapshot();
       if (!snapshot.ok) return undefined;
@@ -224,6 +304,7 @@ test("starts the real Electron shell with native storage and completes a local w
       fullPage: true,
     });
   } finally {
+    await mcpClient?.close();
     await application.close();
     await rm(localAppData, { recursive: true, force: true });
   }

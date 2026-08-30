@@ -60,6 +60,21 @@ export class ThemeService {
     };
   }
 
+  async createDraftFrom(
+    sourceLibraryId: string,
+    name?: string,
+  ): Promise<Result<ThemeDetail>> {
+    try {
+      const record = await this.store.createDraftFrom(sourceLibraryId, name);
+      return {
+        ok: true,
+        data: this.store.getDetail(record.libraryId, "app://theme-asset")!,
+      };
+    } catch (error) {
+      return this.fromError(error);
+    }
+  }
+
   async patch(
     libraryId: string,
     expectedRevision: number,

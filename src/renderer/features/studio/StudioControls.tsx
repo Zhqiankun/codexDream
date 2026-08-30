@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  THEME_COLOR_KEYS,
   type ThemeAppearance,
   type ThemeColors,
   type ThemeDetail,
@@ -90,6 +91,11 @@ const colorGroups: ReadonlyArray<{
         hint: "输入框和用户气泡背景",
       },
       {
+        key: "composerText",
+        label: "输入文字",
+        hint: "首页与对话输入框中已经输入的正文",
+      },
+      {
         key: "userMessageText",
         label: "我的消息文字",
         hint: "发送后的气泡正文",
@@ -174,13 +180,18 @@ const colorGroups: ReadonlyArray<{
     fields: [
       {
         key: "accent",
-        label: "权限状态与发送按钮",
-        hint: "“完全访问”等权限状态与主要提交操作",
+        label: "主要按钮背景",
+        hint: "发送、审核与权限状态等主要操作",
+      },
+      {
+        key: "accentText",
+        label: "主要按钮文字",
+        hint: "发送图标、审核文字等按钮前景内容",
       },
       {
         key: "accentAlt",
-        label: "输入框焦点边框",
-        hint: "输入框聚焦状态",
+        label: "焦点与按钮边框",
+        hint: "输入框聚焦状态与主要按钮描边",
       },
       {
         key: "secondary",
@@ -188,6 +199,7 @@ const colorGroups: ReadonlyArray<{
         hint: "加号、模型与音频等次要操作",
       },
       { key: "highlight", label: "选中文字背景", hint: "文本选区" },
+      { key: "selectionText", label: "选区文字", hint: "文本被选中后的字色" },
     ],
   },
   {
@@ -506,7 +518,7 @@ function DesignPanel({
                     >
                       <span className="theme-preset-palette" aria-hidden="true">
                         <i style={{ background: preset.colors.background }} />
-                        <i style={{ background: preset.colors.panel }} />
+                        <i style={{ background: preset.colors.panelAlt }} />
                         <i style={{ background: preset.colors.accent }} />
                         <i style={{ background: preset.colors.text }} />
                       </span>
@@ -652,7 +664,10 @@ function DesignPanel({
         )}
 
         {section === "colors" && (
-          <StudioSection title="主题颜色" meta="26 项 · 均支持透明度">
+          <StudioSection
+            title="主题颜色"
+            meta={THEME_COLOR_KEYS.length + " 项 · 均支持透明度"}
+          >
             <div className="color-panel-toolbar">
               <div className="color-panel-guidance">
                 <p>

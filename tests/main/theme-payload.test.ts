@@ -66,7 +66,7 @@ describe("theme payload", () => {
         "[data-composer-footer-responsive]",
       );
       const composerSubmit = document.querySelector(
-        'button[class~="bg-primary-solid"]',
+        '[data-codex-composer-root] button[class~="bg-primary-solid"]',
       );
       const mainTopFade = document.querySelector(
         "[data-app-shell-main-content-top-fade]",
@@ -166,6 +166,14 @@ describe("theme payload", () => {
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-activity-muted) !important",
       );
+      expect(style?.textContent).toContain(
+        "-webkit-text-fill-color: var(--ds-theme-color-activity-text) !important",
+      );
+      expect(style?.textContent).toContain(
+        "-webkit-text-fill-color: var(--ds-theme-color-activity-muted) !important",
+      );
+      expect(style?.textContent).toContain('[class*="text-text/40"]');
+      expect(style?.textContent).not.toContain('[class*="text-text/"]');
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-user-message-text) !important",
       );
@@ -561,7 +569,9 @@ describe("theme payload", () => {
         ?.textContent ?? "";
     const cardSelector = `[data-ds-part="change-card"][data-codexstyle-owner="${marker}"]`;
     const ordinaryTextSelector =
-      ':where(button, [class~="text-default"], [class~="text-secondary"])';
+      ':where([class~="text-default"], [class~="text-secondary"]):not(button *)';
+    const primaryActionSelector =
+      '[class~="group/turn-diff-header"] button:is([class~="bg-primary-solid"], [class~="bg-primary-soft-alpha"], [data-variant="primary"])';
 
     expect(card?.getAttribute("data-ds-part")).toBe("change-card");
     expect(source).toContain(
@@ -570,13 +580,29 @@ describe("theme payload", () => {
     expect(source).toContain(
       `${cardSelector} ${ordinaryTextSelector} { color: var(--ds-theme-color-change-card-text) !important; }`,
     );
+    expect(source).toContain(
+      `${cardSelector} ${primaryActionSelector} { background-color: var(--ds-theme-color-accent) !important; border-color: var(--ds-theme-color-accent-alt) !important; color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }`,
+    );
+    expect(source).toContain(
+      `${cardSelector} ${primaryActionSelector} :where(span, svg, [class*="text-"]) { color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }`,
+    );
+    expect(source).not.toContain(
+      `${cardSelector} :where(button, [class~="text-default"], [class~="text-secondary"])`,
+    );
     expect(source).toContain("--ds-theme-color-change-card-background:");
     expect(source).toContain("--ds-theme-color-change-card-text:");
     expect(
       card?.querySelector(".text-default")?.matches(ordinaryTextSelector),
     ).toBe(true);
     expect(
-      card?.querySelector(".text-secondary")?.matches(ordinaryTextSelector),
+      card
+        ?.querySelector("small.text-secondary")
+        ?.matches(ordinaryTextSelector),
+    ).toBe(true);
+    expect(
+      card
+        ?.querySelector("button.bg-primary-soft-alpha")
+        ?.matches(primaryActionSelector),
     ).toBe(true);
     expect(
       card?.querySelector(".diff-added")?.matches(ordinaryTextSelector),
@@ -586,13 +612,13 @@ describe("theme payload", () => {
     ).toBe(false);
   });
 
-  it("bridges muted placeholders without changing toolbar and primary action roles", () => {
+  it("separates composer text, muted placeholders, and toolbar roles", () => {
     resetDocument();
     const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
     const composer = document.querySelector("[data-composer-surface-variant]");
     composer?.insertAdjacentHTML(
       "afterbegin",
-      '<span data-placeholder="true">Data placeholder</span><span aria-placeholder="Prompt">ARIA placeholder</span><span class="composer-placeholder-copy">Class placeholder</span><textarea placeholder="Native placeholder"></textarea>',
+      '<div contenteditable="true" role="textbox" data-codex-composer><p data-placeholder="随心输入"></p></div><span data-placeholder="true">Data placeholder</span><span aria-placeholder="Prompt">ARIA placeholder</span><span class="composer-placeholder-copy">Class placeholder</span><textarea placeholder="Native placeholder"></textarea>',
     );
     window.eval(
       buildThemePayload(
@@ -614,6 +640,21 @@ describe("theme payload", () => {
     const source =
       document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
         ?.textContent ?? "";
+    const ownedComposerSelector =
+      '[data-ds-part="composer"][data-codexstyle-owner="' + marker + '"]';
+    const composerInputSelector =
+      ':where([data-codex-composer][contenteditable="true"], input[data-codex-composer], textarea[data-codex-composer])';
+    expect(source).toContain(
+      ownedComposerSelector +
+        " " +
+        composerInputSelector +
+        " { color: var(--ds-theme-color-composer-text) !important; caret-color: var(--ds-theme-color-composer-text) !important; }",
+    );
+    expect(source).toContain(
+      ownedComposerSelector +
+        " > [data-composer-layout]:not([data-composer-surface-variant]) { background-color: transparent !important; color: var(--ds-theme-color-composer-text) !important; }",
+    );
+    expect(source).toContain("--ds-theme-color-composer-text:");
     expect(source).toContain(
       ':where([data-placeholder], [aria-placeholder]):not([contenteditable="true"]):not(input):not(textarea) { color: var(--ds-theme-color-muted) !important; }',
     );
@@ -627,6 +668,9 @@ describe("theme payload", () => {
       ":where(button, span) { color: var(--ds-theme-color-secondary) !important; }",
     );
     expect(source).toContain(
+      '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"] :where(button, span, svg, [class*="text-"]) { color: var(--ds-theme-color-secondary) !important; }',
+    );
+    expect(source).toContain(
       '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' +
         marker +
         '"] [data-permission-mode]',
@@ -635,7 +679,10 @@ describe("theme payload", () => {
       "{ color: var(--ds-theme-color-accent) !important; }",
     );
     expect(source).toContain(
-      "background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-background) !important;",
+      "background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-accent-text) !important;",
+    );
+    expect(source).toContain(
+      "::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-selection-text); }",
     );
     expect(composer?.querySelector('[data-placeholder="true"]')).not.toBeNull();
   });
@@ -661,7 +708,9 @@ describe("theme payload", () => {
       ),
     );
 
-    const submit = document.querySelector('button[class~="bg-primary-solid"]');
+    const submit = document.querySelector(
+      '[data-codex-composer-root] button[class~="bg-primary-solid"]',
+    );
     const style = document.querySelector(
       `style[data-codexstyle-owner="${marker}"]`,
     );
@@ -672,6 +721,9 @@ describe("theme payload", () => {
     expect(style?.textContent).not.toContain('aria-label*="停止"');
     expect(style?.textContent).toContain(
       "background-color: var(--ds-theme-color-accent) !important",
+    );
+    expect(style?.textContent).toContain(
+      "background-color: var(--ds-theme-color-accent-text)",
     );
     expect(style?.textContent).toContain(
       "border-color: var(--ds-theme-color-accent-alt) !important",
@@ -791,7 +843,7 @@ describe("theme payload", () => {
 });
 
 function resetDocument(
-  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface" role="main"><header class="app-header-tint" data-app-shell-header-edge-scroll="true"><div class="_Toolbar_fixture"><div class="text-md flex flex-1" data-testid="thread-title-surface"><button class="text-base font-medium">当前会话</button></div></div><div data-app-shell-tab-controller><div class="group/tab" style="--app-shell-tab-background:#fff"><div class="pointer-events-none absolute inset-0"></div><button role="tab" aria-selected="true">主题会话</button></div></div></header><div data-testid="home-icon"></div><div class="heading-xl text-default" data-feature="game-source"><span class="group/title"><span class="text-default">首页标题</span></span></div><section class="group/home-suggestions"><div><button class="bg-surface"><span class="text-secondary">探索代码</span></button><button class="bg-surface"><span class="text-secondary">构建功能</span></button><button class="bg-surface"><span class="text-secondary">审查代码</span></button><button class="bg-surface"><span class="text-secondary">修复问题</span></button></div></section><div class="group/activity-header"><strong>运行命令</strong><small class="text-secondary">npm test</small></div><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-testid="change-card" class="bg-surface-elevated-secondary/50 text-default"><div class="group/turn-diff-header"><button><span class="text-secondary">审核</span></button></div><span class="text-default">src/main.ts</span><small class="text-secondary">已编辑</small><span class="diff-added" style="color: green">+4</span><span class="diff-removed" style="color: red">-1</span></div><div data-composer-placement="home" data-composer-rail-item="present" data-composer-rail-placement="above" data-composer-rail-variant="controls"></div><div data-codex-composer-root><div data-composer-surface-variant="default"><div data-composer-footer-responsive></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
+  body = '<div class="_ApplicationMenuTopBar_fixture"><button>文件</button></div><aside class="app-shell-left-panel"></aside><main class="main-surface" role="main"><header class="app-header-tint" data-app-shell-header-edge-scroll="true"><div class="_Toolbar_fixture"><div class="text-md flex flex-1" data-testid="thread-title-surface"><button class="text-base font-medium">当前会话</button></div></div><div data-app-shell-tab-controller><div class="group/tab" style="--app-shell-tab-background:#fff"><div class="pointer-events-none absolute inset-0"></div><button role="tab" aria-selected="true">主题会话</button></div></div></header><div data-testid="home-icon"></div><div class="heading-xl text-default" data-feature="game-source"><span class="group/title"><span class="text-default">首页标题</span></span></div><section class="group/home-suggestions"><div><button class="bg-surface"><span class="text-secondary">探索代码</span></button><button class="bg-surface"><span class="text-secondary">构建功能</span></button><button class="bg-surface"><span class="text-secondary">审查代码</span></button><button class="bg-surface"><span class="text-secondary">修复问题</span></button></div></section><div class="group/activity-header"><strong>运行命令</strong><small class="text-secondary">npm test</small></div><div data-app-shell-main-content-top-fade="full-bleed"></div><div class="thread-scroll-container"><div aria-hidden="true" class="bg-gradient-to-t from-surface via-surface"></div></div><div data-local-conversation-user-anchor="true"><div data-user-message-bubble="true"><span>用户消息</span></div></div><div data-local-conversation-final-assistant="true"><div data-markdown-text-style="assistant-message"></div></div><div data-testid="change-card" class="bg-surface-elevated-secondary/50 text-default"><div class="group/turn-diff-header"><button><span class="text-secondary">撤销</span></button><button class="bg-primary-soft-alpha"><span class="text-secondary">审核</span></button></div><span class="text-default">src/main.ts</span><small class="text-secondary">已编辑</small><span class="diff-added" style="color: green">+4</span><span class="diff-removed" style="color: red">-1</span></div><div data-composer-placement="home" data-composer-rail-item="present" data-composer-rail-placement="above" data-composer-rail-variant="controls"></div><div data-codex-composer-root data-composer-placement="home"><div data-composer-surface-variant="default" data-composer-layout="multiline"><div data-composer-layout="multiline"><div data-composer-footer-responsive></div></div><button class="bg-primary-solid" aria-label="发送"><svg></svg></button></div></div></main>',
 ) {
   document.head.innerHTML = "";
   document.body.innerHTML = body;

@@ -14,6 +14,10 @@ const required = [
   "src/main/infra/safe-css.ts",
   "src/main/infra/electron-updater-gateway.ts",
   "src/main/app/update-service.ts",
+  "src/main/assistant/assistant-bridge.ts",
+  "src/main/assistant/assistant-service.ts",
+  "src/main/assistant/palette-validator.ts",
+  "src/main/assistant/plugin-installer.ts",
   "src/main/session/cdp-client.ts",
   "src/main/session/selector-profile.ts",
   "src/main/session/theme-payload.ts",
@@ -23,6 +27,12 @@ const required = [
   "src/preload/index.ts",
   "src/renderer/api/bridge.ts",
   "src/renderer/index.html",
+  "plugins/codexstyle-assistant/.codex-plugin/plugin.json",
+  "plugins/codexstyle-assistant/.mcp.json",
+  "plugins/codexstyle-assistant/mcp/dist/server.mjs",
+  "plugins/codexstyle-assistant/skills/codexstyle-theme-designer/SKILL.md",
+  "plugins/codexstyle-assistant/runtime/LICENSE-node.txt",
+  ".agents/plugins/marketplace.json",
 ];
 for (const file of required) {
   if (!existsSync(resolve(root, file))) failures.push(`missing:${file}`);
@@ -42,6 +52,14 @@ if (packageJson.dependencies?.["electron-updater"] !== "6.8.9")
   failures.push("updater-version-not-pinned");
 if (packageJson.dependencies?.["auto-updater"])
   failures.push("unexpected-auto-updater-dependency");
+if (packageJson.devDependencies?.["@modelcontextprotocol/sdk"] !== "1.30.0")
+  failures.push("mcp-sdk-version-not-pinned");
+if (packageJson.dependencies?.["@modelcontextprotocol/sdk"])
+  failures.push("mcp-sdk-should-not-ship-in-main-app");
+if (packageJson.devDependencies?.esbuild !== "0.25.12")
+  failures.push("plugin-bundler-version-not-pinned");
+if (packageJson.devDependencies?.["js-yaml"] !== "4.3.2")
+  failures.push("yaml-parser-version-not-pinned");
 
 const builder = source("electron-builder.yml");
 requireMarkers(builder, "package-fuses", [
@@ -53,6 +71,10 @@ requireMarkers(builder, "package-fuses", [
   "enableEmbeddedAsarIntegrityValidation: true",
   "onlyLoadAppFromAsar: true",
   "grantFileProtocolExtraPrivileges: false",
+  "plugins/codexstyle-assistant",
+  ".agents/plugins/marketplace.json",
+  "mcp/dist/**",
+  "runtime/**",
 ]);
 
 const rendererFiles = walk(resolve(root, "src/renderer"));
@@ -197,7 +219,66 @@ requireMarkers(store, "store-contract", [
   "installedPresetPacks",
   "installBundledPresetPack",
   "replacesInstalledPack",
+  "introducedThemeIds",
+  "previousImageSha256",
   "previousFingerprints",
+  "createDraftFrom",
+]);
+
+const assistantBridge = source("src/main/assistant/assistant-bridge.ts");
+requireMarkers(assistantBridge, "assistant-loopback-boundary", [
+  'server.listen(0, "127.0.0.1"',
+  "request.headers.origin",
+  "request.url !== RPC_PATH",
+  "timingSafeEqual",
+  "MAX_REQUEST_BYTES = 512 * 1024",
+  "MANAGED_FILES.assistantEndpoint",
+  "CodexAssistantRequestSchema.safeParse",
+]);
+const assistantService = source("src/main/assistant/assistant-service.ts");
+requireMarkers(assistantService, "assistant-mutation-policy", [
+  'current.data.status !== "draft"',
+  '"READY_THEME_IMMUTABLE"',
+  "validatePaletteContrast",
+  'case "select_theme"',
+]);
+const assistantPlugin = source(
+  "plugins/codexstyle-assistant/.codex-plugin/plugin.json",
+);
+requireMarkers(assistantPlugin, "assistant-plugin", [
+  '"name": "codexstyle-assistant"',
+  '"version": "0.1.1"',
+  '"skills": "./skills/"',
+  '"mcpServers": "./.mcp.json"',
+]);
+const assistantMcpConfig = source("plugins/codexstyle-assistant/.mcp.json");
+requireMarkers(assistantMcpConfig, "assistant-bundled-runtime", [
+  '"command": "./runtime/node.exe"',
+  '"args": ["./mcp/dist/server.mjs"]',
+]);
+const assistantPluginInstaller = source(
+  "src/main/assistant/plugin-installer.ts",
+);
+requireMarkers(assistantPluginInstaller, "assistant-plugin-installer", [
+  '"plugin",\n      "marketplace",\n      "add"',
+  '["plugin", "add", PLUGIN_ID, "--json"]',
+  "resolveInstalledCodexCli",
+  "MAX_CODEX_BIN_ENTRIES",
+  "requireRegularFile",
+  "LICENSE-node.txt",
+]);
+const assistantPluginBuilder = source("scripts/build-codexstyle-plugin.mjs");
+requireMarkers(assistantPluginBuilder, "assistant-plugin-runtime-build", [
+  'process.version !== "v22.22.0"',
+  'copyFile(process.execPath, resolve(runtimeDirectory, "node.exe"))',
+]);
+const assistantSkill = source(
+  "plugins/codexstyle-assistant/skills/codexstyle-theme-designer/SKILL.md",
+);
+requireMarkers(assistantSkill, "assistant-skill-default-policy", [
+  "If the user has not explicitly specified colors or a visual direction",
+  "现代奢华美学，浓郁而克制的配色",
+  "Explicit user colors, references, or style choices always take precedence",
 ]);
 
 const bundledPresets = source("src/main/infra/bundled-presets.ts");
@@ -205,7 +286,9 @@ requireMarkers(bundledPresets, "bundled-presets", [
   "readImageFileBounded",
   "validateImage",
   "imageSha256",
+  "previousImageSha256",
   "replacesPackIds",
+  "introducedThemeIds",
   "previousFingerprints",
   "BUNDLED_PRESET_PACK_INVALID",
 ]);
@@ -217,6 +300,17 @@ requireMarkers(rendererApp, "theme-library-layout", [
   "top-apply-card",
   "HOME_COLOR_TARGETS",
   "mock-activity",
+  "assistant-card",
+  "useDeferredValue",
+  "normalizeThemeQuery",
+  "theme-search-wrap",
+  "theme-list-empty",
+  'aria-label="MCP 使用方法"',
+  "首次一次",
+  "以后每次",
+  "开始设计",
+  "installAssistantPlugin",
+  "一键安装 / 更新",
 ]);
 if (rendererApp.includes("导出旧版兼容 ZIP"))
   failures.push("renderer-exposes-legacy-compatible-export");

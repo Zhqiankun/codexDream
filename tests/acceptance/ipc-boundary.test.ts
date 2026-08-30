@@ -43,7 +43,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("update.request")!;
 
-    const result = await handler(trustedEvent({ senderId: 77 }), { v: 4 });
+    const result = await handler(trustedEvent({ senderId: 77 }), { v: 5 });
 
     expect(result).toEqual({
       ok: false,
@@ -58,7 +58,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("update.request")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 4 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 5 });
 
     expect(result).toEqual({
       ok: true,
@@ -79,7 +79,7 @@ describe("IPC public boundary", () => {
 
     const result = await handlers.get("update.install")!(
       trustedEvent({ senderId: 77 }),
-      { v: 4, mode: "now" },
+      { v: 5, mode: "now" },
     );
 
     expect(result).toEqual({
@@ -99,7 +99,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("session.launch")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 4 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 5 });
 
     expect(result).toEqual({
       ok: false,
@@ -121,7 +121,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("session.launch")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 4 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 5 });
 
     expect(result).toEqual(error("UNKNOWN", "error.unknown"));
     expect(controller.launchSession).toHaveBeenCalledOnce();
@@ -136,7 +136,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("session.launch")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 4 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 5 });
 
     expect(result).toEqual(error("OPERATION_BUSY", "ipc.busy"));
     expect(controller.launchSession).toHaveBeenCalledOnce();

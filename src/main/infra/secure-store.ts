@@ -6,7 +6,8 @@ export type ManagedDirectory =
   | "themes"
   | "transactions"
   | "lock"
-  | "ownership";
+  | "ownership"
+  | "assistant";
 
 export interface ManagedFile {
   directory: ManagedDirectory;
@@ -19,6 +20,10 @@ export const MANAGED_FILES = {
   backup: { directory: "transactions", fileName: "index.backup" },
   lock: { directory: "lock", fileName: "store.lock" },
   ownership: { directory: "ownership", fileName: "owned-session.json" },
+  assistantEndpoint: {
+    directory: "assistant",
+    fileName: "endpoint.json",
+  },
 } as const satisfies Record<string, ManagedFile>;
 
 interface NativeSecureStore {

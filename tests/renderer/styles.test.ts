@@ -21,12 +21,26 @@ describe("renderer styles", () => {
     expect(css).toContain("--preview-change-card-text");
     expect(css).toContain('data-preview-color-target="changeCardBackground"');
     expect(css).toContain('data-preview-color-target="changeCardText"');
+    expect(css).toContain('data-preview-color-target="accentText"');
+    expect(css).toContain('data-preview-color-target="selectionText"');
+    expect(css).toContain("var(--preview-selection-text");
+    expect(css).toContain(".mock-change-review {");
+    expect(css).toContain("var(--preview-accent-text, #17120a)");
     expect(css).toContain(
       ".mock-composer-placeholder {\n  color: var(--preview-muted, #6f7d98);",
     );
+    expect(css).toContain(
+      ".mock-composer-input-text {\n  color: var(--preview-composer-text",
+    );
+    expect(css).toContain('data-preview-color-target="composerText"');
     expect(css).not.toContain(
       ".mock-composer-placeholder {\n  color: color-mix(in srgb, var(--preview-muted) 70%, transparent);",
     );
     expect(css).toContain('.color-value > input[aria-invalid="true"]');
+    expect(css).toContain(".theme-search-control:focus-within");
+    expect(css).toContain("scrollbar-gutter: stable");
+    expect(css).toContain("content-visibility: auto");
+    expect(css).toContain("contain-intrinsic-size: auto 56px");
+    expect(css).toContain("height: calc(100dvh - 64px)");
   });
 });

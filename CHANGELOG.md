@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.3.12 — 2026-08-30
+
+### English
+
+- Expanded the bundled wallpaper collection to 25 individually tuned themes and replaced the old base palette set with 15 modern-luxury presets spanning jewel tones, metals, velvet darks, and restrained pearl lights. Existing user themes remain untouched; exact untouched bundled themes migrate in place and deleted presets are not revived.
+- Expanded structured color control to 29 values, including composer input text, send-icon foreground, and selection foreground. Fixed real Codex coverage for home/conversation composer surfaces, home titles and cards, current-thread tabs, assistant/user text, change cards, and command/edit/thinking summaries.
+- Added the local CodexStyle Assistant plugin and authenticated loopback MCP bridge. A one-click Studio action installs or updates the fixed plugin through the verified local Codex CLI; the plugin ships its own Node.js 22.22.0 runtime and full license, so end users do not need Node.js or terminal commands. Codex can list themes, validate a complete palette, derive a separate draft while retaining its background, update only drafts, and explicitly select a saved theme. Saved themes cannot be overwritten through MCP.
+- Added the CodexStyle theme-design skill. When the user gives no palette or visual direction it uses the bundled restrained modern-luxury brief; explicit colors, references, and styles always take priority. The Studio card now separates one-time plugin setup from everyday automatic connection and explains the review/save workflow.
+- Made the left theme library viewport-bounded and independently scrollable, with instant normalized name search, match/total count, clear and no-result actions, and off-screen rendering optimization for large libraries. Mobile keeps the horizontal list.
+- Hardened assistant validation by compositing translucent page backgrounds exactly once, rejecting out-of-range functional RGB channels, matching every RPC response ID, rotating authenticated local endpoints at startup, and rejecting browser-origin, malformed, oversized, or unauthorized requests.
+- Pinned `js-yaml` to the fixed `4.3.2` release after the new merge-key/alias complexity advisories; the final official-registry production audit reports zero vulnerabilities.
+
+> v1.3.12 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. After enabling the plugin for the first time, create a new Codex task or restart Codex so it can load the plugin.
+
+### 简体中文
+
+- 将内置壁纸扩展为 25 套逐图独立调色主题，并用 15 套现代奢华基础预设替换旧基础配色，覆盖宝石色、金属、丝绒深色与克制珍珠浅色。用户已有主题保持不变；只原位迁移精确未编辑预设，删除过的预设不复活。
+- 将结构化颜色扩展为 29 项，新增输入正文、发送图标前景和选区文字，并补齐首页/对话输入面板、首页标题与卡片、当前会话标签、助手/用户文字、文件变更卡片及命令/编辑/思考摘要的真实 Codex 覆盖。
+- 新增本机 CodexStyle Assistant 插件与带认证的回环 MCP。Studio 可一键经已核对的本机 Codex CLI 安装或更新固定插件；插件自带 Node.js 22.22.0 专用运行时和完整许可证，最终用户不需要另装 Node.js 或执行终端命令。Codex 可以列出主题、校验完整配色、保留背景派生独立草稿、只更新草稿，以及在用户明确要求时选择已保存主题；MCP 不能覆盖已保存主题。
+- 新增 CodexStyle 主题设计 Skill。用户未指定颜色或视觉方向时才使用内置的克制现代奢华提示；用户明确颜色、参考和风格始终优先。Studio 卡片现在明确区分“首次一次”插件设置与“以后每次”自动连接，并说明预览/保存流程。
+- 左侧主题库改为视口内独立滚动，支持规范化名称即时搜索、匹配数/总数、清空与无结果操作，并对大型列表跳过离屏渲染；移动端继续使用横向列表。
+- 加固助手校验：半透明页面背景只合成一次，拒绝超出范围的函数式 RGB 通道，严格匹配 RPC 响应 ID；本机认证端点随启动轮换，并拒绝浏览器 Origin、畸形、超限和未授权请求。
+- 针对新披露的 merge-key/alias 复杂度公告，将 `js-yaml` 精确升级到已修复的 `4.3.2`；最终官方 registry 生产依赖审计为 0 漏洞。
+
+> SignPath Foundation 申请仍在审核，v1.3.12 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。首次启用插件后请新建 Codex 任务或重启 Codex，让它加载插件。
+
 ## v1.3.11 — 2026-08-30
 
 ### English

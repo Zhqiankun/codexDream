@@ -2,6 +2,9 @@ node_modules/
 out/
 release/
 dist/
+!plugins/codexstyle-assistant/mcp/dist/
+!plugins/codexstyle-assistant/mcp/dist/server.mjs
+plugins/codexstyle-assistant/runtime/node.exe
 .vite/
 native/secure-store/build/
 coverage/

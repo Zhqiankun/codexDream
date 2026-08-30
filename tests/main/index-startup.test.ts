@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   dispose: vi.fn(),
   quit: vi.fn(),
   showErrorBox: vi.fn(),
+  nativeTheme: { themeSource: "system" as "system" | "light" | "dark" },
   logger: {
     directory: "C:\\Temp\\CodexStyleLogs",
     log: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock("electron", () => ({
     quit: state.quit,
   },
   dialog: { showErrorBox: state.showErrorBox },
+  nativeTheme: state.nativeTheme,
   protocol: { registerSchemesAsPrivileged: vi.fn() },
 }));
 
@@ -61,6 +63,7 @@ describe("main process startup", () => {
     state.dispose.mockReset();
     state.quit.mockReset();
     state.showErrorBox.mockReset();
+    state.nativeTheme.themeSource = "system";
   });
 
   it("queues second-instance opening until initialization has completed", async () => {
@@ -71,6 +74,8 @@ describe("main process startup", () => {
     state.init.mockImplementation(() => state.initPromise);
 
     await import("../../src/main/index");
+
+    expect(state.nativeTheme.themeSource).toBe("dark");
 
     state.listeners.get("second-instance")?.();
     expect(state.openStudio).not.toHaveBeenCalled();

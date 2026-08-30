@@ -70,6 +70,9 @@ export function registerIpc(
   handle("diagnostics.openLogs", EmptyRequestSchema, () =>
     controller.openLogDirectory(),
   );
+  handle("assistant.installPlugin", EmptyRequestSchema, () =>
+    controller.installAssistantPlugin(),
+  );
   handle("studio.getSnapshot", EmptyRequestSchema, () =>
     controller.getStudioSnapshot(),
   );

@@ -278,6 +278,71 @@ export class LocalThemeStore {
     }
   }
 
+  async createDraftFrom(
+    sourceLibraryId: string,
+    name = "Untitled theme",
+  ): Promise<ThemeRecord> {
+    const source = this.require(sourceLibraryId);
+    if (!source.backgroundFile) throw new Error("INCOMPLETE_THEME");
+    const sourceImage = this.backgrounds.get(sourceLibraryId);
+    if (!sourceImage) throw new Error("INCOMPLETE_THEME");
+    const libraryId = this.allocateLibraryId();
+    const backgroundFile = this.allocateManagedImageFile(
+      extensionOf(source.backgroundFile),
+    );
+    const themeId = `local-${libraryId.slice(0, 8)}`;
+    const record = cloneThemeRecord(source);
+    record.libraryId = libraryId;
+    record.themeId = themeId;
+    record.name = name || "Untitled theme";
+    record.backgroundFile = backgroundFile;
+    record.status = "draft";
+    record.revision = 1;
+    record.updatedAt = new Date().toISOString();
+    record.fingerprint = "";
+    record.packageFormat = "simplified";
+    record.signed = false;
+    record.importedFormal = undefined;
+    record.validation = {
+      ...record.validation,
+      package: "draft",
+      warnings: [],
+    };
+    record.json = {
+      ...record.json,
+      id: themeId,
+      name: record.name,
+      image: backgroundFile,
+    };
+
+    const before = this.captureState();
+    const managedFile = managedThemeFile(backgroundFile);
+    let backgroundWriteAttempted = false;
+    let persistAttempted = false;
+    try {
+      if (this.managedStore.readFile(managedFile) !== undefined)
+        throw new Error("STORE_TAMPERED:theme-file-conflict");
+      backgroundWriteAttempted = true;
+      this.managedStore.writeFileAtomic(managedFile, sourceImage);
+      const written = this.managedStore.readFile(managedFile);
+      if (!written || !written.equals(sourceImage))
+        throw new Error("STORE_TAMPERED:theme-file-write");
+      this.backgrounds.set(libraryId, Buffer.from(written));
+      this.index.themes.unshift(record);
+      persistAttempted = true;
+      await this.persist();
+      return record;
+    } catch (error) {
+      return this.rollbackBackgroundMutation(
+        before,
+        backgroundFile,
+        backgroundWriteAttempted,
+        persistAttempted,
+        error,
+      );
+    }
+  }
+
   async patch(
     libraryId: string,
     expectedRevision: number,
@@ -1360,12 +1425,19 @@ export class LocalThemeStore {
       pack.replacesPackIds.includes(pack.packId) ||
       pack.replacesPackIds.some(
         (packId) => !PRESET_PACK_ID_PATTERN.test(packId),
+      ) ||
+      pack.introducedThemeIds.length > pack.themes.length ||
+      new Set(pack.introducedThemeIds).size !==
+        pack.introducedThemeIds.length ||
+      pack.introducedThemeIds.some(
+        (themeId) => !pack.themes.some((preset) => preset.themeId === themeId),
       )
     )
       throw new Error("BUNDLED_PRESET_PACK_INVALID:replacement-packs");
 
     const before = this.captureState();
     const stagedFiles: string[] = [];
+    const overwrittenFiles: Array<{ fileName: string; bytes: Buffer }> = [];
     const replacesInstalledPack = pack.replacesPackIds.some((packId) =>
       this.index.installedPresetPacks.includes(packId),
     );
@@ -1378,13 +1450,42 @@ export class LocalThemeStore {
         if (existing) {
           if (!replacesInstalledPack)
             throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-id-conflict");
-          if (this.canUpgradeBundledPreset(existing, preset))
+          if (this.canUpgradeBundledPreset(existing, preset)) {
+            if (existing.backgroundSha256 !== preset.imageInfo.sha256) {
+              if (
+                !existing.backgroundFile ||
+                !existing.backgroundFile.endsWith(
+                  "." + preset.imageInfo.extension,
+                )
+              )
+                throw new Error(
+                  "BUNDLED_PRESET_PACK_INVALID:upgrade-image-extension",
+                );
+              const file = managedThemeFile(existing.backgroundFile);
+              const previousBytes = this.managedStore.readFile(file);
+              if (!previousBytes)
+                throw new Error("STORE_TAMPERED:preset-upgrade-image");
+              overwrittenFiles.push({
+                fileName: existing.backgroundFile,
+                bytes: Buffer.from(previousBytes),
+              });
+              this.managedStore.writeFileAtomic(file, preset.imageBytes);
+              const written = this.managedStore.readFile(file);
+              if (!written || !written.equals(preset.imageBytes))
+                throw new Error("STORE_TAMPERED:preset-file-write");
+              this.backgrounds.set(existing.libraryId, Buffer.from(written));
+            }
             this.upgradeBundledPreset(existing, preset);
+          }
           continue;
         }
         // A missing theme in an already-installed predecessor pack represents
         // an explicit user deletion and must never be revived by an upgrade.
-        if (replacesInstalledPack) continue;
+        if (
+          replacesInstalledPack &&
+          !pack.introducedThemeIds.includes(preset.themeId)
+        )
+          continue;
 
         const record = this.createBundledPresetRecord(preset);
         const duplicate = this.index.themes.find(
@@ -1418,6 +1519,13 @@ export class LocalThemeStore {
         if (persistAttempted) await this.restorePersistedIndex(before.index);
         for (const fileName of stagedFiles)
           this.removeManagedFileIfPresent(managedThemeFile(fileName));
+        for (const previous of overwrittenFiles) {
+          const file = managedThemeFile(previous.fileName);
+          this.managedStore.writeFileAtomic(file, previous.bytes);
+          const restored = this.managedStore.readFile(file);
+          if (!restored || !restored.equals(previous.bytes))
+            throw new Error("STORE_TAMPERED:preset-file-restore");
+        }
       } catch (rollbackError) {
         throw new Error("STORE_TAMPERED:preset-pack-rollback", {
           cause: rollbackError,
@@ -1437,7 +1545,8 @@ export class LocalThemeStore {
       record.packageFormat === "simplified" &&
       !record.signed &&
       record.importedFormal === undefined &&
-      record.backgroundSha256 === preset.imageInfo.sha256 &&
+      (record.backgroundSha256 === preset.imageInfo.sha256 ||
+        preset.previousImageSha256.includes(record.backgroundSha256 ?? "")) &&
       record.fingerprint === actualFingerprint &&
       preset.previousFingerprints.includes(actualFingerprint) &&
       !this.index.checkpoints.some(
@@ -1459,6 +1568,9 @@ export class LocalThemeStore {
     record.css = css;
     record.backgroundScope = preset.backgroundScope;
     record.sidebarOverlayOpacity = preset.sidebarOverlayOpacity;
+    record.backgroundMime = preset.imageInfo.mime;
+    record.backgroundSha256 = preset.imageInfo.sha256;
+    record.backgroundBytes = preset.imageInfo.bytes;
     record.json = writeThemeConfiguration(
       {
         schemaVersion: 1,

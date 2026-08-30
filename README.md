@@ -46,10 +46,12 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 ## Highlights
 
 - Live 16:9 previews for the Codex home and conversation views. Hover a configurable region to identify it, then click to open, scroll to, and focus its matching Studio control.
-- Thirteen bundled wallpaper presets plus twenty-six independent colors, including selected conversation tabs, home titles/cards, command/edit/thinking summaries, message surfaces, and the surrounding workspace. Each of the four home suggestion cards can also use its own color or local image. Bundled presets are appended once and never overwrite an existing local theme.
+- Twenty-five bundled wallpaper presets plus twenty-nine independent colors, including selected conversation tabs, home titles/cards, command/edit/thinking summaries, composer text, selection text, message surfaces, and the surrounding workspace. Each of the four home suggestion cards can also use its own color or local image. Bundled presets are appended once and never overwrite an existing local theme.
+- An optional local CodexStyle Assistant plugin can inspect the theme library, validate a complete palette, and create a separate draft for review. It never overwrites a saved theme; when no color or visual direction is given, its bundled skill uses the project’s restrained modern-luxury direction.
 - Validated background-image and custom-icon imports with clear size and format guidance.
 - Local theme library with lossless current-theme ZIP export. Historical ten-, twelve-, and eighteen-color ZIPs remain importable, while the lossy legacy export option has been removed.
 - Background-aware library thumbnails, with the next-launch theme control placed above the editor for quicker selection.
+- A viewport-bounded, independently scrolling theme library with instant name search, clear/no-result feedback, and off-screen rendering optimization for large collections.
 - Optional constrained Safe CSS for advanced styling.
 - A dedicated Windows app icon, tray icon, and packaged application identity.
 - Managed Codex launch on the theme-design page, with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
@@ -59,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.11` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.12` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.11-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.11-x64.zip` — portable archive.
+- `CodexStyle-1.3.12-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.12-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.11` allows Studio to start when a complete managed ownership record was written by a newer bounded selector profile. Such records are shown only as a stale-session warning and are never reattached or injected; live session control still requires an exact current-profile match. It includes all v1.3.10 preview, single-page launch, responsive-title, and home-composer fixes. Install over the existing copy—no uninstall or computer restart is required.
+`v1.3.12` adds 25 individually tuned wallpaper themes, 15 modern-luxury base palettes, 29 structured colors, the local CodexStyle Assistant plugin, and a searchable independently scrolling theme library. MCP always derives a separate draft and cannot overwrite saved themes. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. After first enabling the plugin, create a new Codex task or restart Codex once.
 
 ## Requirements
 
@@ -83,8 +85,10 @@ The release is currently unsigned. Windows SmartScreen may show an unknown-publi
 1. Install or extract CodexStyle from the latest release.
 2. Open **Theme Studio** and choose a preset or create a theme.
 3. Adjust the colors, opacity, panels, background, message surfaces, and send icon while checking the live preview.
-4. Save the theme and open **Codex Session**.
+4. Save the theme and use the managed launch card on the same theme-design page.
 5. Close externally launched Codex windows, select the saved theme, and choose **Launch Codex**.
+
+To let Codex design a color draft, choose **Install / update** once in the CodexStyle Assistant card. CodexStyle registers the bundled local marketplace and installs the fixed plugin with its private Node.js runtime. After that, opening CodexStyle automatically starts the authenticated local connection; no terminal, external Node.js, port, or token setup is required. Open a new Codex task after the first installation so Codex can load the plugin.
 
 Use **Export theme ZIP** to preserve all current theme fields. An untouched imported formal package can be rebuilt with its original formal contents intact; editing it disables original-formal export. CodexStyle no longer creates lossy ZIPs for v1.0.x–v1.2.x clients.
 
@@ -98,7 +102,7 @@ CodexStyle is deliberately narrow in scope:
 - It does not take over, close, restart, or inject into Codex sessions launched outside CodexStyle.
 - It applies themes at runtime only to an owned and verified session.
 - It validates imported ZIP files, images, icons, and Safe CSS before storing or applying them.
-- It performs no background update checks and includes no silent auto-installer or remote analytics service. GitHub is contacted only when the user chooses **Check and update**. Only an NSIS-installed build may download an update, and installation still requires an explicit user choice after SHA-512 verification.
+- The installed build performs metadata-only update checks against the fixed GitHub source, but includes no silent download/installer or remote analytics service. Only an NSIS-installed build may download an update after the user chooses **Check and update**, and installation still requires another explicit choice after SHA-512 verification.
 - Managed data stays under `%LOCALAPPDATA%\CodexStyle` for the current Windows user.
 
 See [PRIVACY.md](PRIVACY.md), [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md), and [REQUIREMENTS.md](REQUIREMENTS.md) for the privacy, release-integrity, product, and security contracts.
@@ -131,6 +135,7 @@ npm run typecheck
 npm run test:unit
 npm run test:renderer
 npm run test:integration
+npm run test:mcp
 npm run test:e2e
 npm run architecture:check
 ```
@@ -155,11 +160,13 @@ src/contracts/          Shared IPC and theme contracts
 src/main/app/           Main-process application orchestration
 src/main/domain/        Theme domain model
 src/main/infra/         Local storage, ZIP, image, CSS, and native adapters
+src/main/assistant/     Authenticated local Codex assistant bridge
 src/main/platform/      Windows Store and process integration
 src/main/session/       Managed Codex session and theme injection
 src/preload/            Narrow Electron preload bridge
 src/renderer/           React Theme Studio and session UI
 native/secure-store/    Windows x64 N-API secure-store source
+plugins/                Bundled Codex plugin, MCP server, and theme skill
 tests/                  Unit, renderer, acceptance, and Electron E2E tests
 ```
 

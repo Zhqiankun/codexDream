@@ -61,6 +61,7 @@ describe("preload public boundary", () => {
       "getTheme",
       "getUpdateStatus",
       "importZip",
+      "installAssistantPlugin",
       "installUpdate",
       "launchSession",
       "onStateChanged",
@@ -76,7 +77,7 @@ describe("preload public boundary", () => {
     ]);
     expect(api).not.toHaveProperty("invoke");
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
-      v: 4,
+      v: 5,
     });
 
     await api.rendererReady();
@@ -86,7 +87,12 @@ describe("preload public boundary", () => {
 
     await api.openLogDirectory();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("diagnostics.openLogs", {
-      v: 4,
+      v: 5,
+    });
+
+    await api.installAssistantPlugin();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("assistant.installPlugin", {
+      v: 5,
     });
 
     await api.discardChanges({
@@ -94,7 +100,7 @@ describe("preload public boundary", () => {
       expectedRevision: 2,
     });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.discardChanges", {
-      v: 4,
+      v: 5,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 2,
     });
@@ -107,7 +113,7 @@ describe("preload public boundary", () => {
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(
       "theme.chooseHomeCardImage",
       {
-        v: 4,
+        v: 5,
         libraryId: "11111111-1111-4111-8111-111111111111",
         expectedRevision: 2,
         cardIndex: 3,
@@ -115,10 +121,10 @@ describe("preload public boundary", () => {
     );
 
     await api.cancelUpdate();
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 4 });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 5 });
     await api.installUpdate({ mode: "now" });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.install", {
-      v: 4,
+      v: 5,
       mode: "now",
     });
   });

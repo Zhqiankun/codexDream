@@ -31,6 +31,7 @@ export interface ThemeColors {
   homeCardBackground: string;
   homeCardText: string;
   panelAlt: string;
+  composerText: string;
   assistantPanel: string;
   assistantMessageText: string;
   userMessageText: string;
@@ -42,9 +43,11 @@ export interface ThemeColors {
   topBarBackground: string;
   topBarText: string;
   accent: string;
+  accentText: string;
   accentAlt: string;
   secondary: string;
   highlight: string;
+  selectionText: string;
   text: string;
   muted: string;
   line: string;
@@ -99,6 +102,7 @@ export const THEME_COLOR_KEYS = [
   "homeCardBackground",
   "homeCardText",
   "panelAlt",
+  "composerText",
   "assistantPanel",
   "assistantMessageText",
   "userMessageText",
@@ -110,9 +114,11 @@ export const THEME_COLOR_KEYS = [
   "topBarBackground",
   "topBarText",
   "accent",
+  "accentText",
   "accentAlt",
   "secondary",
   "highlight",
+  "selectionText",
   "text",
   "muted",
   "line",
@@ -125,6 +131,7 @@ const OPTIONAL_THEME_COLOR_KEYS = new Set<keyof ThemeColors>([
   "homeTitleText",
   "homeCardBackground",
   "homeCardText",
+  "composerText",
   "assistantPanel",
   "assistantMessageText",
   "userMessageText",
@@ -135,6 +142,8 @@ const OPTIONAL_THEME_COLOR_KEYS = new Set<keyof ThemeColors>([
   "activityMuted",
   "topBarBackground",
   "topBarText",
+  "accentText",
+  "selectionText",
 ]);
 
 const LEGACY_THEME_COLOR_KEYS = THEME_COLOR_KEYS.filter(
@@ -161,6 +170,7 @@ export const DEFAULT_THEME_COLORS: ThemeColors = {
   homeCardBackground: "#2d2d2d",
   homeCardText: "#ffffff",
   panelAlt: "#2d2d2d",
+  composerText: "#ffffff",
   assistantPanel: "#2d2d2d",
   assistantMessageText: "#ffffff",
   userMessageText: "#ffffff",
@@ -172,9 +182,11 @@ export const DEFAULT_THEME_COLORS: ThemeColors = {
   topBarBackground: "rgba(0, 0, 0, 0)",
   topBarText: "rgba(255, 255, 255, .498)",
   accent: "#ffffff",
+  accentText: "#181818",
   accentAlt: "#d9d9d9",
   secondary: "#808080",
   highlight: "#f2f2f2",
+  selectionText: "#181818",
   text: "#ffffff",
   muted: "rgba(255, 255, 255, .498)",
   line: "rgba(255, 255, 255, .157)",
@@ -292,6 +304,9 @@ export function normalizeThemeColors(
   if (!isThemeColor(source.homeCardText) && isThemeColor(source.text)) {
     result.homeCardText = source.text;
   }
+  if (!isThemeColor(source.composerText) && isThemeColor(source.text)) {
+    result.composerText = source.text;
+  }
   if (!isThemeColor(source.assistantMessageText) && isThemeColor(source.text)) {
     result.assistantMessageText = source.text;
   }
@@ -315,6 +330,12 @@ export function normalizeThemeColors(
   }
   if (!isThemeColor(source.topBarText) && isThemeColor(source.muted)) {
     result.topBarText = source.muted;
+  }
+  if (!isThemeColor(source.accentText) && isThemeColor(source.background)) {
+    result.accentText = source.background;
+  }
+  if (!isThemeColor(source.selectionText) && isThemeColor(source.background)) {
+    result.selectionText = source.background;
   }
   if (!isRecord(value) && isThemeColor(legacyAccent))
     result.accent = legacyAccent;
@@ -414,7 +435,13 @@ export function isThemeStyleMode(value: unknown): value is ThemeStyleMode {
 }
 
 export function isThemeColor(value: unknown): value is string {
-  return typeof value === "string" && COLOR_PATTERN.test(value);
+  if (typeof value !== "string" || !COLOR_PATTERN.test(value)) return false;
+  if (!value.startsWith("rgb")) return true;
+  const channels = value.match(/[0-9]{1,3}/gu)?.slice(0, 3);
+  return (
+    channels?.length === 3 &&
+    channels.every((channel) => Number(channel) <= 255)
+  );
 }
 
 export function isThemeHomeCardImageDataUrl(value: unknown): value is string {

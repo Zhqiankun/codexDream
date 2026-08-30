@@ -120,6 +120,7 @@ describe("SecureManagedStore", () => {
     ["transactions", MANAGED_FILES.journal, "write"],
     ["lock", MANAGED_FILES.lock, "exclusive"],
     ["ownership", MANAGED_FILES.ownership, "write"],
+    ["assistant", MANAGED_FILES.assistantEndpoint, "write"],
   ] as const)(
     "fails closed when %s is replaced by a real junction after root open",
     async (directory, file, operation) => {

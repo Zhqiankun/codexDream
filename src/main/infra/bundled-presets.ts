@@ -14,8 +14,12 @@ import {
 } from "../../contracts";
 import { readImageFileBounded, validateImage, type ImageInfo } from "./image";
 
-export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v3";
-export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v2";
+export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v7";
+export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v6";
+export const FIFTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v5";
+export const FOURTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v4";
+export const THIRD_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v3";
+export const SECOND_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v2";
 export const FIRST_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-29-v1";
 
 export interface BundledPresetTheme {
@@ -25,6 +29,7 @@ export interface BundledPresetTheme {
   description: string;
   image: string;
   imageSha256: string;
+  previousImageSha256: string[];
   previousFingerprints: string[];
   backgroundScope: BackgroundScope;
   sidebarOverlayOpacity: number;
@@ -42,6 +47,7 @@ export interface PreparedBundledPresetTheme extends BundledPresetTheme {
 export interface PreparedBundledPresetPack {
   packId: string;
   replacesPackIds: string[];
+  introducedThemeIds: string[];
   themes: PreparedBundledPresetTheme[];
 }
 
@@ -51,9 +57,10 @@ export interface BundledPresetSource {
 }
 
 interface CatalogManifest {
-  schemaVersion: 3;
+  schemaVersion: 4;
   packId: string;
   replacesPackIds: string[];
+  introducedThemeIds: string[];
   themes: BundledPresetTheme[];
 }
 
@@ -66,6 +73,7 @@ const MANIFEST_KEYS = new Set([
   "schemaVersion",
   "packId",
   "replacesPackIds",
+  "introducedThemeIds",
   "themes",
 ]);
 const THEME_KEYS = new Set([
@@ -75,6 +83,7 @@ const THEME_KEYS = new Set([
   "description",
   "image",
   "imageSha256",
+  "previousImageSha256",
   "previousFingerprints",
   "backgroundScope",
   "sidebarOverlayOpacity",
@@ -117,6 +126,7 @@ export function createBundledPresetSource(
             throw new Error("BUNDLED_PRESET_PACK_INVALID:image-hash");
           themes.push({
             ...theme,
+            previousImageSha256: [...theme.previousImageSha256],
             previousFingerprints: [...theme.previousFingerprints],
             art: { ...theme.art },
             colors: { ...theme.colors },
@@ -131,6 +141,7 @@ export function createBundledPresetSource(
         return {
           packId,
           replacesPackIds: [...manifest.replacesPackIds],
+          introducedThemeIds: [...manifest.introducedThemeIds],
           themes,
         };
       } catch (error) {
@@ -170,7 +181,7 @@ async function readCatalog(path: string): Promise<CatalogManifest> {
   if (!isRecord(parsed) || hasUnknownKeys(parsed, MANIFEST_KEYS))
     throw new Error("BUNDLED_PRESET_PACK_INVALID:catalog-schema");
   if (
-    parsed.schemaVersion !== 3 ||
+    parsed.schemaVersion !== 4 ||
     !ID_PATTERN.test(String(parsed.packId ?? "")) ||
     !Array.isArray(parsed.replacesPackIds) ||
     parsed.replacesPackIds.length > 8 ||
@@ -179,6 +190,13 @@ async function readCatalog(path: string): Promise<CatalogManifest> {
     ) ||
     new Set(parsed.replacesPackIds).size !== parsed.replacesPackIds.length ||
     parsed.replacesPackIds.includes(parsed.packId) ||
+    !Array.isArray(parsed.introducedThemeIds) ||
+    parsed.introducedThemeIds.length > MAX_PRESETS_PER_PACK ||
+    parsed.introducedThemeIds.some(
+      (themeId) => typeof themeId !== "string" || !ID_PATTERN.test(themeId),
+    ) ||
+    new Set(parsed.introducedThemeIds).size !==
+      parsed.introducedThemeIds.length ||
     !Array.isArray(parsed.themes) ||
     parsed.themes.length < 1 ||
     parsed.themes.length > MAX_PRESETS_PER_PACK
@@ -198,10 +216,18 @@ async function readCatalog(path: string): Promise<CatalogManifest> {
     themes.map((theme) => theme.image),
     "image",
   );
+  const themeIds = new Set(themes.map((theme) => theme.themeId));
+  if (
+    (parsed.introducedThemeIds as string[]).some(
+      (themeId) => !themeIds.has(themeId),
+    )
+  )
+    throw new Error("BUNDLED_PRESET_PACK_INVALID:introduced-theme");
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     packId: parsed.packId as string,
     replacesPackIds: [...(parsed.replacesPackIds as string[])],
+    introducedThemeIds: [...(parsed.introducedThemeIds as string[])],
     themes,
   };
 }
@@ -221,8 +247,16 @@ function parseTheme(value: unknown): BundledPresetTheme {
     value.image.includes("..") ||
     typeof value.imageSha256 !== "string" ||
     !SHA256_PATTERN.test(value.imageSha256) ||
+    !Array.isArray(value.previousImageSha256) ||
+    value.previousImageSha256.length > 8 ||
+    value.previousImageSha256.some(
+      (fingerprint) =>
+        typeof fingerprint !== "string" || !SHA256_PATTERN.test(fingerprint),
+    ) ||
+    new Set(value.previousImageSha256).size !==
+      value.previousImageSha256.length ||
+    value.previousImageSha256.includes(value.imageSha256) ||
     !Array.isArray(value.previousFingerprints) ||
-    value.previousFingerprints.length < 1 ||
     value.previousFingerprints.length > 8 ||
     value.previousFingerprints.some(
       (fingerprint) =>
@@ -259,6 +293,7 @@ function parseTheme(value: unknown): BundledPresetTheme {
     description: value.description,
     image: value.image,
     imageSha256: value.imageSha256,
+    previousImageSha256: [...(value.previousImageSha256 as string[])],
     previousFingerprints: [...(value.previousFingerprints as string[])],
     backgroundScope: value.backgroundScope,
     sidebarOverlayOpacity: value.sidebarOverlayOpacity,

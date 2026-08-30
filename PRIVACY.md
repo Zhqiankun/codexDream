@@ -1,6 +1,6 @@
 # CodexStyle Privacy Policy
 
-Effective date: August 28, 2026
+Effective date: August 30, 2026
 
 This policy covers CodexStyle itself. CodexStyle is an independent community project and is not affiliated with, endorsed by, or sponsored by OpenAI.
 
@@ -24,7 +24,7 @@ CodexStyle does not intentionally read or persist Codex conversation content. Lo
 
 ## Network activity
 
-Theme editing, preview, import, export, and local theme storage do not require a network connection. CodexStyle does not poll in the background and does not silently download or install updates.
+Theme editing, preview, import, export, and local theme storage do not require a network connection. The installed build may perform a metadata-only update check after startup and periodically while running, but it does not silently download or install updates.
 
 The installed Windows build contacts the fixed CodexStyle GitHub Releases endpoint only after the user explicitly chooses **Check and update**. GitHub may receive ordinary request metadata such as the IP address and user agent under the [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement). CodexStyle uses the response only to check, download, verify, and—after another explicit user choice—install an application update. The portable ZIP build does not perform in-app updates.
 
@@ -38,21 +38,30 @@ To apply a selected visual theme at runtime, CodexStyle may start and verify a C
 
 The local CDP connection is used only for the user-initiated, CodexStyle-owned, identity-verified session. It applies the theme at runtime and does not upload CDP traffic, page content, or conversation content to the maintainer, GitHub, or SignPath.
 
+## Local assistant and MCP connection
+
+CodexStyle can expose an authenticated, versioned RPC endpoint on a random literal `127.0.0.1` port for the optional CodexStyle Assistant plugin. On every application start it generates a new temporary bearer token and stores the endpoint descriptor under `%LOCALAPPDATA%\CodexStyle\assistant\endpoint.json` through the native secure-store. The descriptor is removed on a normal application shutdown. The token is not shown to the renderer, returned by MCP tools, written to diagnostic logs, or sent over the internet.
+
+The plugin can use only the published local tools to read bounded theme metadata and colors, validate a complete palette, create or update a separate draft, and explicitly select a saved theme. It does not receive background-image bytes, raw CSS, managed file paths, endpoint credentials, Codex conversation content, or other application files. Saved themes cannot be overwritten by the plugin, and save, delete, import, export, and Codex-launch actions are not exposed through MCP.
+
+Choosing **Install / update** in the Studio is an explicit local action. CodexStyle invokes the installed Codex CLI with fixed arguments to register the bundled local marketplace and install the fixed `codexstyle-assistant@codexstyle` plugin. This changes the current user's local Codex plugin configuration and cache; it does not create an account or upload theme data. The plugin includes its own Node.js runtime and license, so it does not execute an arbitrary runtime selected from the user's `PATH`.
+
 ## Codex installation and system changes
 
 CodexStyle does not modify the installed Codex application, `WindowsApps`, `app.asar`, Codex's official signature, Windows access-control lists, or Windows execution policies. It does not attach to Codex sessions launched outside CodexStyle. Theme changes apply only at runtime to a session launched and verified by CodexStyle.
 
 ## Retention, deletion, and uninstall
 
-Local data remains on the device until the user deletes individual themes in CodexStyle or removes the local data directory. Uninstalling the NSIS application removes the installed program files but intentionally leaves `%LOCALAPPDATA%\CodexStyle` in place so themes and settings can survive an upgrade or reinstall. Deleting a portable application copy also does not remove this managed data.
+Local data remains on the device until the user deletes individual themes in CodexStyle or removes the local data directory. Uninstalling the NSIS application removes the installed program files but intentionally leaves `%LOCALAPPDATA%\CodexStyle` in place so themes and settings can survive an upgrade or reinstall. Deleting a portable application copy also does not remove this managed data. The optional CodexStyle Assistant is installed into Codex's own plugin configuration and cache; uninstalling CodexStyle does not remove that separate plugin entry automatically.
 
 To remove all CodexStyle data:
 
 1. Export any themes the user wants to keep.
 2. Exit CodexStyle completely from the system tray.
-3. Uninstall or delete the application files as applicable.
-4. Delete `%LOCALAPPDATA%\CodexStyle` manually.
-5. Delete CodexStyle's Electron `userData/logs` directory if diagnostic logs should also be removed immediately rather than waiting for automatic expiry.
+3. Remove CodexStyle Assistant from the Codex plugin settings if it was installed.
+4. Uninstall or delete the application files as applicable.
+5. Delete `%LOCALAPPDATA%\CodexStyle` manually.
+6. Delete CodexStyle's Electron `userData/logs` directory if diagnostic logs should also be removed immediately rather than waiting for automatic expiry.
 
 Deleting that directory permanently removes the locally stored themes, assets, preferences, and managed state. CodexStyle has no cloud copy from which to restore them.
 
@@ -70,7 +79,7 @@ Material changes to this policy are published in the public repository with thei
 
 # CodexStyle 隐私政策
 
-生效日期：2026 年 8 月 28 日
+生效日期：2026 年 8 月 30 日
 
 本政策仅适用于 CodexStyle 本身。CodexStyle 是独立的社区项目，与 OpenAI 不存在隶属、认可或赞助关系。
 
@@ -94,7 +103,7 @@ CodexStyle 不会主动读取或持久保存 Codex 对话内容。本地进程�
 
 ## 网络行为
 
-主题编辑、预览、导入、导出和本地存储均不要求联网。CodexStyle 不会在后台轮询，也不会静默下载或安装更新。
+主题编辑、预览、导入、导出和本地存储均不要求联网。Windows 正式安装版可在启动后及持续运行期间定期执行仅包含版本元数据的更新检查，但不会静默下载或安装更新。
 
 只有用户明确点击**检查并更新**后，Windows 正式安装版才会访问固定的 CodexStyle GitHub Releases 地址。GitHub 可能依据其 [GitHub 隐私声明](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)接收 IP 地址、User-Agent 等常规请求元数据。CodexStyle 仅使用响应来检查、下载和验证应用更新，并在用户再次明确选择后执行安装。便携 ZIP 版本不执行应用内更新。
 
@@ -108,21 +117,30 @@ CodexStyle 不会主动读取或持久保存 Codex 对话内容。本地进程�
 
 本地 CDP 连接仅用于用户主动发起、由 CodexStyle 拥有并通过身份验证的会话。它只在运行时应用主题，不会把 CDP 流量、页面内容或对话内容上传给维护者、GitHub 或 SignPath。
 
+## 本地助手与 MCP 连接
+
+CodexStyle 可为可选的 CodexStyle Assistant 插件在随机的字面 `127.0.0.1` 端口提供带认证、带版本的 RPC。每次应用启动都会生成新的临时 bearer token，并通过 native secure-store 把端点描述保存到 `%LOCALAPPDATA%\CodexStyle\assistant\endpoint.json`；应用正常退出时删除该描述。token 不会显示给 renderer、通过 MCP 工具返回、写入诊断日志或发送到互联网。
+
+插件只能通过公开的本机工具读取有界主题元数据与颜色、校验完整配色、新建或更新独立草稿，以及在用户明确要求时选择已保存主题。它不会获得背景图片字节、原始 CSS、受管文件路径、端点凭据、Codex 对话内容或其他应用文件。插件不能覆盖已保存主题，也不开放保存、删除、导入、导出或启动 Codex 等 MCP 操作。
+
+用户点击 Studio 中的**安装 / 更新**属于明确的本机操作。CodexStyle 只用固定参数调用已安装的 Codex CLI，注册随包本地 marketplace 并安装固定的 `codexstyle-assistant@codexstyle` 插件；这会修改当前用户的 Codex 本地插件配置与缓存，但不会创建账号或上传主题数据。插件随包提供自己的 Node.js 运行时与许可证，不会从用户 `PATH` 选择任意运行时执行。
+
 ## Codex 安装与系统修改
 
 CodexStyle 不修改已安装的 Codex 应用、`WindowsApps`、`app.asar`、Codex 官方签名、Windows 访问控制列表或 Windows 执行策略，也不会附着到从 CodexStyle 外部启动的 Codex 会话。主题只会在运行时作用于由 CodexStyle 启动并验证通过的会话。
 
 ## 保留、删除与卸载
 
-本地数据会一直保留在设备上，直到用户在 CodexStyle 中删除单个主题，或主动删除本地数据目录。卸载 NSIS 正式安装版会移除已安装的程序文件，但会有意保留 `%LOCALAPPDATA%\CodexStyle`，使主题和设置可以跨升级或重装继续使用。删除便携版程序文件也不会移除这份受管数据。
+本地数据会一直保留在设备上，直到用户在 CodexStyle 中删除单个主题，或主动删除本地数据目录。卸载 NSIS 正式安装版会移除已安装的程序文件，但会有意保留 `%LOCALAPPDATA%\CodexStyle`，使主题和设置可以跨升级或重装继续使用。删除便携版程序文件也不会移除这份受管数据。可选的 CodexStyle Assistant 安装在 Codex 自己的插件配置与缓存中；卸载 CodexStyle 不会自动删除这条独立插件记录。
 
 如需彻底移除 CodexStyle 数据：
 
 1. 先导出希望保留的主题。
 2. 从系统托盘彻底退出 CodexStyle。
-3. 根据所用版本卸载或删除应用程序文件。
-4. 手动删除 `%LOCALAPPDATA%\CodexStyle`。
-5. 如需立即清除诊断日志，而不等待自动过期，请再删除 CodexStyle 的 Electron `userData/logs` 目录。
+3. 如已安装 CodexStyle Assistant，请先在 Codex 插件设置中移除它。
+4. 根据所用版本卸载或删除应用程序文件。
+5. 手动删除 `%LOCALAPPDATA%\CodexStyle`。
+6. 如需立即清除诊断日志，而不等待自动过期，请再删除 CodexStyle 的 Electron `userData/logs` 目录。
 
 删除该目录会永久移除本地主题、素材、偏好和受管状态。CodexStyle 不保留可用于恢复的云端副本。
 

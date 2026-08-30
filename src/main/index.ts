@@ -1,4 +1,4 @@
-import { app, dialog, protocol } from "electron";
+import { app, dialog, nativeTheme, protocol } from "electron";
 import { join } from "node:path";
 import { AppController } from "./app/controller";
 import { createMainLogger } from "./infra/main-logger";
@@ -9,6 +9,7 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
+  nativeTheme.themeSource = "dark";
   if (process.platform === "win32") {
     protocol.registerSchemesAsPrivileged([
       {

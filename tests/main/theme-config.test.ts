@@ -8,6 +8,7 @@ import {
   isCompleteThemeStyleConfig,
   isCompleteThemeHomeCards,
   isCompatibleThemeColors,
+  isThemeColor,
   readThemeConfiguration,
   themeTokenDeclarations,
   type ThemeShadow,
@@ -15,6 +16,13 @@ import {
 import { validateSafeCss } from "../../src/main/infra/safe-css";
 
 describe("structured theme configuration", () => {
+  it("rejects functional color channels outside the browser range", () => {
+    expect(isThemeColor("rgb(255, 0, 128)")).toBe(true);
+    expect(isThemeColor("rgba(0, 255, 128, 0.2)")).toBe(true);
+    expect(isThemeColor("rgb(256, 0, 0)")).toBe(false);
+    expect(isThemeColor("rgba(0, 999, 0, 0.2)")).toBe(false);
+  });
+
   it("generates non-empty Safe CSS across every bounded surface extreme", () => {
     const shadows: ThemeShadow[] = ["none", "soft", "strong"];
     for (const shadow of shadows) {
@@ -66,6 +74,7 @@ describe("structured theme configuration", () => {
     expect(legacy.colors.userMessageText).toBe(
       DEFAULT_THEME_COLORS.userMessageText,
     );
+    expect(legacy.colors.composerText).toBe(DEFAULT_THEME_COLORS.composerText);
     expect(legacy.colors.changeCardBackground).toBe(
       DEFAULT_THEME_COLORS.changeCardBackground,
     );
@@ -81,6 +90,10 @@ describe("structured theme configuration", () => {
     );
     expect(legacy.colors.topBarBackground).toBe("rgba(0, 0, 0, 0)");
     expect(legacy.colors.topBarText).toBe(DEFAULT_THEME_COLORS.topBarText);
+    expect(legacy.colors.accentText).toBe(DEFAULT_THEME_COLORS.accentText);
+    expect(legacy.colors.selectionText).toBe(
+      DEFAULT_THEME_COLORS.selectionText,
+    );
     expect(legacy.homeCards).toEqual(DEFAULT_THEME_HOME_CARDS);
 
     const {
@@ -90,6 +103,7 @@ describe("structured theme configuration", () => {
       homeTitleText: _homeTitleText,
       homeCardBackground: _homeCardBackground,
       homeCardText: _homeCardText,
+      composerText: _composerText,
       assistantPanel: _assistantPanel,
       assistantMessageText: _assistantMessageText,
       userMessageText: _userMessageText,
@@ -100,6 +114,8 @@ describe("structured theme configuration", () => {
       activityMuted: _activityMuted,
       topBarBackground: _topBarBackground,
       topBarText: _topBarText,
+      accentText: _accentText,
+      selectionText: _selectionText,
       ...legacyColors
     } = DEFAULT_THEME_COLORS;
     expect(isCompatibleThemeColors(legacyColors)).toBe(true);
@@ -122,6 +138,24 @@ describe("structured theme configuration", () => {
         userMessageText: "not-a-color",
       }),
     ).toBe(false);
+    expect(
+      isCompatibleThemeColors({
+        ...legacyColors,
+        composerText: "not-a-color",
+      }),
+    ).toBe(false);
+    expect(
+      isCompatibleThemeColors({
+        ...legacyColors,
+        accentText: "not-a-color",
+      }),
+    ).toBe(false);
+    expect(
+      isCompatibleThemeColors({
+        ...legacyColors,
+        selectionText: "not-a-color",
+      }),
+    ).toBe(false);
 
     const normalizedCurrentTheme = readThemeConfiguration({
       colors: {
@@ -135,6 +169,13 @@ describe("structured theme configuration", () => {
     });
     expect(normalizedCurrentTheme.colors.assistantMessageText).toBe("#123456");
     expect(normalizedCurrentTheme.colors.userMessageText).toBe("#123456");
+    expect(normalizedCurrentTheme.colors.composerText).toBe("#123456");
+    expect(normalizedCurrentTheme.colors.accentText).toBe(
+      legacyColors.background,
+    );
+    expect(normalizedCurrentTheme.colors.selectionText).toBe(
+      legacyColors.background,
+    );
     expect(normalizedCurrentTheme.colors.changeCardBackground).toBe("#445566");
     expect(normalizedCurrentTheme.colors.changeCardText).toBe("#123456");
     expect(normalizedCurrentTheme.colors.threadTabBackground).toBe(
@@ -179,6 +220,9 @@ describe("structured theme configuration", () => {
     expect(tokens.get("--ds-theme-color-thread-tab-text")).toBe(
       "rgba(255, 255, 255, .498)",
     );
+    expect(tokens.get("--ds-theme-color-composer-text")).toBe("#ffffff");
+    expect(tokens.get("--ds-theme-color-accent-text")).toBe("#181818");
+    expect(tokens.get("--ds-theme-color-selection-text")).toBe("#181818");
     expect(tokens.get("--ds-theme-color-home-title-text")).toBe("#ffffff");
     expect(tokens.get("--ds-theme-color-home-card-background")).toBe("#2d2d2d");
     expect(tokens.get("--ds-theme-color-home-card-text")).toBe("#ffffff");

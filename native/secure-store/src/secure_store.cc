@@ -315,7 +315,8 @@ void DeleteByHandle(HANDLE file) {
 bool IsAllowedDirectory(const std::string& directory) {
   return directory == "state" || directory == "themes" ||
          directory == "transactions" || directory == "lock" ||
-         directory == "ownership" || directory == "logs";
+         directory == "ownership" || directory == "assistant" ||
+         directory == "logs";
 }
 
 bool IsHex(wchar_t value) {
@@ -355,6 +356,7 @@ void ValidateManagedFile(const std::string& directory,
        (file_name == L"index.journal" || file_name == L"index.backup")) ||
       (directory == "lock" && file_name == L"store.lock") ||
       (directory == "ownership" && file_name == L"owned-session.json") ||
+      (directory == "assistant" && file_name == L"endpoint.json") ||
       (directory == "themes" && IsThemeFile(file_name));
   if (!valid) Tampered("managed-path");
 }
@@ -394,7 +396,7 @@ class SecureStore final {
   void EnsureLayout() {
     EnsureOpen();
     for (const wchar_t* name : {L"state", L"themes", L"transactions", L"lock",
-                                L"logs", L"ownership"}) {
+                                L"logs", L"ownership", L"assistant"}) {
       HANDLE directory = OpenRelativeDirectory(root_, name, true);
       CloseHandleSafely(directory);
     }
