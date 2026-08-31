@@ -1210,6 +1210,10 @@ input.opacity-range {
 .range-field {
   margin-bottom: 12px;
 }
+.range-field.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 .color-panel-toolbar {
   display: flex;
   align-items: center;
@@ -1965,15 +1969,12 @@ input.opacity-range {
   color: var(--preview-sidebar-text, #dce6f6);
 }
 .mock-codex[data-background-scope="window"] .mock-sidebar {
-  background: color-mix(
-    in srgb,
-    var(--preview-panel, #111a2d) var(--preview-sidebar-opacity, 75%),
-    transparent
-  );
-  background: rgb(
-    from var(--preview-panel, #111a2d) r g b /
-      var(--preview-sidebar-opacity, 75%)
-  );
+  background:
+    linear-gradient(
+      rgb(15 23 42 / var(--preview-sidebar-opacity, 75%)),
+      rgb(15 23 42 / var(--preview-sidebar-opacity, 75%))
+    ),
+    var(--preview-panel, #111a2d);
 }
 .mock-sidebar-head {
   height: 25px;

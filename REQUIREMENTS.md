@@ -30,11 +30,12 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 每个主题还包含以下展示配置，并由 Studio 预览、真实 Codex 注入和简化 ZIP 共用：
 
 - `backgroundScope` 只能为 `"content"`（仅内容区）或 `"window"`（全窗口）。
-- `sidebarOverlayOpacity` 是 `0` 到 `100` 的整数，表示全窗口模式下左侧栏深色遮罩的不透明度；遮罩色固定为 `rgb(15 23 42)`，确保 Studio 与真实注入结果可复现。仅内容区模式保留主题 CSS 原有的侧栏背景。
+- `sidebarOverlayOpacity` 是 `0` 到 `100` 的整数，表示全窗口模式下左侧栏固定深色遮罩层的强度；`colors.panel` 保持为独立底色且保留自身 alpha，两层共同合成，任一透明度调整都必须可见。Studio 与真实注入使用同一双层 `background`，并同时覆盖宿主侧栏本体及其继承背景的 `::after`。仅内容区模式直接使用 panel 原值，不消费遮罩值，Studio 必须禁用控件并解释原因。
 - 旧的内部主题或 ZIP 缺少上述字段时按 `backgroundScope: "window"`、`sidebarOverlayOpacity: 75` 读取；新建、编辑和简化导出必须显式写入这两个字段。
 - 修改任一展示配置都按普通主题编辑处理：递增 revision、退回 draft、使正式导入项变为已编辑并只能导出简化 ZIP。
 - `appearance` 只能为 `auto | light | dark`。`art` 包含 `focusX/focusY`（`0..1`）、`safeArea`（`none | left | right`）和 `taskMode`（`ambient | full | off`）。背景焦点必须立即改变预览与真实注入的图片定位。
 - `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前可选扩展为 `sidebarText/assistantPanel/assistantMessageText/userMessageText/composerText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted/accentText/selectionText`。main 读取旧主题时必须补全缺失扩展：消息、输入与首页主要文字继承正文色，文件变更与首页卡片背景继承次级面板色，顶部栏及命令/思考次要文字继承说明文字，会话标题优先继承顶部栏颜色，发送图标与选区文字兼容旧页面背景前景；再将规范化后的二十九色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
+- 文件变更卡只允许外层卡片绘制一次 `changeCardBackground`；宿主的列表 surface、文件行、展开/收起操作及内嵌 diff surface 必须透明继承，避免半透明颜色重复合成。`changeCardText` 覆盖标题、普通操作和文件路径，新增/删除数量继续保留宿主的绿/红状态色。
 - `homeCards` 固定为四项，每项包含安全 `color` 与 `mode: color | image`；图片模式还必须包含主进程生成、单项不超过 48 KiB 的 WebP Data URL。四张卡片可独立配置，旧主题缺少该字段时按既有 `colors.homeCardBackground` 生成四张纯色卡片。renderer 不接收源图片路径或原始字节；选择图片只能经版本化 IPC 由 main 有界读取、解码、裁切并压缩，之后按普通主题编辑递增 revision。
 - `style` 包含 `mode`、四个配方开关和受限表面参数。`mode: "configured"` 时，sidebar、composer、message、dialog 配方以及 blur、radius、borderWidth、shadow 由结构化配置确定，并通过唯一共享生成器产生非空 `theme.css`；用户无需手改 CSS。`mode: "advanced"` 时保留既有 Safe CSS 源码编辑和验证能力。
 - 新主题默认使用配置模式；旧内部主题和未声明 `style` 的导入包按高级模式读取，禁止迁移时覆盖原 CSS。两种模式都必须在 commit、导出、选择和注入前通过相同 Safe CSS 校验。
@@ -153,3 +154,4 @@ preload 暴露版本化强类型方法：snapshot、固定助手插件安装、�
 33. 桌面端左侧主题库必须限制在当前可用视口内，标题、新建/导入、名称搜索和底部统计固定，仅主题列表纵向滚动；100 个及以上主题不得拉长整页。搜索即时、忽略大小写与全半角差异，显示“匹配数/总数”，提供清空和无结果反馈，且不得修改主题顺序、总数、ready 计数、当前编辑项或下次启动选择。单击、双击、图片缩略图、颜色回退和图片失败回退行为保持；760px 以下恢复自动高度与横向列表。
 34. v8 增量包必须与根 v7 并存加载；全新存储首次启动得到 2 个基础主题、25 个 v7 图片主题和 10 个 v8 图片主题，共 37 个 ready 主题。已有 v7 安装只追加尚未安装的 v8 包，旧 pack 标记、现有 revision、checkpoint、选择项与 last-known-good 保持；用户此前删除的 v7 主题不得因 v8 出现而复活，v8 安装并记录 pack 后用户删除的 v8 主题也不得在后续启动重新出现。验收必须证明根 `catalog.json` 与 25 张 v7 资产保持不变，v8 catalog 严格 schema、10 个新 ID/图片名/格式/尺寸/SHA-256、`introducedThemeIds`、20% 页面/panel/line、20% 侧栏遮罩、图片平均色合成后的正文/输入/操作/选区 WCAG 对比度、二次启动幂等、失败全回滚和安装包内 v7 + v8 两套目录均正确；`verify:package` 还必须核对 v8 的 10 张图片与 `SOURCES.md` 授权记录。
 35. selector profile `/12` 必须覆盖插件与技能浏览页共用的 sticky 搜索 rail。只允许通过当前页面语义锚点 `input#plugins-page-search` 与同时具备 `sticky`、`bg-surface` 的祖先容器进行版本化匹配；rail 实色和其 `::after` 底部渐变都消费主题 `background`，SPA 后挂载仍须自动映射。禁止全局覆盖 Codex 的 `--color-surface`，不得借此影响对话框、卡片、按钮或普通输入表面。
+36. selector profile `/13` 必须让助手标准 Markdown 在流式生成阶段和完成阶段使用同一 `assistantMessageText`。完成态继续覆盖 `h1..h6`、段落、列表、引用、强调与表格普通文字；流式态只补这些语义节点的直接 `_FadeIn_` 文本 span。任何包含链接、`code`、`pre` 或 `[data-markdown-copy="inline-code"]` 的流式包装节点必须排除，禁止设置可继承的 `-webkit-text-fill-color`，不得抹平链接、行内代码或代码块原生颜色。

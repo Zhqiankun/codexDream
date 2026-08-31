@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.13` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.14` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.13-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.13-x64.zip` — portable archive.
+- `CodexStyle-1.3.14-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.14-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.13` adds a separate v8 pack of ten individually tuned image themes distributed with maintainer-confirmed permission, bringing a clean installation to 37 themes. Existing v7 libraries receive the additions once, and deleted v7/v8 presets remain deleted. It also moves the verified Store Codex selector profile to `/12` and removes the white Plugins/Skills search rail and fade without changing global surfaces. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so `/12` takes effect.
+`v1.3.14` fixes standard assistant Markdown text while responses stream, restores effective left-sidebar panel transparency, and makes file-change card backgrounds, actions, and paths follow their configured colors without flattening alpha. Links, code, syntax colors, and addition/deletion status colors remain native. The verified Store Codex selector profile is now `/13`. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so `/13` takes effect.
 
 ## Requirements
 

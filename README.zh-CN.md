@@ -61,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.13`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.14`：
 
-- `CodexStyle-1.3.13-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.13-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.14-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.14-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.13` 通过独立 v8 增量包新增 10 套经维护者确认可随包再分发、逐图独立调校的图片主题，全新安装现共有 37 套主题。已有 v7 主题库只追加一次，用户删除的 v7/v8 预设不会复活。同时将已核对的 Store Codex selector profile 升级至 `/12`，修复插件/技能页白色搜索条与渐隐，且不修改全局 surface。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留；升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让 `/12` 生效。
+`v1.3.14` 修复助手标准 Markdown 流式文字、左侧栏面板透明度，以及文件变更卡背景、操作和路径文字未按配置生效的问题；链接、代码、语法高亮和新增/删除状态色继续保留原生颜色。已核对的 Store Codex selector profile 升级至 `/13`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留；升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让 `/13` 生效。
 
 ## 运行要求
 

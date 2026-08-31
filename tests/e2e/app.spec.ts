@@ -227,6 +227,10 @@ test("starts the real Electron shell with native storage and completes a local w
           ),
           main: style(".mock-main").backgroundColor,
           sidebar: style(".mock-sidebar").backgroundColor,
+          sidebarOverlay:
+            style(".mock-sidebar").backgroundImage.startsWith(
+              "linear-gradient(",
+            ),
           dialog: style(".mock-dialog").backgroundColor,
           line: style(".mock-dialog").borderTopColor,
         };
@@ -234,7 +238,8 @@ test("starts the real Electron shell with native storage and completes a local w
     expect(presetSurfaces).toEqual({
       relativeColorSupported: true,
       main: "rgba(111, 18, 13, 0.2)",
-      sidebar: "color(srgb 0.32549 0.0392157 0.0313726 / 0.2)",
+      sidebar: "rgba(83, 10, 8, 0.2)",
+      sidebarOverlay: true,
       dialog: "rgba(83, 10, 8, 0.2)",
       line: "rgba(255, 212, 59, 0.2)",
     });

@@ -19,6 +19,7 @@ describe("renderer styles", () => {
     expect(css).toContain('data-preview-color-target="assistantMessageText"');
     expect(css).toContain("--preview-change-card-background");
     expect(css).toContain("--preview-change-card-text");
+    expect(css).not.toContain("rgb(\n    from var(--preview-panel");
     expect(css).toContain('data-preview-color-target="changeCardBackground"');
     expect(css).toContain('data-preview-color-target="changeCardText"');
     expect(css).toContain('data-preview-color-target="accentText"');

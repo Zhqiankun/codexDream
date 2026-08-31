@@ -11,8 +11,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  generateConfiguredCss,
   PatchDraftSchema,
   PROTOCOL_VERSION,
+  THEME_COLOR_KEYS,
   type CodexStyleApi,
   type ImportResult,
   type Result,
@@ -20,6 +22,11 @@ import {
   type ThemeSnapshot,
 } from "../../src/contracts";
 import { App } from "../../src/renderer/app/App";
+import {
+  HIGH_CONTRAST_BACKGROUND_SCOPE,
+  HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY,
+  HIGH_CONTRAST_THEME,
+} from "../fixtures/high-contrast-theme";
 
 const theme: ThemeDetail = {
   libraryId: "11111111-1111-4111-8111-111111111111",
@@ -929,8 +936,17 @@ describe("Studio renderer", () => {
     expect(
       document.querySelector(".mock-main > .mock-background"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText("仅内容区不使用左侧栏遮罩；切换到全窗口后可调整。"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "全窗口" }));
+    expect(
+      screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
+    ).toBeEnabled();
     fireEvent.change(
       screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
       { target: { value: "35" } },
@@ -1153,6 +1169,69 @@ describe("Studio renderer", () => {
         }),
       }),
     );
+  });
+
+  it("round-trips every high-contrast acceptance setting through Studio save", async () => {
+    const api = makeApi();
+    const acceptanceTheme: ThemeDetail = {
+      ...theme,
+      ...HIGH_CONTRAST_THEME,
+      colors: { ...HIGH_CONTRAST_THEME.colors },
+      homeCards: HIGH_CONTRAST_THEME.homeCards.map((card) => ({
+        ...card,
+      })) as ThemeDetail["homeCards"],
+      styleConfig: {
+        ...HIGH_CONTRAST_THEME.styleConfig,
+        recipes: { ...HIGH_CONTRAST_THEME.styleConfig.recipes },
+      },
+      css: generateConfiguredCss(HIGH_CONTRAST_THEME.styleConfig),
+      backgroundScope: HIGH_CONTRAST_BACKGROUND_SCOPE,
+      sidebarOverlayOpacity: HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY - 1,
+    };
+    api.getTheme.mockResolvedValue({ ok: true, data: acceptanceTheme });
+    api.patchDraft.mockResolvedValue({
+      ok: true,
+      data: { ...acceptanceTheme, revision: acceptanceTheme.revision + 1 },
+    });
+    window.codexStyle = api;
+
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    const preview = document.querySelector(".mock-codex") as HTMLElement;
+    for (const key of THEME_COLOR_KEYS) {
+      const suffix = key.replace(
+        /[A-Z]/gu,
+        (character) => `-${character.toLowerCase()}`,
+      );
+      expect(preview.style.getPropertyValue(`--preview-${suffix}`)).toBe(
+        HIGH_CONTRAST_THEME.colors[key],
+      );
+      expect(preview.style.getPropertyValue(`--ds-theme-color-${suffix}`)).toBe(
+        HIGH_CONTRAST_THEME.colors[key],
+      );
+    }
+
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
+    fireEvent.change(
+      screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
+      { target: { value: String(HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY) } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
+
+    await waitFor(() => expect(api.patchDraft).toHaveBeenCalledOnce());
+    const request = api.patchDraft.mock.calls[0][0];
+    expect(request.patch).toMatchObject({
+      appearance: HIGH_CONTRAST_THEME.appearance,
+      art: HIGH_CONTRAST_THEME.art,
+      colors: HIGH_CONTRAST_THEME.colors,
+      homeCards: HIGH_CONTRAST_THEME.homeCards,
+      styleConfig: HIGH_CONTRAST_THEME.styleConfig,
+      backgroundScope: HIGH_CONTRAST_BACKGROUND_SCOPE,
+      sidebarOverlayOpacity: HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY,
+    });
+    expect(
+      PatchDraftSchema.safeParse({ v: PROTOCOL_VERSION, ...request }).success,
+    ).toBe(true);
   });
 
   it("groups color controls by visible area and locates them in the preview", async () => {

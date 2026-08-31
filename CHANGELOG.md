@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.3.14 — 2026-08-31
+
+### English
+
+- Fixed standard assistant Markdown text becoming unreadable while a response is streaming. Animated `_FadeIn_` text inside headings, paragraphs, lists, blockquotes, emphasis, and tables now follows the configured assistant-reply text color; completed Markdown behavior remains unchanged.
+- Kept links, inline code, fenced code blocks, and streaming wrappers that contain those native elements out of the ordinary-text override. The bridge changes only `color` and does not set inherited text-fill properties, preserving native link and syntax colors.
+- Fixed left-sidebar transparency so the panel color's own alpha and the full-window overlay strength both take effect. The same background now covers Codex's inherited `::after` layer; the overlay control is disabled with an explanation in content-only mode.
+- Fixed file-change card colors in current Store Codex. Nested list surfaces, file rows, expand/collapse controls, and embedded diff surfaces no longer cover the configured background, while headings, actions, and file paths follow the configured text color. Addition and deletion counts keep their native status colors.
+- Added a reusable high-contrast acceptance theme that exercises all 29 colors, four home cards, artwork settings, component recipes, transparency, Studio save, secure-store reload, and runtime tokens.
+- Advanced the verified Store Codex selector profile to `/13`. Release-candidate verification passed 234 main-process, 59 renderer, 7 integration, and 1 real Electron E2E tests, together with formatting, lint, type, architecture, an exact Node.js 22.22.0 production build, Windows x64 packaging, and package verification.
+
+> v1.3.14 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. After upgrading, end and relaunch the CodexStyle-managed Codex session so selector profile `/13` takes effect.
+
+### 简体中文
+
+- 修复助手标准 Markdown 在回答流式生成期间文字不可读的问题。标题、段落、列表、引用、强调与表格中的 `_FadeIn_` 动画文字现在使用“助手回复文字”颜色；完成态 Markdown 行为保持不变。
+- 链接、行内代码、代码块及承载这些原生节点的流式包装继续排除在普通文字覆盖之外。桥接只修改 `color`，不设置可继承的 text-fill 属性，保留链接和语法高亮原生颜色。
+- 修复左侧栏透明度：面板颜色自身 alpha 与全窗口遮罩强度现在都会生效，并同构覆盖 Codex 继承背景的 `::after`；仅内容区模式会禁用遮罩控件并说明原因。
+- 修复当前 Store Codex 的文件变更卡配色。列表 surface、文件行、展开/收起操作及内嵌 diff surface 不再遮住配置背景，标题、操作与文件路径使用“文件变更文字”，新增/删除数量继续保留状态色。
+- 新增可复用的高对比验收主题，覆盖全部 29 色、四张首页卡片、画面参数、组件配方、透明度、Studio 保存、secure-store 重载与 runtime token。
+- 将已核对的 Store Codex selector profile 升级至 `/13`。发布候选已通过 234 项主进程、59 项 renderer、7 项集成及 1 项真实 Electron E2E 测试，并通过格式、lint、类型、架构、精确 Node.js 22.22.0 生产构建、Windows x64 打包和包校验。
+
+> SignPath Foundation 申请仍在审核，v1.3.14 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让 selector profile `/13` 生效。
+
 ## v1.3.13 — 2026-08-31
 
 ### English

@@ -2,8 +2,13 @@
 // @vitest-environment-options {"url":"app://codex/"}
 
 import { describe, expect, it } from "vitest";
-import { readThemeConfiguration } from "../../src/contracts";
+import { readThemeConfiguration, THEME_COLOR_KEYS } from "../../src/contracts";
 import { buildThemePayload } from "../../src/main/session/theme-payload";
+import {
+  HIGH_CONTRAST_BACKGROUND_SCOPE,
+  HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY,
+  HIGH_CONTRAST_THEME,
+} from "../fixtures/high-contrast-theme";
 
 const defaultConfiguration = readThemeConfiguration({});
 
@@ -143,7 +148,7 @@ describe("theme payload", () => {
         "background-attachment: fixed !important",
       );
       expect(style?.textContent).toContain(
-        "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 75%, transparent) !important",
+        "background: linear-gradient(rgb(15 23 42 / 75%), rgb(15 23 42 / 75%)), var(--ds-theme-color-panel) !important",
       );
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-sidebar-text) !important",
@@ -265,7 +270,7 @@ describe("theme payload", () => {
       `[data-ds-part="main"][data-codexstyle-owner="${marker}"]`,
     );
     expect(style?.textContent).not.toContain(
-      "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 30%, transparent)",
+      "linear-gradient(rgb(15 23 42 / 30%)",
     );
     expect(style?.textContent).not.toContain(
       "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent)",
@@ -364,11 +369,12 @@ describe("theme payload", () => {
     const style = document.querySelector(
       `style[data-codexstyle-owner="${marker}"]`,
     );
+    const sidebarSelector = `[data-ds-part="sidebar"][data-codexstyle-owner="${marker}"]`;
     expect(style?.textContent).toContain(
-      "background-color: color-mix(in srgb, var(--ds-theme-color-panel) 42%, transparent) !important",
+      `${sidebarSelector}, ${sidebarSelector}::after { background: linear-gradient(rgb(15 23 42 / 42%), rgb(15 23 42 / 42%)), var(--ds-theme-color-panel) !important; }`,
     );
-    expect(style?.textContent).toContain(
-      "background-color: rgb(from var(--ds-theme-color-panel) r g b / 42%) !important",
+    expect(style?.textContent).not.toContain(
+      "rgb(from var(--ds-theme-color-panel)",
     );
     expect(style?.textContent).toContain(
       "background-color: var(--ds-theme-color-background) !important",
@@ -384,6 +390,46 @@ describe("theme payload", () => {
     expect(style?.textContent?.lastIndexOf("42%")).toBeGreaterThan(
       style?.textContent?.lastIndexOf("#fff") ?? -1,
     );
+  });
+
+  it("carries every high-contrast acceptance setting into the runtime payload", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...HIGH_CONTRAST_THEME,
+          backgroundScope: HIGH_CONTRAST_BACKGROUND_SCOPE,
+          sidebarOverlayOpacity: HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY,
+        },
+      ),
+    );
+
+    const root = document.documentElement;
+    const source =
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent ?? "";
+    for (const key of THEME_COLOR_KEYS) {
+      const property = `--ds-theme-color-${key.replace(
+        /[A-Z]/gu,
+        (character) => `-${character.toLowerCase()}`,
+      )}`;
+      expect(source).toContain(
+        `${property}: ${HIGH_CONTRAST_THEME.colors[key]};`,
+      );
+    }
+    expect(root.getAttribute("data-codexstyle-appearance")).toBe("dark");
+    expect(root.getAttribute("data-codexstyle-safe-area")).toBe("right");
+    expect(root.getAttribute("data-codexstyle-task-mode")).toBe("full");
+    expect(source).toContain("background-position: 17% 83%");
+    expect(source).toContain(
+      "linear-gradient(rgb(15 23 42 / 17%), rgb(15 23 42 / 17%)), var(--ds-theme-color-panel)",
+    );
+    expect(source).toContain("padding: 12px 16px");
+    expect(source).toContain("mask-image: url(");
   });
 
   it("places window artwork on the body canvas above its fallback color", () => {
@@ -584,6 +630,9 @@ describe("theme payload", () => {
       `${assistantSelector} :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) { color: var(--ds-theme-color-assistant-message-text) !important; }`,
     );
     expect(source).toContain(
+      `${assistantSelector} :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) > span[class*="_FadeIn_"]:not(:has(a, code, pre, [data-markdown-copy="inline-code"])) { color: var(--ds-theme-color-assistant-message-text) !important; }`,
+    );
+    expect(source).toContain(
       `${userSelector} { color: var(--ds-theme-color-user-message-text) !important; }`,
     );
     expect(source).not.toContain(
@@ -598,6 +647,85 @@ describe("theme payload", () => {
     expect(source).not.toContain(`${assistantSelector} :where(span,`);
   });
 
+  it("recolors streamed ordinary Markdown spans without overriding native content colors", () => {
+    resetDocument();
+    document.querySelector('[data-testid="home-icon"]')?.remove();
+    const assistantMessage = document.querySelector(
+      '[data-markdown-text-style="assistant-message"]',
+    );
+    assistantMessage?.insertAdjacentHTML(
+      "beforeend",
+      '<h2><span class="_FadeIn_fixture codex-native-white" data-testid="heading-copy">确认如下：</span></h2><ul><li><span class="_FadeIn_fixture codex-native-white" data-testid="list-item-copy">普通列表项</span><p><span class="_FadeIn_fixture codex-native-white" data-testid="list-paragraph-copy">列表段落与</span> <span class="_FadeIn_fixture codex-native-white" data-testid="inline-code-wrapper"><code data-markdown-copy="inline-code"><span class="codex-native-inline-code" data-testid="inline-code-copy">customer_code</span></code></span></p></li></ul><p><span class="_FadeIn_fixture codex-native-white" data-testid="trailing-copy">末尾普通文字</span> <span class="_FadeIn_fixture codex-native-white" data-testid="link-wrapper"><a href="https://example.com"><span class="codex-native-link" data-testid="link-copy">原生链接</span></a></span></p><pre><code><span class="codex-native-pre-code" data-testid="pre-code-copy">const visible = true;</span></code></pre>',
+    );
+    const nativeMarkdownStyle = document.createElement("style");
+    nativeMarkdownStyle.textContent = `
+      .codex-native-white { color: rgb(255, 255, 255) !important; }
+      .codex-native-inline-code { color: rgb(97, 175, 239) !important; }
+      .codex-native-link { color: rgb(74, 144, 226) !important; }
+      .codex-native-pre-code { color: rgb(152, 195, 121) !important; }
+    `;
+    document.head.append(nativeMarkdownStyle);
+
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+          colors: {
+            ...defaultConfiguration.colors,
+            assistantMessageText: "#292c31",
+          },
+        },
+      ),
+    );
+
+    const assistantText = "var(--ds-theme-color-assistant-message-text)";
+    expect(
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--ds-theme-color-assistant-message-text")
+        .trim(),
+    ).toBe("#292c31");
+    for (const testId of [
+      "heading-copy",
+      "list-item-copy",
+      "list-paragraph-copy",
+      "trailing-copy",
+    ]) {
+      expect(
+        getComputedStyle(document.querySelector(`[data-testid="${testId}"]`)!)
+          .color,
+      ).toBe(assistantText);
+    }
+
+    expect(
+      getComputedStyle(
+        document.querySelector('[data-testid="inline-code-copy"]')!,
+      ).color,
+    ).toBe("rgb(97, 175, 239)");
+    expect(
+      getComputedStyle(
+        document.querySelector('[data-testid="inline-code-wrapper"]')!,
+      ).color,
+    ).toBe("rgb(255, 255, 255)");
+    expect(
+      getComputedStyle(document.querySelector('[data-testid="link-copy"]')!)
+        .color,
+    ).toBe("rgb(74, 144, 226)");
+    expect(
+      getComputedStyle(document.querySelector('[data-testid="link-wrapper"]')!)
+        .color,
+    ).toBe("rgb(255, 255, 255)");
+    expect(
+      getComputedStyle(document.querySelector('[data-testid="pre-code-copy"]')!)
+        .color,
+    ).toBe("rgb(152, 195, 121)");
+  });
+
   it("styles change cards without overriding addition and deletion colors", () => {
     resetDocument();
     const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
@@ -606,6 +734,10 @@ describe("theme payload", () => {
     // :has(), so selector-profile.test.ts owns that exact selector contract.
     card?.setAttribute("data-ds-part", "change-card");
     card?.setAttribute("data-codexstyle-owner", marker);
+    card?.insertAdjacentHTML(
+      "beforeend",
+      '<div class="[--codex-diffs-surface-override:color-mix(in_srgb,var(--color-codex-diff-surface)_70%,transparent)]" data-testid="change-list"><div class="group/turn-diff-file-row"><button class="bg-surface/70" data-testid="change-row"><span class="text-codex-description" data-testid="change-path">src/main/session/theme-payload.ts</span><span class="text-codex-git-added" data-testid="change-added">+4</span><span class="text-codex-git-deleted" data-testid="change-deleted">-1</span></button></div><button data-testid="change-list-action"><span class="text-secondary">再显示 3 个文件</span></button><div class="group/file-diff" data-testid="change-inline-diff"></div></div>',
+    );
     window.eval(
       buildThemePayload(
         marker,
@@ -619,13 +751,24 @@ describe("theme payload", () => {
         ?.textContent ?? "";
     const cardSelector = `[data-ds-part="change-card"][data-codexstyle-owner="${marker}"]`;
     const ordinaryTextSelector =
-      ':where([class~="text-default"], [class~="text-secondary"]):not(button *)';
+      ':where([class~="text-default"], [class~="text-secondary"], [class~="text-codex-description"], [class*="text-codex-description/"]):not([class~="text-codex-git-added"]):not([class~="text-codex-git-deleted"])';
     const primaryActionSelector =
       '[class~="group/turn-diff-header"] button:is([class~="bg-primary-solid"], [class~="bg-primary-soft-alpha"], [data-variant="primary"])';
+    const listSelector = '> [class*="--codex-diffs-surface-override"]';
+    const rowButtonSelector = '[class~="group/turn-diff-file-row"] button';
 
     expect(card?.getAttribute("data-ds-part")).toBe("change-card");
     expect(source).toContain(
-      `${cardSelector} { --codex-diffs-surface-override: var(--ds-theme-color-change-card-background) !important; background-color: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }`,
+      `${cardSelector} { --codex-diffs-surface-override: transparent !important; --codex-diffs-surface: transparent !important; --codex-diffs-header-surface: transparent !important; background: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }`,
+    );
+    expect(source).toContain(
+      `${cardSelector} ${listSelector} { --codex-diffs-surface-override: transparent !important; --codex-diffs-surface: transparent !important; --codex-diffs-header-surface: transparent !important; background: transparent !important; }`,
+    );
+    expect(source).toContain(
+      `${cardSelector} ${rowButtonSelector}, ${cardSelector} ${listSelector} > button { background-color: transparent !important; color: var(--ds-theme-color-change-card-text) !important; }`,
+    );
+    expect(source).toContain(
+      `${cardSelector} [class~="group/file-diff"] { background-color: transparent !important; }`,
     );
     expect(source).toContain(
       `${cardSelector} ${ordinaryTextSelector} { color: var(--ds-theme-color-change-card-text) !important; }`,
@@ -635,9 +778,6 @@ describe("theme payload", () => {
     );
     expect(source).toContain(
       `${cardSelector} ${primaryActionSelector} :where(span, svg, [class*="text-"]) { color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }`,
-    );
-    expect(source).not.toContain(
-      `${cardSelector} :where(button, [class~="text-default"], [class~="text-secondary"])`,
     );
     expect(source).toContain("--ds-theme-color-change-card-background:");
     expect(source).toContain("--ds-theme-color-change-card-text:");
@@ -655,10 +795,30 @@ describe("theme payload", () => {
         ?.matches(primaryActionSelector),
     ).toBe(true);
     expect(
+      card
+        ?.querySelector('[data-testid="change-path"]')
+        ?.matches(ordinaryTextSelector),
+    ).toBe(true);
+    expect(
+      card
+        ?.querySelector('[data-testid="change-row"]')
+        ?.matches(rowButtonSelector),
+    ).toBe(true);
+    expect(
       card?.querySelector(".diff-added")?.matches(ordinaryTextSelector),
     ).toBe(false);
     expect(
       card?.querySelector(".diff-removed")?.matches(ordinaryTextSelector),
+    ).toBe(false);
+    expect(
+      card
+        ?.querySelector('[data-testid="change-added"]')
+        ?.matches(ordinaryTextSelector),
+    ).toBe(false);
+    expect(
+      card
+        ?.querySelector('[data-testid="change-deleted"]')
+        ?.matches(ordinaryTextSelector),
     ).toBe(false);
   });
 

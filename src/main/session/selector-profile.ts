@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/12" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/13" as const;
 
 export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
   'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"])' as const;

@@ -1,6 +1,7 @@
 import {
   DEFAULT_BACKGROUND_SCOPE,
   DEFAULT_SIDEBAR_OVERLAY_OPACITY,
+  SIDEBAR_OVERLAY_RGB,
   readThemeConfiguration,
   themeTokenDeclarations,
   builtInSendIconMask,
@@ -20,6 +21,7 @@ interface PayloadConfig {
   artDataUrl: string;
   backgroundScope: BackgroundScope;
   sidebarOverlayOpacity: number;
+  sidebarOverlayRgb: string;
   configuredRecipes?: ThemeConfiguration["styleConfig"]["recipes"];
   sendIcon: ThemeConfiguration["styleConfig"]["sendIcon"];
   sendIconDataUrl?: string;
@@ -56,6 +58,7 @@ export function buildThemePayload(
     artDataUrl,
     backgroundScope: settings.backgroundScope,
     sidebarOverlayOpacity: settings.sidebarOverlayOpacity,
+    sidebarOverlayRgb: SIDEBAR_OVERLAY_RGB,
     configuredRecipes:
       settings.styleConfig.mode === "configured"
         ? settings.styleConfig.recipes
@@ -176,12 +179,16 @@ export function buildThemePayload(
       const instantPluginSearchRailSelector = rootSelector + ' ' + config.pluginSearchRailSelector;
       const pluginSearchRailBridge = '\\n' + pluginSearchRailPartSelector + ', ' + instantPluginSearchRailSelector + ' { background-color: var(--ds-theme-color-background) !important; }' +
         '\\n' + pluginSearchRailPartSelector + '::after, ' + instantPluginSearchRailSelector + '::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }';
-      const sidebarFallbackColor = 'color-mix(in srgb, var(--ds-theme-color-panel) ' + config.sidebarOverlayOpacity + '%, transparent)';
-      const sidebarAbsoluteColor = 'rgb(from var(--ds-theme-color-panel) r g b / ' + config.sidebarOverlayOpacity + '%)';
+      // Keep the panel color's own alpha independent from the legacy overlay
+      // strength. The shorthand also clears native background layers, while the
+      // paired ::after rule prevents Codex's inherited edge surface from staying opaque.
+      const sidebarOverlayLayer = 'linear-gradient(rgb(' + config.sidebarOverlayRgb + ' / ' + config.sidebarOverlayOpacity + '%), rgb(' + config.sidebarOverlayRgb + ' / ' + config.sidebarOverlayOpacity + '%))';
+      const sidebarBackground = sidebarOverlayLayer + ', var(--ds-theme-color-panel)';
+      const sidebarSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
       const sidebarBridge = config.backgroundScope === "window"
-        ? '\\n[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"] { background-color: ' + sidebarFallbackColor + ' !important; background-color: ' + sidebarAbsoluteColor + ' !important; }'
+        ? '\\n' + sidebarSelector + ', ' + sidebarSelector + '::after { background: ' + sidebarBackground + ' !important; }'
         : "";
-      const sidebarTextSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
+      const sidebarTextSelector = sidebarSelector;
       const sidebarTextBridge = '\\n' + sidebarTextSelector + ' { color: var(--ds-theme-color-sidebar-text) !important; }' +
         '\\n' + sidebarTextSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [role="treeitem"], [class*="text-"]) { color: var(--ds-theme-color-sidebar-text) !important; }';
       const topBarSelector = ':is([data-ds-part="titlebar"], [data-ds-part="header"])[data-codexstyle-owner="' + config.marker + '"]';
@@ -207,14 +214,30 @@ export function buildThemePayload(
       const userMessageTextBridge = '\\n' + userMessageSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
         '\\n' + userMessageSelector + ' :where(a, code, em, p, span, strong) { color: var(--ds-theme-color-user-message-text) !important; }';
       const assistantMessageSelector = '[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="' + config.marker + '"]';
+      const assistantMessageOrdinaryTextSelector = assistantMessageSelector + ' :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th)';
+      const assistantMessageAnimatedTextSelector = assistantMessageOrdinaryTextSelector + ' > span[class*="_FadeIn_"]:not(:has(a, code, pre, [data-markdown-copy="inline-code"]))';
       const assistantMessageTextBridge = '\\n' + assistantMessageSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; }' +
-        '\\n' + assistantMessageSelector + ' :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) { color: var(--ds-theme-color-assistant-message-text) !important; }';
+        '\\n' + assistantMessageOrdinaryTextSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; }' +
+        '\\n' + assistantMessageAnimatedTextSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; }';
       const changeCardSelector = '[data-ds-part="change-card"][data-codexstyle-owner="' + config.marker + '"]';
-      const changeCardOrdinaryTextSelector = changeCardSelector + ' :where([class~="text-default"], [class~="text-secondary"]):not(button *)';
+      const changeCardListSelector = changeCardSelector + ' > [class*="--codex-diffs-surface-override"]';
+      const changeCardRowButtonSelector = changeCardSelector + ' [class~="group/turn-diff-file-row"] button';
+      const changeCardListActionSelector = changeCardListSelector + ' > button';
+      const changeCardDiffSelector = changeCardSelector + ' [class~="group/file-diff"]';
+      const changeCardOrdinaryTextSelector = changeCardSelector + ' :where([class~="text-default"], [class~="text-secondary"], [class~="text-codex-description"], [class*="text-codex-description/"]):not([class~="text-codex-git-added"]):not([class~="text-codex-git-deleted"])';
       const changeCardPrimaryActionSelector = changeCardSelector + ' [class~="group/turn-diff-header"] button:is([class~="bg-primary-solid"], [class~="bg-primary-soft-alpha"], [data-variant="primary"])';
       const changeCardPlainActionSelector = changeCardSelector + ' [class~="group/turn-diff-header"] button:not(:is([class~="bg-primary-solid"], [class~="bg-primary-soft-alpha"], [data-variant="primary"]))';
-      const changeCardBridge = '\\n' + changeCardSelector + ' { --codex-diffs-surface-override: var(--ds-theme-color-change-card-background) !important; background-color: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }' +
+      // The Store card's list, row buttons, and optional inline diff all paint
+      // their own surfaces. Make the owned root the only themed translucent layer
+      // so alpha is not compounded, while preserving semantic added/deleted colors.
+      const changeCardTransparentSurface = '--codex-diffs-surface-override: transparent !important; --codex-diffs-surface: transparent !important; --codex-diffs-header-surface: transparent !important;';
+      const changeCardBridge = '\\n' + changeCardSelector + ' { ' + changeCardTransparentSurface + ' background: var(--ds-theme-color-change-card-background) !important; color: var(--ds-theme-color-change-card-text) !important; }' +
+        '\\n' + changeCardListSelector + ' { ' + changeCardTransparentSurface + ' background: transparent !important; }' +
+        '\\n' + changeCardDiffSelector + ' { background-color: transparent !important; }' +
+        '\\n' + changeCardRowButtonSelector + ', ' + changeCardListActionSelector + ' { background-color: transparent !important; color: var(--ds-theme-color-change-card-text) !important; }' +
+        '\\n' + changeCardRowButtonSelector + ':hover, ' + changeCardListActionSelector + ':hover { background-color: color-mix(in srgb, var(--ds-theme-color-change-card-text) 8%, transparent) !important; }' +
         '\\n' + changeCardOrdinaryTextSelector + ' { color: var(--ds-theme-color-change-card-text) !important; }' +
+        '\\n' + changeCardListActionSelector + ' :where(span, svg, [class*="text-"]) { color: var(--ds-theme-color-change-card-text) !important; -webkit-text-fill-color: var(--ds-theme-color-change-card-text) !important; }' +
         '\\n' + changeCardPlainActionSelector + ', ' + changeCardPlainActionSelector + ' :where(span, svg, [class*="text-"]) { color: var(--ds-theme-color-change-card-text) !important; -webkit-text-fill-color: var(--ds-theme-color-change-card-text) !important; }' +
         '\\n' + changeCardPrimaryActionSelector + ' { background-color: var(--ds-theme-color-accent) !important; border-color: var(--ds-theme-color-accent-alt) !important; color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }' +
         '\\n' + changeCardPrimaryActionSelector + ' :where(span, svg, [class*="text-"]) { color: var(--ds-theme-color-accent-text) !important; -webkit-text-fill-color: var(--ds-theme-color-accent-text) !important; }' +

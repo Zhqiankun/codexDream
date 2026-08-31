@@ -23,6 +23,11 @@ import {
   DEFAULT_CONFIGURED_STYLE,
   readThemeConfiguration,
 } from "../../src/contracts";
+import {
+  HIGH_CONTRAST_BACKGROUND_SCOPE,
+  HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY,
+  HIGH_CONTRAST_THEME,
+} from "../fixtures/high-contrast-theme";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -155,6 +160,41 @@ describe("local theme store", () => {
     expect(reloaded.get(theme.libraryId)).toMatchObject({
       backgroundScope: "content",
       sidebarOverlayOpacity: 42,
+    });
+  });
+
+  it("round-trips every structured setting in the high-contrast acceptance theme", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const theme = store.listRecords()[0];
+
+    await store.patch(theme.libraryId, theme.revision, {
+      ...HIGH_CONTRAST_THEME,
+      colors: { ...HIGH_CONTRAST_THEME.colors },
+      homeCards: HIGH_CONTRAST_THEME.homeCards.map((card) => ({
+        ...card,
+      })) as typeof HIGH_CONTRAST_THEME.homeCards,
+      styleConfig: {
+        ...HIGH_CONTRAST_THEME.styleConfig,
+        recipes: { ...HIGH_CONTRAST_THEME.styleConfig.recipes },
+      },
+      backgroundScope: HIGH_CONTRAST_BACKGROUND_SCOPE,
+      sidebarOverlayOpacity: HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY,
+    });
+
+    const reloaded = new LocalThemeStore(managed.root);
+    await reloaded.init();
+    const detail = reloaded.getDetail(theme.libraryId, "app://theme-asset");
+    expect(detail).toMatchObject({
+      appearance: HIGH_CONTRAST_THEME.appearance,
+      art: HIGH_CONTRAST_THEME.art,
+      colors: HIGH_CONTRAST_THEME.colors,
+      homeCards: HIGH_CONTRAST_THEME.homeCards,
+      styleConfig: HIGH_CONTRAST_THEME.styleConfig,
+      backgroundScope: HIGH_CONTRAST_BACKGROUND_SCOPE,
+      sidebarOverlayOpacity: HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY,
     });
   });
 

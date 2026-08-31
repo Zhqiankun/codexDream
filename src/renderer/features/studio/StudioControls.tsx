@@ -118,7 +118,7 @@ const colorGroups: ReadonlyArray<{
       {
         key: "changeCardText",
         label: "文件变更文字",
-        hint: "标题、数量与文件路径",
+        hint: "标题、操作与文件路径；增删数字保留状态色",
       },
     ],
   },
@@ -595,12 +595,15 @@ function DesignPanel({
                 max={100}
                 suffix="%"
                 ariaLabel="左侧栏遮罩不透明度"
+                disabled={draft.backgroundScope !== "window"}
                 onChange={(sidebarOverlayOpacity) =>
                   update({ sidebarOverlayOpacity })
                 }
               />
               <p className="field-hint">
-                全窗口时遮罩覆盖左侧对话区；数值越低，背景越清晰。
+                {draft.backgroundScope === "window"
+                  ? "遮罩会与左侧面板颜色自身的透明度共同生效；数值越低，背景越清晰。"
+                  : "仅内容区不使用左侧栏遮罩；切换到全窗口后可调整。"}
               </p>
             </StudioSection>
 
@@ -1343,6 +1346,7 @@ function RangeField({
   max,
   suffix,
   ariaLabel,
+  disabled = false,
   onChange,
 }: {
   label: string;
@@ -1350,10 +1354,11 @@ function RangeField({
   max: number;
   suffix: string;
   ariaLabel: string;
+  disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="field-label range-field">
+    <label className={`field-label range-field ${disabled ? "disabled" : ""}`}>
       <span className="range-heading">
         <span>{label}</span>
         <span className="opacity-value">
@@ -1369,6 +1374,7 @@ function RangeField({
         step="1"
         value={value}
         aria-label={ariaLabel}
+        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </label>

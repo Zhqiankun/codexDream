@@ -31,6 +31,7 @@
 - [x] 用户目录当前 25 张图片已逐张形成现代奢华内置主题；schema v4 / pack v7 严格校验 25 份资源，原 13 套稳定 ID 安全升级、三张变化图片原子替换、12 套新主题首次加入，用户编辑与删除语义不变。
 - [x] v8 增量图片主题完成：根 `user-wallpapers-2026-08-30-v7` catalog 与 25 张资产保持不变；独立 `resources/presets/user-wallpapers-2026-08-31-v8/` 首次加入 10 套完整二十九色主题。授权与原文件映射随包记录在 `SOURCES.md`；全新安装 37 套、已有 v7 库只追加 10 套、用户已删主题不复活，以及迁移、幂等、回滚、图片感知对比度和安装包资源均已通过验证。
 - [x] Store Codex `26.825.6671.0` 插件/技能页白色搜索 rail 已纳入 selector profile `/12`：只匹配 `input#plugins-page-search` 所在的 sticky `bg-surface`，rail 与底部伪元素渐变使用主题页面背景，SPA 后挂载由现有 MutationObserver 自动映射，不覆盖全局 surface token。
+- [x] 助手标准 Markdown 的流式普通文字已纳入 selector profile `/13`：`h1..h6`、列表、段落、引用、强调与表格中的直接 `_FadeIn_` span 使用 `assistantMessageText`；链接、行内代码、代码块及承载这些节点的流式包装保持原生颜色，未扩大为全局 span 覆盖。
 - [x] v1.3.6 预设透明度、无覆盖 catalog v2 迁移、主题库缩略图、顶部启动主题选择及旧版兼容导出移除已完成。
 - [x] v1.3.7 二十六色契约已接通：会话标题、首页标题/快捷卡片、命令/编辑/思考摘要均有独立颜色、双页面预览定位和 selector profile `/8` 真实注入；catalog v3 可从 v1 或 v2 安全迁移，用户编辑与删除语义保持。
 - [x] v1.3.8 ownership 升级兼容热修复：v1.3.6 写入的合法 selector profile `/7` 按过期会话恢复，不再阻断启动；当前 `/8` 运行时验证和未知状态 fail-closed 边界保持不变。
@@ -64,9 +65,13 @@
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
 - 当前用户安装的 Store 包：`OpenAI.Codex 26.825.6671.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其插件/技能页搜索 rail、页面布局与 surface 变量，未修改 Store 包。
-- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.12`，本轮目标版本已确认并锁定为 `v1.3.13`。版本文件、中英文发布说明与本地发布验证均已完成，等待提交、标签和 Actions 成品。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.13`，本轮目标版本已确认并锁定为 `v1.3.14`。版本文件与中英文发布说明已更新，等待最终发布验证、提交、标签和 Actions 成品。
 
 ## 验证证据
+
+- 2026-08-31 透明 surface 修复：Store Codex `26.825.6671.0` 的侧栏原生 `background` 与继承背景 `::after` 会绕过仅覆盖 `background-color` 的旧 bridge，relative-color 绝对 alpha 还会抹掉 panel 自身透明度；文件变更卡根锚点仍有效，但内部列表变量、`bg-surface/70` 文件行与按钮内路径文字绕过旧规则。当前实现改为固定深色遮罩与 panel 自身 alpha 分层合成、文件变更根层唯一背景及透明后代表面，并加入覆盖全部二十九色和结构化设置的高对比跨层 fixture。234 项主进程、59 项 renderer、7 项集成、1 项真实 Electron E2E、格式、lint、类型、架构、精确 Node.js 22.22.0 构建、Windows x64 打包与包校验均通过；用户已要求提交并发布 `v1.3.14`。
+
+- 2026-08-31 助手流式 Markdown：用户提供的实际源文本是标准 `##` 标题、列表、末尾段落与行内代码，并无 fenced code block；错误的 code-block 假设及其临时代码/测试已完整撤销。Store Codex `26.825.6671.0` bundle 显示完成态为 `h2/li/p` 直接文字，流式态普通文字变为这些语义节点的直接 `_FadeIn_` span，行内代码保持独立节点。profile `/13` 仅补普通流式 span，并排除包含链接、code、pre 或 inline-code 的包装；49 项 selector/payload/session 定向测试、完整 232 项主进程测试、格式、lint、类型、架构、精确 Node.js 22.22.0 构建及 1 项真实 Electron E2E 全部通过。
 
 - 2026-08-31 `v1.3.13` 发布候选：独立 v8 增量包新增 10 套图片主题，全新安装共 37 套，v7/v8 删除项均不复活；selector profile `/12` 修复插件/技能页白色搜索 rail 与渐隐。维护者确认图片由其团队上传并授权随 CodexStyle 仓库与安装包再分发，`SOURCES.md` 明确图片不随源码 MIT 许可证单独再许可。`npm ci`、格式、lint、typecheck、architecture check、230 项主进程测试、58 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、精确 Node.js 22.22.0 构建、Windows x64 打包及 `verify:package` 全部通过。安装包 `CodexStyle-1.3.13-x64.exe` 为 163,935,910 字节，SHA-256 `524f45eb566dda948031acc8c9761b544e2eff566f97c60585c616f7c61fec76`；便携包 `CodexStyle-1.3.13-x64.zip` 为 216,696,209 字节，SHA-256 `4bf1dfd62ff73439716bee61bede5b7f00ec098058b1058ee24797c3e041da18`。本地标签、远端标签与 GitHub Release 均无 `v1.3.13` 冲突；正式二进制仍只允许由标签触发的 GitHub Actions 构建发布。
 
