@@ -1,10 +1,13 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/11" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/12" as const;
 
 export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
   'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"])' as const;
 
 export const HOME_COMPOSER_RAIL_SELECTOR =
   '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
+
+export const PLUGIN_SEARCH_RAIL_SELECTOR =
+  'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search)' as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -71,6 +74,7 @@ export const SELECTOR_PARTS = [
     "composer-backdrop",
     '.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"]',
   ],
+  ["plugins-search-rail", PLUGIN_SEARCH_RAIL_SELECTOR],
   ["dialog", '[role="dialog"]'],
 ] as const;
 

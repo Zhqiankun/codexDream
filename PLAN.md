@@ -47,7 +47,7 @@ plugins/codexstyle-assistant/          Codex 插件、STDIO MCP 与主题设计 
 
 `theme.patchDraft` 在普通 IPC `v:5` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/homeCards/styleConfig 与高级 CSS；`theme.chooseHomeCardImage` 只接收 library ID、revision 和 `0..3` 卡片索引，main 将选定的 PNG/JPEG/WebP 有界解码并尝试多档尺寸/质量，最终只写入不超过 48 KiB 的 WebP Data URL。`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；四张卡片图嵌入 `theme.json`，不改变三件套 ZIP。旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
 
-内置图片主题包归属 main infrastructure：`resources/presets/catalog.json` 与 25 张图片作为固定 app.asar 资源，`bundled-presets.ts` 负责 schema v4 有界读取、稳定 pack/theme ID、图片格式与 SHA-256 校验，并区分 `introducedThemeIds`、`previousFingerprints` 和 `previousImageSha256`。`LocalThemeStore` 以 pack v7 单事务追加 12 个新增主题、升级精确未编辑旧项，并在三张图片内容变化时原子替换旧受管字节；删除/编辑过的项跳过，任何写入或持久化失败同时回滚索引、新文件和被覆盖的旧图片。`ThemeSummary` 只返回页面背景色与受控缩略图 URL，不暴露文件路径、图片字节或新 IPC 方法。
+内置图片主题包归属 main infrastructure：根 `resources/presets/catalog.json` 与 25 张图片继续作为不可改写的 schema v4 / pack v7 历史基线；新增 `resources/presets/user-wallpapers-2026-08-31-v8/catalog.json`、同目录 10 张图片及 `SOURCES.md` 组成独立固定增量包，不覆盖、不替代也不迁移 v7。`bundled-presets.ts` 对两套已知 catalog 分别有界读取，校验稳定 pack/theme ID、图片格式、尺寸与 SHA-256，并区分 `introducedThemeIds`、`previousFingerprints` 和 `previousImageSha256`；不得退化为扫描任意资源目录。`LocalThemeStore` 保留 pack v7 的既有事务语义，再以独立 `user-wallpapers-2026-08-31-v8` pack 标记在单事务中仅追加 10 个新 ready 主题；已有主题、用户编辑、用户删除、revision、checkpoint、选择项与 last-known-good 均不变化，任一图片、索引或持久化失败必须回滚本包全部写入。全新安装最终为原有 2 个基础主题 + 25 个 v7 图片主题 + 10 个 v8 图片主题，共 37 套。`ThemeSummary` 只返回页面背景色与受控缩略图 URL，不暴露文件路径、图片字节或新 IPC 方法；`SOURCES.md` 仅作为随包授权记录，不进入运行时配置解析。
 
 CodexStyle Assistant 归属独立本机集成边界：主进程只在字面 `127.0.0.1` 随机端口提供版本化 RPC，并把端口与每次启动轮换的 bearer token 写入 native secure-store 的 `assistant/endpoint.json`；浏览器 Origin、非回环访问、错误路径/方法/content-type、超限正文与错误 token 一律拒绝。随应用打包的 `codexstyle-assistant` 插件通过 STDIO MCP 读取该端点，不直接读取主题库、背景字节或用户 CSS。公开工具仅允许查询、完整二十九色校验、从已有主题派生独立草稿、更新草稿和显式选择已保存主题；已保存主题不可被 MCP 覆盖，保存、删除、导入、导出和启动 Codex 不对插件开放。Skill 在用户没有明确指定颜色或视觉方向时才采用“现代奢华美学，浓郁而克制的配色，深色基调搭配少量高亮点缀，宝石色调，高级材质，丝绒、漆面、玻璃与金属细节，精致光影，强烈但优雅的明暗对比，高端品牌广告质感，简洁构图，大量留白，华丽但不俗艳”作为默认方向；用户明确要求始终优先。
 
@@ -160,6 +160,10 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 23. 大型主题库导航：桌面端把应用工作区约束到动态视口，左侧标题、操作、名称搜索和统计保持固定，仅主题列表独立纵向滚动；主编辑区使用独立滚动容器。搜索只在 renderer 对现有 snapshot 派生过滤，不新增 IPC、持久状态或主题排序，使用延迟查询与 `content-visibility` 保持百项以上列表输入流畅。无结果提供明确反馈与清空入口；搜索不改变总数、ready 计数、当前编辑主题、双击选择和缩略图回退。窄屏继续使用自动高度与横向主题列表。
 
+24. v8 增量图片主题：冻结根 v7 catalog 与 25 张资产，在固定子目录新增独立 `user-wallpapers-2026-08-31-v8` catalog、10 张经授权图片和 `SOURCES.md`。10 套主题使用全新稳定 ID、完整二十九色和逐图焦点/安全区/画面参数，页面背景、panel、line 与侧栏遮罩均固定 20%；正文、输入、操作与选区按各自原图缩放至 64×64 后的 RGB 平均色合成并满足 WCAG `4.5:1`。安装路径覆盖全新库得到 37 套、已有 v7 库只追加 10 套、二次启动幂等、用户删除不复活、任一步失败全回滚，并证明根 v7 字节与迁移结果不变。
+
+25. 插件/技能页搜索 rail：以 Store Codex `26.825.6671.0` 的已核对 bundle 为 selector profile `/12` 基线，将 `div.sticky.bg-surface:has(input#plugins-page-search)` 映射为独立 `plugins-search-rail` part。payload 同时提供 owner-scoped part 规则与 root-scoped 直接规则，使首次渲染和 SPA 延迟挂载都以主题 `background` 覆盖 rail 及其 `::after` 渐变；不修改宿主全局 surface token，不新增颜色字段或 IPC。
+
 ## 验证命令
 
 ```powershell
@@ -180,6 +184,8 @@ npm run verify:package
 native 阶段还必须在 Visual Studio x64 开发环境中实际编译 addon，并覆盖：根及每一层 junction/symlink/reparse、非法 managed path、句柄关闭/替换、并发锁、写入/flush/rename 崩溃点、journal/backup 恢复、Node `fs` fallback 静态禁用、`.node` 缺失/错架构、ASAR-unpacked 布局，以及外部导出 ZIP 不受 managed root 限制但不能反向访问保护域。
 
 完整主题 ZIP 必须覆盖当前二十九色与结构化配置的无损往返；历史十色、十二色、十八色或二十六色 ZIP 只验证安全导入与默认值补全，不再生成面向旧客户端的降级包。实机 smoke 的实际版本、命令、截图/日志和未验证项必须记录。
+
+v8 增量包还必须由定向主进程测试覆盖两个固定 catalog 的确定性加载顺序、10 个新 ID/资源哈希、pack 标记幂等、v7 删除项与 v8 删除项均不复活、已有用户编辑保持、复制/索引失败回滚和全新安装 37 套计数；预设对比度测试以每张原图的 64×64 平均色验证 11 组前景/表面配对均不低于 `4.5:1`。`verify:package` 必须同时核对根 v7 的 catalog/25 张图片保持原样、v8 catalog/10 张图片及 `resources/presets/user-wallpapers-2026-08-31-v8/SOURCES.md` 位于预期 ASAR 资源位置且字节可读。
 
 ## 风险与完成门槛
 

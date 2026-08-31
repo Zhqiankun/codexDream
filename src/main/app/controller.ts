@@ -34,7 +34,10 @@ import { MainOperationBusyError, MainOperationGate } from "./operation-gate";
 import { UpdateService } from "./update-service";
 import { ElectronUpdaterGateway } from "../infra/electron-updater-gateway";
 import type { MainLogger } from "../infra/main-logger";
-import { createBundledPresetSource } from "../infra/bundled-presets";
+import {
+  ADDITIONAL_BUNDLED_PRESET_PACK_ID,
+  createBundledPresetSource,
+} from "../infra/bundled-presets";
 import { CodexAssistantBridge } from "../assistant/assistant-bridge";
 import { CodexAssistantService } from "../assistant/assistant-service";
 import { CodexPluginInstaller } from "../assistant/plugin-installer";
@@ -83,8 +86,13 @@ export class AppController {
         () => this.broadcast(),
       );
     const localAppData = process.env.LOCALAPPDATA || app.getPath("userData");
+    const presetRoot = bundledPresetPath();
     this.store = new LocalThemeStore(join(localAppData, "CodexStyle"), [
-      createBundledPresetSource(bundledPresetPath()),
+      createBundledPresetSource(presetRoot),
+      createBundledPresetSource(
+        join(presetRoot, ADDITIONAL_BUNDLED_PRESET_PACK_ID),
+        ADDITIONAL_BUNDLED_PRESET_PACK_ID,
+      ),
     ]);
     this.session = new CodexSessionService(
       this.platform,

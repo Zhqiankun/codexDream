@@ -10,6 +10,7 @@ import {
 import {
   EDGE_SCROLL_THREAD_TITLE_SELECTOR,
   HOME_COMPOSER_RAIL_SELECTOR,
+  PLUGIN_SEARCH_RAIL_SELECTOR,
   SELECTOR_PARTS,
 } from "./selector-profile";
 
@@ -28,6 +29,7 @@ interface PayloadConfig {
   homeCards: ThemeConfiguration["homeCards"];
   edgeScrollThreadTitleSelector: string;
   homeComposerRailSelector: string;
+  pluginSearchRailSelector: string;
   tokens: Array<readonly [string, string]>;
   parts: ReadonlyArray<readonly [string, string]>;
 }
@@ -66,6 +68,7 @@ export function buildThemePayload(
     homeCards: settings.homeCards,
     edgeScrollThreadTitleSelector: EDGE_SCROLL_THREAD_TITLE_SELECTOR,
     homeComposerRailSelector: HOME_COMPOSER_RAIL_SELECTOR,
+    pluginSearchRailSelector: PLUGIN_SEARCH_RAIL_SELECTOR,
     tokens: themeTokenDeclarations(settings),
     parts: SELECTOR_PARTS,
   };
@@ -169,6 +172,10 @@ export function buildThemePayload(
         ? '\\n[data-ds-part="main-top-fade"][data-codexstyle-owner="' + config.marker + '"] { background-color: transparent !important; background-image: none !important; }' +
           '\\n.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"] { background-color: transparent !important; background-image: none !important; }'
         : "";
+      const pluginSearchRailPartSelector = '[data-ds-part="plugins-search-rail"][data-codexstyle-owner="' + config.marker + '"]';
+      const instantPluginSearchRailSelector = rootSelector + ' ' + config.pluginSearchRailSelector;
+      const pluginSearchRailBridge = '\\n' + pluginSearchRailPartSelector + ', ' + instantPluginSearchRailSelector + ' { background-color: var(--ds-theme-color-background) !important; }' +
+        '\\n' + pluginSearchRailPartSelector + '::after, ' + instantPluginSearchRailSelector + '::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }';
       const sidebarFallbackColor = 'color-mix(in srgb, var(--ds-theme-color-panel) ' + config.sidebarOverlayOpacity + '%, transparent)';
       const sidebarAbsoluteColor = 'rgb(from var(--ds-theme-color-panel) r g b / ' + config.sidebarOverlayOpacity + '%)';
       const sidebarBridge = config.backgroundScope === "window"
@@ -263,7 +270,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pluginSearchRailBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

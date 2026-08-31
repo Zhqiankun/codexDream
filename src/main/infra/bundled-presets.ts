@@ -15,6 +15,8 @@ import {
 import { readImageFileBounded, validateImage, type ImageInfo } from "./image";
 
 export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v7";
+export const ADDITIONAL_BUNDLED_PRESET_PACK_ID =
+  "user-wallpapers-2026-08-31-v8";
 export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v6";
 export const FIFTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v5";
 export const FOURTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v4";

@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.13 — 2026-08-31
+
+### English
+
+- Added a separate v8 pack of ten new image themes, each with its own tuned 29-color palette, artwork focus, and component styling. The maintainer-confirmed redistribution record, original-file mapping, and retained third-party-rights notice ship in `SOURCES.md`; the existing v7 catalog and its 25 assets remain unchanged.
+- A clean installation now contains 37 themes. Existing v7 libraries receive the ten v8 additions once; later startups do not reload either pack, and presets deleted from either v7 or v8 are not revived.
+- Fixed the white search rail and fade on the Codex Plugins and Skills pages. Selector profile `/12` narrowly targets the sticky rail containing `input#plugins-page-search`, uses the theme page background for both the rail and its fade, and handles pages mounted after SPA navigation without overriding global surface tokens.
+- Extended source and packaged-output verification to both catalogs, all 35 image assets, and the v8 redistribution record. Local release-candidate verification passed 230 main-process, 58 renderer, 7 integration, and 1 real Electron E2E tests, together with formatting, lint, type, architecture, the exact Node.js 22.22.0 build, Windows x64 packaging, and package verification.
+
+> v1.3.13 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. After upgrading, end and relaunch the CodexStyle-managed Codex session so selector profile `/12` takes effect.
+
+### 简体中文
+
+- 新增独立的 v8 增量包，包含 10 套逐图独立调校的图片主题；每套都有完整二十九色、画面焦点和组件样式。维护者确认的随包再分发记录、原文件映射及第三方权利保留说明随 `SOURCES.md` 交付；原 v7 catalog 与 25 张资源保持不变。
+- 全新安装现在共有 37 套主题。已有 v7 主题库只追加一次这 10 套 v8 主题；后续启动不会重复加载任一资源包，用户从 v7 或 v8 删除的预设也不会复活。
+- 修复 Codex 插件与技能页的白色搜索条及底部渐隐。selector profile `/12` 只匹配包含 `input#plugins-page-search` 的 sticky rail，以主题页面背景覆盖搜索条和渐隐，并支持 SPA 切换后才挂载的页面，不修改全局 surface token。
+- 将源码与成品包校验扩展到两份 catalog、全部 35 张图片及 v8 再分发记录。本地发布候选已通过 230 项主进程、58 项 renderer、7 项集成及 1 项真实 Electron E2E 测试，并通过格式、lint、类型、架构、精确 Node.js 22.22.0 构建、Windows x64 打包和包校验。
+
+> SignPath Foundation 申请仍在审核，v1.3.13 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让 selector profile `/12` 生效。
+
 ## v1.3.12 — 2026-08-30
 
 ### English

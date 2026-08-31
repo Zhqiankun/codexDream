@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import {
+  ADDITIONAL_BUNDLED_PRESET_PACK_ID,
   createBundledPresetSource,
   DEFAULT_BUNDLED_PRESET_PACK_ID,
   FIFTH_BUNDLED_PRESET_PACK_ID,
@@ -29,6 +30,37 @@ import {
 import { createManagedRoot } from "../fixtures/managed-root";
 
 const presetRoot = resolve(process.cwd(), "resources", "presets");
+const additionalPresetRoot = resolve(
+  presetRoot,
+  ADDITIONAL_BUNDLED_PRESET_PACK_ID,
+);
+const ADDITIONAL_PRESET_IDS = [
+  "lacquer-easy-work",
+  "obsidian-silver-aura",
+  "persimmon-ink-gold",
+  "smoky-topaz-eye",
+  "obsidian-arc-armor",
+  "lunar-wolf-silhouette",
+  "jade-fortune-script",
+  "crimson-blade-authority",
+  "emerald-firefly-cat",
+  "olive-fortune-crew",
+] as const;
+const ADDITIONAL_THEME_IDS = ADDITIONAL_PRESET_IDS.map(
+  (presetId) => `builtin-${presetId}-v1`,
+);
+const ADDITIONAL_THEME_NAMES = [
+  "朱漆松弛",
+  "玄银流岚",
+  "丹柿墨金",
+  "冰眸烟晶",
+  "黑曜赤金",
+  "月蚀狼影",
+  "翡翠待币",
+  "绯刃夜权",
+  "萤森猫语",
+  "橄榄财趣",
+] as const;
 const releasedV3Themes = JSON.parse(
   readFileSync(
     resolve(process.cwd(), "tests", "fixtures", "preset-themes-v3.json"),
@@ -286,6 +318,114 @@ describe("bundled image theme presets", () => {
     ).toEqual(["hundred-yuan", "line-dogs", "warm-tuntun"]);
   });
 
+  it("strictly loads the independent v8 additions without replacing the v7 pack", async () => {
+    const pack = await createBundledPresetSource(
+      additionalPresetRoot,
+      ADDITIONAL_BUNDLED_PRESET_PACK_ID,
+    ).load();
+
+    expect(pack.packId).toBe(ADDITIONAL_BUNDLED_PRESET_PACK_ID);
+    expect(pack.replacesPackIds).toEqual([]);
+    expect(pack.themes).toHaveLength(10);
+    expect(pack.introducedThemeIds).toEqual(ADDITIONAL_THEME_IDS);
+    expect(pack.themes.map((theme) => theme.presetId)).toEqual(
+      ADDITIONAL_PRESET_IDS,
+    );
+    expect(pack.themes.map((theme) => theme.themeId)).toEqual(
+      ADDITIONAL_THEME_IDS,
+    );
+    expect(pack.themes.map((theme) => theme.name)).toEqual(
+      ADDITIONAL_THEME_NAMES,
+    );
+    expect(new Set(pack.themes.map((theme) => theme.presetId)).size).toBe(10);
+    expect(new Set(pack.themes.map((theme) => theme.themeId)).size).toBe(10);
+    expect(new Set(pack.themes.map((theme) => theme.image)).size).toBe(10);
+    expect(new Set(pack.introducedThemeIds)).toEqual(
+      new Set(pack.themes.map((theme) => theme.themeId)),
+    );
+    expect(
+      pack.themes.every(
+        (theme) =>
+          theme.imageBytes.byteLength === theme.imageInfo.bytes &&
+          theme.imageSha256 === theme.imageInfo.sha256 &&
+          theme.previousImageSha256.length === 0 &&
+          theme.previousFingerprints.length === 0 &&
+          theme.style.mode === "configured" &&
+          theme.sidebarOverlayOpacity === 20 &&
+          /, 0\.20?\)$/u.test(theme.colors.background) &&
+          /, 0\.20?\)$/u.test(theme.colors.panel) &&
+          /, 0\.20?\)$/u.test(theme.colors.line),
+      ),
+    ).toBe(true);
+  });
+
+  it("installs the v8 additions once without reviving deleted v7 or v8 presets", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const v7Source = createBundledPresetSource(presetRoot);
+    const v8Source = createBundledPresetSource(
+      additionalPresetRoot,
+      ADDITIONAL_BUNDLED_PRESET_PACK_ID,
+    );
+    const original = new LocalThemeStore(managed.root, [v7Source]);
+    await original.init();
+    const deleted = original
+      .listRecords()
+      .find((theme) => theme.themeId === "builtin-safety-reminder-v1")!;
+    await original.delete(deleted.libraryId, deleted.revision);
+    original.managedStore.close();
+
+    const upgraded = new LocalThemeStore(managed.root, [v7Source, v8Source]);
+    await upgraded.init();
+    const themes = upgraded.listRecords();
+    expect(themes).toHaveLength(36);
+    expect(themes.some((theme) => theme.themeId === deleted.themeId)).toBe(
+      false,
+    );
+    const additionalThemeIds = new Set(
+      (await v8Source.load()).themes.map((theme) => theme.themeId),
+    );
+    expect(
+      themes.filter((theme) => additionalThemeIds.has(theme.themeId)),
+    ).toHaveLength(10);
+    const stored = JSON.parse(
+      upgraded.managedStore.readFile(MANAGED_FILES.index)!.toString("utf8"),
+    ) as { installedPresetPacks: string[] };
+    expect(stored.installedPresetPacks).toEqual([
+      DEFAULT_BUNDLED_PRESET_PACK_ID,
+      ADDITIONAL_BUNDLED_PRESET_PACK_ID,
+    ]);
+    const deletedAdditional = themes.find((theme) =>
+      additionalThemeIds.has(theme.themeId),
+    )!;
+    await upgraded.delete(
+      deletedAdditional.libraryId,
+      deletedAdditional.revision,
+    );
+    upgraded.managedStore.close();
+
+    const loadV7 = vi.fn(async () => {
+      throw new Error("v7 should not be reloaded");
+    });
+    const loadV8 = vi.fn(async () => {
+      throw new Error("v8 should not be reloaded");
+    });
+    const reloaded = new LocalThemeStore(managed.root, [
+      { packId: DEFAULT_BUNDLED_PRESET_PACK_ID, load: loadV7 },
+      { packId: ADDITIONAL_BUNDLED_PRESET_PACK_ID, load: loadV8 },
+    ]);
+    await reloaded.init();
+    expect(loadV7).not.toHaveBeenCalled();
+    expect(loadV8).not.toHaveBeenCalled();
+    expect(reloaded.listRecords()).toHaveLength(35);
+    expect(
+      reloaded
+        .listRecords()
+        .some((theme) => theme.themeId === deletedAdditional.themeId),
+    ).toBe(false);
+    reloaded.managedStore.close();
+  }, 30_000);
+
   it("rejects a catalog whose declared image hash does not match", async () => {
     const root = await mkdtemp(join(tmpdir(), "codexstyle-presets-"));
     cleanup.push(() => rm(root, { recursive: true, force: true }));
@@ -372,6 +512,7 @@ describe("bundled image theme presets", () => {
     expect(load).not.toHaveBeenCalled();
     expect(reloaded.listRecords()).toHaveLength(26);
     expect(reloaded.get(removed.libraryId)).toBeUndefined();
+    reloaded.managedStore.close();
   });
 
   it.each([
@@ -483,8 +624,9 @@ describe("bundled image theme presets", () => {
         predecessorPackId,
         DEFAULT_BUNDLED_PRESET_PACK_ID,
       ]);
+      upgraded.managedStore.close();
     },
-    15_000,
+    30_000,
   );
 
   it("preserves a user-edited predecessor preset while completing the pack migration", async () => {
@@ -518,6 +660,7 @@ describe("bundled image theme presets", () => {
       status: "draft",
     });
     expect(upgraded.listRecords()).toHaveLength(15);
+    upgraded.managedStore.close();
   });
 
   it("does not revive a predecessor preset deleted before the migration", async () => {
@@ -547,6 +690,7 @@ describe("bundled image theme presets", () => {
         .some((theme) => theme.themeId === previous.themeId),
     ).toBe(false);
     expect(upgraded.listRecords()).toHaveLength(14);
+    upgraded.managedStore.close();
   });
 
   it("replaces a changed bundled image only for an exact untouched predecessor", async () => {
@@ -623,6 +767,7 @@ describe("bundled image theme presets", () => {
       backgroundBytes: newInfo.bytes,
     });
     expect(upgraded.getBackground(original.libraryId)).toEqual(newBytes);
+    upgraded.managedStore.close();
   });
 
   it("restores an overwritten preset image when the pack transaction fails", async () => {
@@ -721,6 +866,7 @@ describe("bundled image theme presets", () => {
       backgroundSha256: oldInfo.sha256,
       revision: original.revision,
     });
+    failing.managedStore.close();
   });
 
   it("rolls back every staged image when a pack write fails", async () => {
@@ -771,5 +917,6 @@ describe("bundled image theme presets", () => {
       verified.managedStore.readFile(MANAGED_FILES.index)!.toString("utf8"),
     ) as { installedPresetPacks?: string[] };
     expect(stored.installedPresetPacks).toEqual([]);
+    verified.managedStore.close();
   });
 });

@@ -98,6 +98,7 @@ describe("native secure-store packaging", () => {
     expect(verifyScript).toContain(".exe.blockmap");
     expect(verifyScript).toContain('createHash("sha512")');
     expect(verifyScript).toContain('"resources/presets/catalog.json"');
+    expect(verifyScript).toContain('"user-wallpapers-2026-08-31-v8"');
     expect(verifyScript).toContain("preset asset hash changed");
     expect(manifestScript).toContain("releases/download/");
     expect(manifestScript).toContain("v${metadata.version}/${installerName}");

@@ -17,9 +17,40 @@ const nativeAddon = resolve(
 const metadata = JSON.parse(
   readFileSync(resolve(root, "package.json"), "utf8"),
 );
-const presetCatalogPath = resolve(root, "resources", "presets", "catalog.json");
-const presetCatalogBytes = readFileSync(presetCatalogPath);
-const presetCatalog = JSON.parse(presetCatalogBytes.toString("utf8"));
+const presetCatalogSpecs = [
+  {
+    label: "v7 preset catalog",
+    entry: "resources/presets/catalog.json",
+    directory: "resources/presets",
+    packId: "user-wallpapers-2026-08-30-v7",
+    themeCount: 25,
+  },
+  {
+    label: "v8 preset catalog",
+    entry: "resources/presets/user-wallpapers-2026-08-31-v8/catalog.json",
+    directory: "resources/presets/user-wallpapers-2026-08-31-v8",
+    packId: "user-wallpapers-2026-08-31-v8",
+    themeCount: 10,
+  },
+];
+const presetCatalogs = presetCatalogSpecs.map((spec) => {
+  const bytes = readFileSync(resolve(root, spec.entry));
+  const catalog = JSON.parse(bytes.toString("utf8"));
+  const themes = Array.isArray(catalog.themes) ? catalog.themes : [];
+  return { ...spec, bytes, catalog, themes };
+});
+const [presetCatalogV7, presetCatalogV8] = presetCatalogs;
+const presetDocumentation = [
+  "resources/presets/user-wallpapers-2026-08-31-v8/SOURCES.md",
+];
+const presetAssets = presetCatalogs.flatMap((catalog) =>
+  catalog.themes.map((theme) => ({
+    catalog: catalog.label,
+    entry: `${catalog.directory}/${theme.image}`,
+    image: theme.image,
+    imageSha256: theme.imageSha256,
+  })),
+);
 const pluginRoot = "plugins/codexstyle-assistant";
 const marketplaceManifest = ".agents/plugins/marketplace.json";
 const pluginFiles = [
@@ -32,44 +63,54 @@ const pluginFiles = [
   "skills/codexstyle-theme-designer/agents/openai.yaml",
   "skills/codexstyle-theme-designer/references/palette-contract.md",
 ];
-const presetThemes = Array.isArray(presetCatalog.themes)
-  ? presetCatalog.themes
-  : [];
 if (
-  presetCatalog.schemaVersion !== 4 ||
-  typeof presetCatalog.packId !== "string" ||
-  !Array.isArray(presetCatalog.replacesPackIds) ||
-  presetCatalog.replacesPackIds.length !== 6 ||
-  presetCatalog.replacesPackIds[0] !== "user-wallpapers-2026-08-29-v1" ||
-  presetCatalog.replacesPackIds[1] !== "user-wallpapers-2026-08-29-v2" ||
-  presetCatalog.replacesPackIds[2] !== "user-wallpapers-2026-08-29-v3" ||
-  presetCatalog.replacesPackIds[3] !== "user-wallpapers-2026-08-30-v4" ||
-  presetCatalog.replacesPackIds[4] !== "user-wallpapers-2026-08-30-v5" ||
-  presetCatalog.replacesPackIds[5] !== "user-wallpapers-2026-08-30-v6" ||
-  !Array.isArray(presetCatalog.introducedThemeIds) ||
-  presetCatalog.introducedThemeIds.length !== 12 ||
-  new Set(presetCatalog.introducedThemeIds).size !== 12 ||
-  presetThemes.length !== 25 ||
-  presetThemes.some(
-    (theme) =>
-      !isRecord(theme) ||
-      typeof theme.image !== "string" ||
-      !/^[a-z0-9][a-z0-9.-]{0,79}\.(?:png|jpg|webp)$/u.test(theme.image) ||
-      typeof theme.imageSha256 !== "string" ||
-      !/^[a-f0-9]{64}$/u.test(theme.imageSha256) ||
-      !Array.isArray(theme.previousImageSha256) ||
-      theme.previousImageSha256.length > 8 ||
-      theme.previousImageSha256.some(
-        (fingerprint) => !/^[a-f0-9]{64}$/u.test(fingerprint),
-      ) ||
-      !Array.isArray(theme.previousFingerprints) ||
-      theme.previousFingerprints.length > 8 ||
-      theme.previousFingerprints.some(
-        (fingerprint) => !/^[a-f0-9]{64}$/u.test(fingerprint),
-      ),
-  )
+  presetCatalogV7.catalog.schemaVersion !== 4 ||
+  presetCatalogV7.catalog.packId !== presetCatalogV7.packId ||
+  !Array.isArray(presetCatalogV7.catalog.replacesPackIds) ||
+  presetCatalogV7.catalog.replacesPackIds.length !== 6 ||
+  presetCatalogV7.catalog.replacesPackIds[0] !==
+    "user-wallpapers-2026-08-29-v1" ||
+  presetCatalogV7.catalog.replacesPackIds[1] !==
+    "user-wallpapers-2026-08-29-v2" ||
+  presetCatalogV7.catalog.replacesPackIds[2] !==
+    "user-wallpapers-2026-08-29-v3" ||
+  presetCatalogV7.catalog.replacesPackIds[3] !==
+    "user-wallpapers-2026-08-30-v4" ||
+  presetCatalogV7.catalog.replacesPackIds[4] !==
+    "user-wallpapers-2026-08-30-v5" ||
+  presetCatalogV7.catalog.replacesPackIds[5] !==
+    "user-wallpapers-2026-08-30-v6" ||
+  !Array.isArray(presetCatalogV7.catalog.introducedThemeIds) ||
+  presetCatalogV7.catalog.introducedThemeIds.length !== 12 ||
+  new Set(presetCatalogV7.catalog.introducedThemeIds).size !== 12 ||
+  presetCatalogV7.themes.length !== presetCatalogV7.themeCount ||
+  !hasValidPresetThemes(presetCatalogV7.themes)
 ) {
-  console.error("Package verification failed; preset catalog is invalid.");
+  console.error("Package verification failed; v7 preset catalog is invalid.");
+  process.exit(1);
+}
+if (
+  presetCatalogV8.catalog.schemaVersion !== 4 ||
+  presetCatalogV8.catalog.packId !== presetCatalogV8.packId ||
+  !Array.isArray(presetCatalogV8.catalog.replacesPackIds) ||
+  presetCatalogV8.catalog.replacesPackIds.length !== 0 ||
+  !Array.isArray(presetCatalogV8.catalog.introducedThemeIds) ||
+  presetCatalogV8.catalog.introducedThemeIds.length !==
+    presetCatalogV8.themeCount ||
+  new Set(presetCatalogV8.catalog.introducedThemeIds).size !==
+    presetCatalogV8.themeCount ||
+  presetCatalogV8.themes.length !== presetCatalogV8.themeCount ||
+  !hasValidPresetThemes(presetCatalogV8.themes) ||
+  !haveSameStringSet(
+    presetCatalogV8.catalog.introducedThemeIds,
+    presetCatalogV8.themes.map((theme) =>
+      isRecord(theme) ? theme.themeId : undefined,
+    ),
+  ) ||
+  presetAssets.length !== 35 ||
+  new Set(presetAssets.map((asset) => asset.entry)).size !== 35
+) {
+  console.error("Package verification failed; v8 preset catalog is invalid.");
   process.exit(1);
 }
 if (
@@ -113,8 +154,9 @@ const required = [
   "resources/icon.png",
   "resources/tray-icon.png",
   "resources/tray-icon@2x.png",
-  "resources/presets/catalog.json",
-  ...presetThemes.map((theme) => `resources/presets/${theme.image}`),
+  ...presetCatalogs.map((catalog) => catalog.entry),
+  ...presetDocumentation,
+  ...presetAssets.map((asset) => asset.entry),
   ...pluginFiles.map((file) => `${pluginRoot}/${file}`),
   marketplaceManifest,
   "release/win-unpacked/resources/app.asar",
@@ -139,6 +181,18 @@ if (missing.length) {
   console.error(`Package verification failed; missing: ${missing.join(", ")}`);
   process.exit(1);
 }
+
+const presetSourceAssets = presetAssets.map((asset) => {
+  const bytes = readFileSync(resolve(root, asset.entry));
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  if (hash !== asset.imageSha256) {
+    console.error(
+      `Package verification failed; source preset asset hash changed: ${asset.entry}`,
+    );
+    process.exit(1);
+  }
+  return { ...asset, bytes, hash };
+});
 
 if (
   !readFileSync(resolve(root, marketplaceManifest)).equals(
@@ -333,24 +387,49 @@ try {
   );
   if (packagedYaml.version !== "4.3.2")
     throw new Error("fixed js-yaml runtime missing");
-  const packagedCatalog = asar.extractFile(
-    asarPath,
-    asarLookupPath("resources/presets/catalog.json"),
-  );
-  if (!packagedCatalog.equals(presetCatalogBytes))
-    throw new Error("preset catalog changed during packaging");
-  for (const theme of presetThemes) {
-    const entry = `resources/presets/${theme.image}`;
+  for (const catalog of presetCatalogs) {
+    if (
+      !entries.some(
+        (candidate) => candidate.replaceAll("\\", "/") === `/${catalog.entry}`,
+      )
+    )
+      throw new Error(`preset catalog missing: ${catalog.entry}`);
+    const packagedCatalog = asar.extractFile(
+      asarPath,
+      asarLookupPath(catalog.entry),
+    );
+    if (!packagedCatalog.equals(catalog.bytes))
+      throw new Error(
+        `preset catalog changed during packaging: ${catalog.entry}`,
+      );
+  }
+  for (const entry of presetDocumentation) {
     if (
       !entries.some(
         (candidate) => candidate.replaceAll("\\", "/") === `/${entry}`,
       )
     )
-      throw new Error(`preset asset missing: ${theme.image}`);
-    const bytes = asar.extractFile(asarPath, asarLookupPath(entry));
+      throw new Error(`preset documentation missing: ${entry}`);
+    const sourceBytes = readFileSync(resolve(root, entry));
+    const packagedBytes = asar.extractFile(asarPath, asarLookupPath(entry));
+    if (!packagedBytes.equals(sourceBytes))
+      throw new Error(
+        `preset documentation changed during packaging: ${entry}`,
+      );
+  }
+  for (const asset of presetSourceAssets) {
+    if (
+      !entries.some(
+        (candidate) => candidate.replaceAll("\\", "/") === `/${asset.entry}`,
+      )
+    )
+      throw new Error(`preset asset missing: ${asset.entry}`);
+    const bytes = asar.extractFile(asarPath, asarLookupPath(asset.entry));
+    if (!bytes.equals(asset.bytes))
+      throw new Error(`preset asset changed during packaging: ${asset.entry}`);
     const hash = createHash("sha256").update(bytes).digest("hex");
-    if (hash !== theme.imageSha256)
-      throw new Error(`preset asset hash changed: ${theme.image}`);
+    if (hash !== asset.hash)
+      throw new Error(`preset asset hash changed: ${asset.entry}`);
   }
   for (const file of pluginFiles) {
     const sourceBytes = readFileSync(resolve(root, pluginRoot, file));
@@ -397,4 +476,43 @@ function parseYamlObject(path, label) {
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasValidPresetThemes(themes) {
+  return themes.every(
+    (theme) =>
+      isRecord(theme) &&
+      typeof theme.image === "string" &&
+      /^[a-z0-9][a-z0-9.-]{0,79}\.(?:png|jpg|webp)$/u.test(theme.image) &&
+      typeof theme.imageSha256 === "string" &&
+      /^[a-f0-9]{64}$/u.test(theme.imageSha256) &&
+      Array.isArray(theme.previousImageSha256) &&
+      theme.previousImageSha256.length <= 8 &&
+      theme.previousImageSha256.every((fingerprint) =>
+        /^[a-f0-9]{64}$/u.test(fingerprint),
+      ) &&
+      Array.isArray(theme.previousFingerprints) &&
+      theme.previousFingerprints.length <= 8 &&
+      theme.previousFingerprints.every((fingerprint) =>
+        /^[a-f0-9]{64}$/u.test(fingerprint),
+      ),
+  );
+}
+
+function haveSameStringSet(left, right) {
+  if (
+    !Array.isArray(left) ||
+    !Array.isArray(right) ||
+    left.some((value) => typeof value !== "string") ||
+    right.some((value) => typeof value !== "string")
+  )
+    return false;
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  return (
+    leftSet.size === left.length &&
+    rightSet.size === right.length &&
+    leftSet.size === rightSet.size &&
+    [...leftSet].every((value) => rightSet.has(value))
+  );
 }

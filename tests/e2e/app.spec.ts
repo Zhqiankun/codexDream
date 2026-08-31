@@ -142,6 +142,16 @@ test("starts the real Electron shell with native storage and completes a local w
           "红团向前",
           "做大做强",
           "唐风健身",
+          "朱漆松弛",
+          "玄银流岚",
+          "丹柿墨金",
+          "冰眸烟晶",
+          "黑曜赤金",
+          "月蚀狼影",
+          "翡翠待币",
+          "绯刃夜权",
+          "萤森猫语",
+          "橄榄财趣",
         ]),
       );
 
@@ -179,7 +189,7 @@ test("starts the real Electron shell with native storage and completes a local w
         },
       },
     });
-    await expect(page.locator(".theme-swatch img")).toHaveCount(25);
+    await expect(page.locator(".theme-swatch img")).toHaveCount(35);
     const themeList = page.getByLabel("主题列表");
     const themeSearch = page.getByRole("searchbox", { name: "搜索主题" });
     await themeSearch.fill("赤金信念");
@@ -188,7 +198,7 @@ test("starts the real Electron shell with native storage and completes a local w
       themeList.getByRole("button", { name: /赤金信念/u }),
     ).toBeVisible();
     await page.getByRole("button", { name: "清空主题搜索" }).click();
-    await expect(themeList.getByRole("button")).toHaveCount(27);
+    await expect(themeList.getByRole("button")).toHaveCount(37);
     await expect(
       page.getByRole("button", { name: "导出旧版兼容 ZIP" }),
     ).toHaveCount(0);
@@ -262,7 +272,7 @@ test("starts the real Electron shell with native storage and completes a local w
       globalThis.window.codexStyle.getSnapshot(),
     );
     expect(snapshot.ok).toBe(true);
-    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(28);
+    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(38);
     const createdDetail = await page.evaluate(async () => {
       const snapshot = await globalThis.window.codexStyle.getSnapshot();
       if (!snapshot.ok) return undefined;

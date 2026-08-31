@@ -10,6 +10,12 @@ const defaultConfiguration = readThemeConfiguration({});
 describe("theme payload", () => {
   it("maps the selector profile without invoking page-owned cleanup", () => {
     resetDocument();
+    document
+      .querySelector("main")
+      ?.insertAdjacentHTML(
+        "afterbegin",
+        '<div class="sticky bg-surface" data-testid="plugins-search-rail"><input id="plugins-page-search" /></div>',
+      );
     expect(defaultConfiguration.styleConfig.mode).toBe("advanced");
     let cleanupCalls = 0;
     const mutationObserver = Object.getOwnPropertyDescriptor(
@@ -74,6 +80,9 @@ describe("theme payload", () => {
       const composerBackdrop = document.querySelector(
         '[class~="bg-gradient-to-t"]',
       );
+      const pluginsSearchRail = document.querySelector(
+        '[data-testid="plugins-search-rail"]',
+      );
       const userMessage = document.querySelector(
         '[data-user-message-bubble="true"]',
       );
@@ -119,6 +128,9 @@ describe("theme payload", () => {
       expect(mainTopFade?.getAttribute("data-ds-part")).toBe("main-top-fade");
       expect(composerBackdrop?.getAttribute("data-ds-part")).toBe(
         "composer-backdrop",
+      );
+      expect(pluginsSearchRail?.getAttribute("data-ds-part")).toBe(
+        "plugins-search-rail",
       );
       expect(userMessage?.getAttribute("data-ds-part")).toBe("message");
       expect(assistantMessage?.getAttribute("data-ds-part")).toBe("message");
@@ -180,6 +192,16 @@ describe("theme payload", () => {
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-assistant-message-text) !important",
       );
+      const rootSelector = `[data-ds-part="root"][data-codexstyle-owner="${marker}"]`;
+      const pluginsSearchRailSelector = `[data-ds-part="plugins-search-rail"][data-codexstyle-owner="${marker}"]`;
+      const pluginsSearchRailDomSelector =
+        'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search)';
+      expect(style?.textContent).toContain(
+        `${pluginsSearchRailSelector}, ${rootSelector} ${pluginsSearchRailDomSelector} { background-color: var(--ds-theme-color-background) !important; }`,
+      );
+      expect(style?.textContent).toContain(
+        `${pluginsSearchRailSelector}::after, ${rootSelector} ${pluginsSearchRailDomSelector}::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }`,
+      );
     } finally {
       if (mutationObserver)
         Object.defineProperty(window, "MutationObserver", mutationObserver);
@@ -189,6 +211,34 @@ describe("theme payload", () => {
       delete (window as Window & { __CODEXSTYLE_THEME_STATE__?: unknown })
         .__CODEXSTYLE_THEME_STATE__;
     }
+  });
+
+  it("maps a plugins search rail mounted after SPA navigation", async () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+      ),
+    );
+
+    document
+      .querySelector("main")
+      ?.insertAdjacentHTML(
+        "afterbegin",
+        '<div class="sticky bg-surface" data-testid="late-plugins-search-rail"><div><input id="plugins-page-search" /></div></div>',
+      );
+    const rail = document.querySelector(
+      '[data-testid="late-plugins-search-rail"]',
+    );
+    expect(rail?.getAttribute("data-ds-part")).toBeNull();
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    expect(rail?.getAttribute("data-ds-part")).toBe("plugins-search-rail");
+    expect(rail?.getAttribute("data-codexstyle-owner")).toBe(marker);
   });
 
   it("targets only the main surface in content mode", () => {

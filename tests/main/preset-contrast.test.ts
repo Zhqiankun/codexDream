@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
+import { ADDITIONAL_BUNDLED_PRESET_PACK_ID } from "../../src/main/infra/bundled-presets";
 
 interface CatalogTheme {
   presetId: string;
@@ -12,14 +13,22 @@ interface CatalogTheme {
 describe("bundled preset contrast", () => {
   it("keeps image-aware text, actions, and selections readable", async () => {
     const root = resolve(process.cwd(), "resources", "presets");
-    const catalog = JSON.parse(
-      await readFile(resolve(root, "catalog.json"), "utf8"),
-    ) as { themes: CatalogTheme[] };
+    const packRoots = [root, resolve(root, ADDITIONAL_BUNDLED_PRESET_PACK_ID)];
+    const catalogThemes = (
+      await Promise.all(
+        packRoots.map(async (packRoot) => {
+          const catalog = JSON.parse(
+            await readFile(resolve(packRoot, "catalog.json"), "utf8"),
+          ) as { themes: CatalogTheme[] };
+          return catalog.themes.map((theme) => ({ packRoot, theme }));
+        }),
+      )
+    ).flat();
     const failures: string[] = [];
     const signatures = new Set<string>();
 
-    for (const theme of catalog.themes) {
-      const stats = await sharp(resolve(root, theme.image))
+    for (const { packRoot, theme } of catalogThemes) {
+      const stats = await sharp(resolve(packRoot, theme.image))
         .resize(64, 64, { fit: "inside" })
         .removeAlpha()
         .stats();
@@ -55,9 +64,10 @@ describe("bundled preset contrast", () => {
       }
     }
 
-    expect(signatures.size).toBe(catalog.themes.length);
+    expect(catalogThemes).toHaveLength(35);
+    expect(signatures.size).toBe(catalogThemes.length);
     expect(failures).toEqual([]);
-  });
+  }, 30_000);
 });
 
 type Rgb = [number, number, number];

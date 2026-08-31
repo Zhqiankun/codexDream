@@ -1,6 +1,6 @@
 # CodexStyle 任务进度
 
-更新时间：2026-08-30
+更新时间：2026-08-31
 
 ## 目标与范围
 
@@ -29,6 +29,8 @@
 - [x] 编辑器增加“放弃本次修改”，由受管 checkpoint 恢复最近保存或新建起点，并保留 revision 与下次启动选择语义。
 - [x] 主进程增加启动后及每 20 分钟静默更新检查；只提示新版，不自动下载，顶部更新入口改用安装语义图标与状态胶囊。
 - [x] 用户目录当前 25 张图片已逐张形成现代奢华内置主题；schema v4 / pack v7 严格校验 25 份资源，原 13 套稳定 ID 安全升级、三张变化图片原子替换、12 套新主题首次加入，用户编辑与删除语义不变。
+- [x] v8 增量图片主题完成：根 `user-wallpapers-2026-08-30-v7` catalog 与 25 张资产保持不变；独立 `resources/presets/user-wallpapers-2026-08-31-v8/` 首次加入 10 套完整二十九色主题。授权与原文件映射随包记录在 `SOURCES.md`；全新安装 37 套、已有 v7 库只追加 10 套、用户已删主题不复活，以及迁移、幂等、回滚、图片感知对比度和安装包资源均已通过验证。
+- [x] Store Codex `26.825.6671.0` 插件/技能页白色搜索 rail 已纳入 selector profile `/12`：只匹配 `input#plugins-page-search` 所在的 sticky `bg-surface`，rail 与底部伪元素渐变使用主题页面背景，SPA 后挂载由现有 MutationObserver 自动映射，不覆盖全局 surface token。
 - [x] v1.3.6 预设透明度、无覆盖 catalog v2 迁移、主题库缩略图、顶部启动主题选择及旧版兼容导出移除已完成。
 - [x] v1.3.7 二十六色契约已接通：会话标题、首页标题/快捷卡片、命令/编辑/思考摘要均有独立颜色、双页面预览定位和 selector profile `/8` 真实注入；catalog v3 可从 v1 或 v2 安全迁移，用户编辑与删除语义保持。
 - [x] v1.3.8 ownership 升级兼容热修复：v1.3.6 写入的合法 selector profile `/7` 按过期会话恢复，不再阻断启动；当前 `/8` 运行时验证和未知状态 fail-closed 边界保持不变。
@@ -61,10 +63,16 @@
 ## 当前环境
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
-- 当前用户安装的 Store 包：`OpenAI.Codex 26.825.4187.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其当前会话标签、首页卡片和活动摘要标记，未修改 Store 包。
-- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.11`，本轮改动将在完整验证后以 `v1.3.12` 统一提交并打标签。
+- 当前用户安装的 Store 包：`OpenAI.Codex 26.825.6671.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其插件/技能页搜索 rail、页面布局与 surface 变量，未修改 Store 包。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.12`，本轮目标版本已确认并锁定为 `v1.3.13`。版本文件、中英文发布说明与本地发布验证均已完成，等待提交、标签和 Actions 成品。
 
 ## 验证证据
+
+- 2026-08-31 `v1.3.13` 发布候选：独立 v8 增量包新增 10 套图片主题，全新安装共 37 套，v7/v8 删除项均不复活；selector profile `/12` 修复插件/技能页白色搜索 rail 与渐隐。维护者确认图片由其团队上传并授权随 CodexStyle 仓库与安装包再分发，`SOURCES.md` 明确图片不随源码 MIT 许可证单独再许可。`npm ci`、格式、lint、typecheck、architecture check、230 项主进程测试、58 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、精确 Node.js 22.22.0 构建、Windows x64 打包及 `verify:package` 全部通过。安装包 `CodexStyle-1.3.13-x64.exe` 为 163,935,910 字节，SHA-256 `524f45eb566dda948031acc8c9761b544e2eff566f97c60585c616f7c61fec76`；便携包 `CodexStyle-1.3.13-x64.zip` 为 216,696,209 字节，SHA-256 `4bf1dfd62ff73439716bee61bede5b7f00ec098058b1058ee24797c3e041da18`。本地标签、远端标签与 GitHub Release 均无 `v1.3.13` 冲突；正式二进制仍只允许由标签触发的 GitHub Actions 构建发布。
+
+- 2026-08-31 插件/技能页搜索 rail：从当前 Store AppX 的只读 `app.asar` 确认白条来自 `sticky z-30 bg-surface`，底部 32px 渐隐来自 `after:from-surface`；页面提供稳定语义锚点 `input#plugins-page-search`。profile `/12` 新增独立 part，并以 owner/root 双重收窄规则覆盖 rail 与 `::after`；首次映射、SPA 后挂载、历史 ownership profile 恢复和未知 profile fail-closed 由 47 项定向测试覆盖。完整 230 项主进程测试、格式、lint、类型、架构检查、精确 Node.js 22.22.0 构建、1 项真实 Electron E2E、Windows x64 本地打包及 `verify:package` 均通过。未附着、关闭或修改当前 Codex 会话。
+
+- 2026-08-31 v8 增量图片主题完成：维护者提供并明确授权再分发的 10 张 JPEG 已复制到独立 `user-wallpapers-2026-08-31-v8` 包，逐文件映射与第三方权利保留说明位于同目录 `SOURCES.md`；根 v7 catalog 与 25 张资产没有改动。两份 catalog 和 35 张图片的源文件/ASAR 原始字节及 SHA-256、v8 空替代链、10 个新增 ID 精确集合、授权记录随包交付均通过校验。35 套图片主题按原图 64×64 平均色合成后的 11 组对比度全部 `>= 4.5:1`，核心配色全局唯一。`npm run format:check`、lint、typecheck、architecture check、228 项主进程测试、58 项 renderer 测试、7 项集成测试、1 项真实 Electron E2E、精确 Node.js 22.22.0 构建、Windows x64 打包与 `verify:package` 全部通过；全新安装为 37 套，已有 v7 只追加 10 套，二次启动不重载，用户删除的 v7 主题不复活。该证据只代表本地工作树验证，不代表已提交或发布。
 
 - 2026-08-30 `v1.3.12` 发布候选：25 套逐图调色壁纸、15 套现代奢华基础预设、29 色真实注入、CodexStyle Assistant/MCP、条件式默认美学、主题库搜索与独立滚动，以及首次/日常/设计三步说明和一键安装/更新已统一进入发布版本。普通 IPC 升级为 v5；插件 v0.1.1 随包携带 Node.js 22.22.0 x64 专用运行时与完整许可证，真实安装缓存按 `.mcp.json` 成功启动七项工具，E2E 也直接使用该运行时。`npm ci`、格式、lint、typecheck、architecture check、226 项主进程测试、58 项 renderer 测试、7 项集成测试、1 项 Electron+MCP E2E、官方 registry 生产依赖 0 漏洞审计、`npm run package:win` 和 `npm run verify:package` 全部通过。安装包 `CodexStyle-1.3.12-x64.exe` 为 156,063,340 字节，SHA-256 `e13103f228308ea33d649c5163013457bf1e02328f031370bc3a079f7524d135`；便携包 `CodexStyle-1.3.12-x64.zip` 为 208,729,040 字节，SHA-256 `064993750a299c41f28281edd1cee9385fae216df33ae9950ad57fd5276c163e`。包校验同时验证 native secure-store、固定 `js-yaml 4.3.2`、25 张 catalog 资产、随包插件、Skill、MCP bundle、Node runtime/PE 架构/许可证与本地 marketplace manifest。
 
@@ -121,4 +129,5 @@
 - 真实 Store smoke 被当前外部 Codex 会话阻断；需要在所有外部 Codex 关闭后另行执行，且生产版本不暴露 CDP 时“不兼容”是正确结果，不得以权限绕过换取通过。
 - 当前单智能体执行约束下未取得独立测试工程师和高风险安全审计师签字；按 `PLAN.md` 的严格发布完成门槛，仍不能宣称独立安全验收完成。
 - 安装器 Authenticode 状态为 `NotSigned`；需要项目方提供代码签名证书后才能改善 SmartScreen 发布信任。
+- v8 图片由维护者按 `SOURCES.md` 明确授权随项目再分发，但其中可识别的第三方角色、商标和底层作品权利仍归各权利人；发布前必须确认授权记录确实随源码与安装包交付，不得把该记录表述为对 CodexStyle 之外复用的普遍许可。
 - 本轮失败调试遗留 6 个 `%TEMP%\codexstyle-*` 隔离目录，递归清理被本机安全策略拒绝；内容不含正式用户数据且不影响项目。
