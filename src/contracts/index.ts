@@ -18,7 +18,6 @@ export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
 export const DEFAULT_SIDEBAR_OVERLAY_OPACITY = 75;
-export const SIDEBAR_OVERLAY_RGB = "15 23 42";
 
 export type ErrorCode =
   | "IPC_INVALID"

@@ -13,6 +13,7 @@ import {
   type RefObject,
 } from "react";
 import {
+  resolveSidebarSurface,
   type CodexAssistantSnapshot,
   type ImportResult,
   type Result,
@@ -478,6 +479,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [manualUpdatePending, setManualUpdatePending] = useState(false);
   const [runtimeMismatch, setRuntimeMismatch] = useState(false);
+  const [runtimeInfo, setRuntimeInfo] = useState<StudioRuntimeInfo>();
   const [themeQuery, setThemeQuery] = useState("");
   const [assistantInstallBusy, setAssistantInstallBusy] = useState(false);
   const [assistantInstalledVersion, setAssistantInstalledVersion] =
@@ -534,6 +536,7 @@ export function App() {
           setRuntimeMismatch(true);
           return;
         }
+        setRuntimeInfo(runtime.data);
         unsubscribe = bridge.onStateChanged((next) => {
           setSnapshot(next);
           const libraryId = selectedLibraryIdRef.current;
@@ -959,6 +962,15 @@ export function App() {
             <div className="library-stat">
               <span>本地模式</span>
               <strong className="online-dot">●</strong>
+            </div>
+            <div
+              className="library-stat version-stat"
+              aria-label="CodexStyle 当前版本"
+            >
+              <span>CodexStyle 版本</span>
+              <strong>
+                {runtimeInfo ? `v${runtimeInfo.appVersion}` : "—"}
+              </strong>
             </div>
           </div>
         </aside>
@@ -1635,6 +1647,10 @@ function StudioView({
     if (next) applyDetail(next);
     else setThemeJsonError("未通过主题结构或安全校验，配置没有被应用。");
   };
+  const previewSidebarSurface = resolveSidebarSurface(
+    draft.colors.panel,
+    draft.sidebarOverlayOpacity,
+  );
   const previewStyle = {
     colorScheme: draft.appearance === "auto" ? "dark" : draft.appearance,
     "--preview-background": draft.colors.background,
@@ -1669,7 +1685,7 @@ function StudioView({
     "--preview-blur": `${draft.styleConfig.blur}px`,
     "--preview-radius": `${draft.styleConfig.radius}px`,
     "--preview-border": `${draft.styleConfig.borderWidth}px`,
-    "--preview-sidebar-opacity": `${draft.sidebarOverlayOpacity}%`,
+    "--preview-sidebar-surface": previewSidebarSurface.color,
     "--ds-theme-color-background": draft.colors.background,
     "--ds-theme-color-panel": draft.colors.panel,
     "--ds-theme-color-sidebar-text": draft.colors.sidebarText,
@@ -1932,6 +1948,9 @@ function StudioView({
               data-safe-area={draft.art.safeArea}
               data-task-mode={draft.art.taskMode}
               data-recipe-sidebar={String(draft.styleConfig.recipes.sidebar)}
+              data-sidebar-surface-transparent={String(
+                previewSidebarSurface.transparent,
+              )}
               data-recipe-composer={String(draft.styleConfig.recipes.composer)}
               data-recipe-message={String(draft.styleConfig.recipes.message)}
               data-recipe-dialog={String(draft.styleConfig.recipes.dialog)}

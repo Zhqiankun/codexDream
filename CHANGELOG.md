@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.15 — 2026-09-01
+
+### English
+
+- Made the left-panel color alpha authoritative for the full-window sidebar. The legacy overlay control is now presented as **Sidebar darkening** and changes only RGB; a 0% panel is fully transparent and also disables the sidebar blur. Studio preview and Store Codex injection share the same bounded color resolver.
+- Fixed structured Markdown in user-sent messages. The owned user Markdown root, headings, ordered and unordered lists, blockquotes, emphasis, and tables now follow **My message text**, while links, inline code, fenced code, and syntax highlighting keep their Store-native colors.
+- Added a persistent **CodexStyle version** row to the Studio sidebar footer. It uses the validated main-process bootstrap version rather than GitHub update metadata; unpackaged development builds no longer misreport the Electron runtime version.
+- Release-candidate verification passed 238 main-process, 61 renderer, 7 integration, and 1 real Electron E2E tests, together with formatting, lint, type, architecture, an exact Node.js 22.22.0 production build, Windows x64 packaging, and package verification.
+
+> v1.3.15 is still unsigned while the SignPath Foundation application is pending. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. After upgrading, end and relaunch the CodexStyle-managed Codex session so the updated theme bridge takes effect.
+
+### 简体中文
+
+- 修复全窗口侧栏透明度语义：“左侧面板与弹窗”的 alpha 现在是侧栏最终透明度；历史遮罩控件改名为“左侧栏暗化”，只调整 RGB 深浅。面板为 `0%` 时侧栏完全透明并关闭磨砂；Studio 预览和 Store Codex 注入共用同一受限颜色计算。
+- 修复用户发送消息中的结构化 Markdown。用户 Markdown 根、标题、有序/无序列表、引用、强调和表格现在使用“我的消息文字”；链接、行内代码、代码块和语法高亮继续保留 Store 原生颜色。
+- Studio 左侧栏底部新增持续可见的“CodexStyle 版本”。版本来自已验证的主进程 bootstrap，不使用 GitHub 更新元数据；未打包开发版也不再误显示 Electron runtime 版本。
+- 发布候选已通过 238 项主进程、61 项 renderer、7 项集成及 1 项真实 Electron E2E 测试，并通过格式、lint、类型、架构、精确 Node.js 22.22.0 生产构建、Windows x64 打包和包校验。
+
+> SignPath Foundation 申请仍在审核，v1.3.15 尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留。升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让新版主题桥接生效。
+
 ## v1.3.14 — 2026-08-31
 
 ### English

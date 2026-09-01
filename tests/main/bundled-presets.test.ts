@@ -449,6 +449,8 @@ describe("bundled image theme presets", () => {
     );
   });
 
+  // This path copies and verifies all 25 real image assets through the native
+  // store, so it needs the same bounded allowance as the adjacent pack upgrade.
   it("adds the pack once to an existing library and respects later deletion", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);
@@ -513,7 +515,7 @@ describe("bundled image theme presets", () => {
     expect(reloaded.listRecords()).toHaveLength(26);
     expect(reloaded.get(removed.libraryId)).toBeUndefined();
     reloaded.managedStore.close();
-  });
+  }, 30_000);
 
   it.each([
     ["v1", FIRST_BUNDLED_PRESET_PACK_ID, 1, 0],

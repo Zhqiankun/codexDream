@@ -12,6 +12,13 @@ import { CODEX_SELECTOR_PROFILE } from "../../src/main/session/selector-profile"
 
 test("starts the real Electron shell with native storage and completes a local write", async () => {
   const projectRoot = resolve(process.cwd());
+  const packageVersion = (
+    JSON.parse(
+      await readFile(resolve(projectRoot, "package.json"), "utf8"),
+    ) as {
+      version: string;
+    }
+  ).version;
   const localAppData = await mkdtemp(join(tmpdir(), "codexstyle-e2e-"));
   const screenshotDirectory = resolve(projectRoot, "test-results", "e2e");
   seedFutureOwnershipState(localAppData);
@@ -37,6 +44,7 @@ test("starts the real Electron shell with native storage and completes a local w
       ...environment,
       LOCALAPPDATA: localAppData,
       NODE_ENV: "production",
+      npm_package_version: packageVersion,
     },
   });
   let mcpClient: Client | undefined;
@@ -53,6 +61,9 @@ test("starts the real Electron shell with native storage and completes a local w
       .toBe("ORPHANED");
     await expect(page.getByText("Midnight Copper").first()).toBeVisible();
     await expect(page.getByText("Paper Light").first()).toBeVisible();
+    await expect(page.getByLabel("CodexStyle 当前版本")).toContainText(
+      `v${packageVersion}`,
+    );
     await expect(
       page.getByRole("region", { name: "Codex 助手" }),
     ).toContainText("CodexStyle MCP 已就绪");
@@ -227,10 +238,7 @@ test("starts the real Electron shell with native storage and completes a local w
           ),
           main: style(".mock-main").backgroundColor,
           sidebar: style(".mock-sidebar").backgroundColor,
-          sidebarOverlay:
-            style(".mock-sidebar").backgroundImage.startsWith(
-              "linear-gradient(",
-            ),
+          sidebarBackgroundImage: style(".mock-sidebar").backgroundImage,
           dialog: style(".mock-dialog").backgroundColor,
           line: style(".mock-dialog").borderTopColor,
         };
@@ -238,14 +246,49 @@ test("starts the real Electron shell with native storage and completes a local w
     expect(presetSurfaces).toEqual({
       relativeColorSupported: true,
       main: "rgba(111, 18, 13, 0.2)",
-      sidebar: "rgba(83, 10, 8, 0.2)",
-      sidebarOverlay: true,
+      sidebar: "rgba(69, 13, 15, 0.2)",
+      sidebarBackgroundImage: "none",
       dialog: "rgba(83, 10, 8, 0.2)",
       line: "rgba(255, 212, 59, 0.2)",
     });
 
+    await page.getByRole("tab", { name: "颜色" }).click();
+    const sidebarPanelOpacity = page.getByRole("slider", {
+      name: "左侧面板与弹窗透明度",
+    });
+    await sidebarPanelOpacity.fill("0");
+    const transparentSidebar = await page
+      .locator(".mock-sidebar")
+      .evaluate((sidebar) => {
+        const style = getComputedStyle(sidebar);
+        return {
+          backgroundColor: style.backgroundColor,
+          backgroundImage: style.backgroundImage,
+          backdropFilter: style.backdropFilter,
+        };
+      });
+    expect(transparentSidebar).toEqual({
+      backgroundColor: "rgba(69, 13, 15, 0)",
+      backgroundImage: "none",
+      backdropFilter: "none",
+    });
+    await page.getByRole("button", { name: "放弃本次修改" }).click();
+    const discardDialog = page.getByRole("dialog", {
+      name: "放弃“赤金信念”的本次修改？",
+    });
+    await discardDialog.getByRole("button", { name: "放弃并恢复" }).click();
+    await expect(discardDialog).toBeHidden();
+    await expect(
+      page.getByText("已放弃本次修改，主题已恢复到最近保存的状态。"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "放弃本次修改" }),
+    ).toBeDisabled();
+
     await page.getByRole("button", { name: "＋ 新建主题" }).click();
-    await expect(page.locator('input[value="新主题"]')).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "新主题", exact: true }),
+    ).toBeVisible();
     await page.getByRole("tab", { name: "颜色" }).click();
     await page
       .getByRole("textbox", { name: "页面背景颜色", exact: true })

@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.14` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.15` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.14-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.14-x64.zip` — portable archive.
+- `CodexStyle-1.3.15-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.15-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.14` fixes standard assistant Markdown text while responses stream, restores effective left-sidebar panel transparency, and makes file-change card backgrounds, actions, and paths follow their configured colors without flattening alpha. Links, code, syntax colors, and addition/deletion status colors remain native. The verified Store Codex selector profile is now `/13`. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so `/13` takes effect.
+`v1.3.15` makes the left-panel alpha authoritative, turns the legacy sidebar overlay into color-only darkening, fixes ordered-list and other structured Markdown colors in user-sent messages, and shows the running CodexStyle version in the Studio sidebar. Links and code keep their Store-native colors. Selector profile `/13` remains unchanged. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so the updated theme bridge takes effect.
 
 ## Requirements
 

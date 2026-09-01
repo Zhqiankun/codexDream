@@ -67,6 +67,7 @@ export class AppController {
   private studioStartupWatchdog?: ReturnType<typeof setTimeout>;
   private studioRetryTimer?: ReturnType<typeof setTimeout>;
   private updatePollTimer?: ReturnType<typeof setTimeout>;
+  private readonly currentVersion: string;
   private readonly updateService: UpdateService;
   private readonly devRendererUrl = resolveDevRendererUrl(
     process.env.ELECTRON_RENDERER_URL,
@@ -76,7 +77,8 @@ export class AppController {
     updateService?: UpdateService,
     private readonly logger?: MainLogger,
   ) {
-    const currentVersion = app.getVersion();
+    const currentVersion = runtimeApplicationVersion();
+    this.currentVersion = currentVersion;
     this.updateService =
       updateService ??
       new UpdateService(
@@ -270,7 +272,10 @@ export class AppController {
     this.showStudioWindowIfReady(window);
     return {
       ok: true,
-      data: { appVersion: app.getVersion(), protocolVersion: PROTOCOL_VERSION },
+      data: {
+        appVersion: this.currentVersion,
+        protocolVersion: PROTOCOL_VERSION,
+      },
     };
   }
 
@@ -1010,6 +1015,21 @@ export class AppController {
     if (response.response === 1) await this.installUpdate("now");
     if (response.response === 2) await this.installUpdate("on-quit");
   }
+}
+
+/**
+ * Packaged Electron reports the CodexStyle package version. An unpackaged
+ * Electron process reports the Electron runtime version instead, so dev/E2E may
+ * use npm's validated project version only for that exact fallback case.
+ */
+function runtimeApplicationVersion(): string {
+  const applicationVersion = app.getVersion();
+  const projectVersion = process.env.npm_package_version;
+  return applicationVersion === process.versions.electron &&
+    typeof projectVersion === "string" &&
+    /^[0-9]+\.[0-9]+\.[0-9]+$/u.test(projectVersion)
+    ? projectVersion
+    : applicationVersion;
 }
 
 function resultError<T>(code: ErrorCode, messageKey: string): Result<T> {

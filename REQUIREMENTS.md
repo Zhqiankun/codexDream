@@ -30,11 +30,12 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 每个主题还包含以下展示配置，并由 Studio 预览、真实 Codex 注入和简化 ZIP 共用：
 
 - `backgroundScope` 只能为 `"content"`（仅内容区）或 `"window"`（全窗口）。
-- `sidebarOverlayOpacity` 是 `0` 到 `100` 的整数，表示全窗口模式下左侧栏固定深色遮罩层的强度；`colors.panel` 保持为独立底色且保留自身 alpha，两层共同合成，任一透明度调整都必须可见。Studio 与真实注入使用同一双层 `background`，并同时覆盖宿主侧栏本体及其继承背景的 `::after`。仅内容区模式直接使用 panel 原值，不消费遮罩值，Studio 必须禁用控件并解释原因。
+- `sidebarOverlayOpacity` 是为 ZIP 与既有主题保留的 `0..100` 整数字段，Studio 将其显示为“左侧栏暗化”。全窗口模式只用它把 `colors.panel` 的 RGB 向固定深色 `15 23 42` 插值，不得改变 panel alpha；panel alpha 是侧栏最终透明度，`0%` 时侧栏本体与继承背景的 `::after` 必须完全透明，并关闭侧栏磨砂。Studio 与真实注入必须调用同一纯函数生成单层 `background`，禁止再叠加独立 alpha 层。仅内容区模式直接使用 panel 原值，不消费暗化值，Studio 必须禁用控件并解释原因。
 - 旧的内部主题或 ZIP 缺少上述字段时按 `backgroundScope: "window"`、`sidebarOverlayOpacity: 75` 读取；新建、编辑和简化导出必须显式写入这两个字段。
 - 修改任一展示配置都按普通主题编辑处理：递增 revision、退回 draft、使正式导入项变为已编辑并只能导出简化 ZIP。
 - `appearance` 只能为 `auto | light | dark`。`art` 包含 `focusX/focusY`（`0..1`）、`safeArea`（`none | left | right`）和 `taskMode`（`ambient | full | off`）。背景焦点必须立即改变预览与真实注入的图片定位。
 - `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前可选扩展为 `sidebarText/assistantPanel/assistantMessageText/userMessageText/composerText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted/accentText/selectionText`。main 读取旧主题时必须补全缺失扩展：消息、输入与首页主要文字继承正文色，文件变更与首页卡片背景继承次级面板色，顶部栏及命令/思考次要文字继承说明文字，会话标题优先继承顶部栏颜色，发送图标与选区文字兼容旧页面背景前景；再将规范化后的二十九色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
+- `userMessageText` 必须覆盖已归属用户气泡内的 `data-markdown-text-tone="user-message"` 根及标题、段落、有序/无序列表、引用、强调与表格等普通 Markdown 节点，使列表裸文本和标记不回退到宿主前景色。链接、`span[data-markdown-copy="inline-code"]`、`pre/code` 与代码块继续使用 Store 原生颜色；禁止用 `a/code/span` 泛选择器抹平交互色或语法高亮。助手消息沿用同一普通 Markdown 元素清单和独立 `assistantMessageText`，流式 `_FadeIn_` 规则仍只补普通文字。
 - 文件变更卡只允许外层卡片绘制一次 `changeCardBackground`；宿主的列表 surface、文件行、展开/收起操作及内嵌 diff surface 必须透明继承，避免半透明颜色重复合成。`changeCardText` 覆盖标题、普通操作和文件路径，新增/删除数量继续保留宿主的绿/红状态色。
 - `homeCards` 固定为四项，每项包含安全 `color` 与 `mode: color | image`；图片模式还必须包含主进程生成、单项不超过 48 KiB 的 WebP Data URL。四张卡片可独立配置，旧主题缺少该字段时按既有 `colors.homeCardBackground` 生成四张纯色卡片。renderer 不接收源图片路径或原始字节；选择图片只能经版本化 IPC 由 main 有界读取、解码、裁切并压缩，之后按普通主题编辑递增 revision。
 - `style` 包含 `mode`、四个配方开关和受限表面参数。`mode: "configured"` 时，sidebar、composer、message、dialog 配方以及 blur、radius、borderWidth、shadow 由结构化配置确定，并通过唯一共享生成器产生非空 `theme.css`；用户无需手改 CSS。`mode: "advanced"` 时保留既有 Safe CSS 源码编辑和验证能力。
@@ -119,7 +120,7 @@ preload 暴露版本化强类型方法：snapshot、固定助手插件安装、�
 
 ## 可观察验收
 
-1. 可创建、编辑、预览、保存本地主题；切换“仅内容区/全窗口”和调整侧栏遮罩时 LIVE PREVIEW 立即更新，保存、重开与简化 ZIP 往返后配置不丢失。
+1. 可创建、编辑、预览、保存本地主题；切换“仅内容区/全窗口”和调整侧栏暗化时 LIVE PREVIEW 立即更新，保存、重开与简化 ZIP 往返后配置不丢失。
 2. 有效旧版普通 ZIP 可导入；缺件、不安全 CSS/图片/归档或冲突不会静默覆盖。
 3. 导入只进入主题库，必须显式选择才影响后续工具启动。
 4. 支持的 Store Codex 上，仅工具启动且身份验证完整的会话显示主题；外部启动会话保持原样。
@@ -131,7 +132,7 @@ preload 暴露版本化强类型方法：snapshot、固定助手插件安装、�
 10. 受管根或任一路径段为 junction、symlink 或其他 reparse point，native 模块缺失/加载失败，或 handle-relative 操作出现身份异常时，应用返回 `STORE_TAMPERED`，不使用 Node `fs` 降级且不继续使用该存储。
 11. 在写入、flush、rename 和恢复各失败点，重启后只能读到完整旧状态或完整新状态；`state/themes/transactions/lock/ownership` 均遵守相同根句柄和逐段校验规则。
 12. 打包后的 `.node` 位于 ASAR unpacked 资源并可在无 Build Tools 的普通用户环境加载；删除该文件会稳定 fail closed。用户选择的外部导出 ZIP 仍可按原契约创建，且不能借此访问 managed path。
-13. 全窗口模式下背景覆盖根区域并透过配置的侧栏遮罩可见；仅内容区模式下背景只覆盖主内容区域。相同主题配置在 LIVE PREVIEW 和真实 Codex 注入中使用相同作用域与遮罩规则。
+13. 全窗口模式下背景覆盖根区域并透过配置的侧栏表面可见；panel alpha 是最终透明度，暗化只改变 RGB，panel alpha 为 `0%` 时不得残留背景层或磨砂。仅内容区模式下背景只覆盖主内容区域。相同主题配置在 LIVE PREVIEW 和真实 Codex 注入中使用相同作用域与侧栏规则。
 14. 自动/浅色/深色、水平/垂直焦点、安全区、任务画面和二十九色配色在设计面板可配置，保存、重开、完整主题 ZIP 往返后配置不丢失；助手回复、用户消息、输入正文、发送图标、选区文字、文件变更卡片、顶部栏、当前会话标题、首页标题与快捷卡片、命令/编辑/思考摘要均有独立背景或文字控制。首页四张快捷卡片还可逐张选择独立颜色/透明度或本地图片，并在 LIVE PREVIEW 和真实 Codex 注入中一致；焦点、颜色变量和 color-scheme 同样一致。
 15. 配置模式下启停四个样式配方或调整 blur/radius/border/shadow 会立即更新预览，并由共享生成器写入合法非空 theme.css；无需编辑源码。高级模式继续支持现有 CSS，旧主题不会被自动改写。
 16. theme.json 面板可校验并应用合法源码；语法错误、未知字段、越界值或图片引用变化会被拒绝且不改变 revision、预览、选择或已持久化主题。
@@ -142,16 +143,17 @@ preload 暴露版本化强类型方法：snapshot、固定助手插件安装、�
 21. 主进程日志按日生成并自动清理，用户可从工作台打开日志目录；日志内容与保留策略符合上述隐私边界，日志基础设施故障不影响应用启动和安全状态。
 22. 普通编辑区提供“保存主题”和“放弃本次修改”两个明确操作，并自动保持 patch-before-commit 的 revision 顺序；放弃操作恢复最近 commit 或新建起点，不删除主题、不改变下次启动选择。高级 JSON 的独立校验边界不变。
 23. 启动检查界面只展示“Store Codex 可启动 / 会话可安全管理 / 主题与当前版本兼容”三项用户可理解结果，但底层 AppX、PID、SID、nonce、监听端口、Browser ID、CDP 和版本化选择器验证不得删减。配置模式的背景、二十九色、焦点、画面、配方、圆角、边框、阴影、模糊和发送图标都必须有真实注入消费者或明确失败反馈。
-24. 当前 schema v4 / pack v7 内置图片主题包必须包含用户目录当前 25 张图片对应的 25 个 ready 记录；页面背景色与侧栏/弹窗面板色使用 20% alpha，左侧栏遮罩字段为 20%，边框与分隔线使用 20% alpha。全新主题库得到原有 2 个基础主题加 25 个图片主题。升级既有 pack 时，原 13 套只迁移精确未编辑项；三张内容已替换的图片还必须同时匹配 previous image SHA-256 才可原子替换，用户编辑或删除项不覆盖、不复活。12 个新增主题只在 v7 首次引入，不得被后续 pack 当作已删除主题复活。catalog、任一图片、替换写入或索引持久化失败时，主题记录与新旧图片字节必须整体回滚；安装包中的 catalog 与 25 张图片逐项通过 SHA-256 校验。
+24. 当前 schema v4 / pack v7 内置图片主题包必须包含用户目录当前 25 张图片对应的 25 个 ready 记录；页面背景色与侧栏/弹窗面板色使用 20% alpha，历史 `sidebarOverlayOpacity`（现“左侧栏暗化”）为 20%，边框与分隔线使用 20% alpha。全新主题库得到原有 2 个基础主题加 25 个图片主题。升级既有 pack 时，原 13 套只迁移精确未编辑项；三张内容已替换的图片还必须同时匹配 previous image SHA-256 才可原子替换，用户编辑或删除项不覆盖、不复活。12 个新增主题只在 v7 首次引入，不得被后续 pack 当作已删除主题复活。catalog、任一图片、替换写入或索引持久化失败时，主题记录与新旧图片字节必须整体回滚；安装包中的 catalog 与 25 张图片逐项通过 SHA-256 校验。
 25. 下次启动主题选择卡位于编辑器与预览之前；左侧主题列表对真实背景图显示受控 `app://theme-asset` 缩略图，对透明占位或无自定义背景的主题显示页面背景色。列表不得获得文件路径，图片延迟解码；Studio 只提供完整主题 ZIP 与未编辑正式原包导出，不显示旧版兼容 ZIP 操作。
 26. 从旧版本升级或从新版降级时，合法且有界的非当前 `ownership` profile 只能使启动状态进入 `ORPHANED`，Studio 必须正常打开且主题库保持不变；动态回归覆盖 profile `/1` 到当前前一版，并单独覆盖 `current + 1` 与 `/64`。未知前缀、非规范版本及 `/65` 仍稳定返回 `STORE_TAMPERED:ownership-state`；runtime profile 不相等时仍禁止连接和注入。
 27. selector profile `/11` 必须命中 Codex `26.825.4187.0` 当前选中会话标签的真实表面与 `--app-shell-tab-background` 消费者、最大化 edge-scroll 当前会话标题、首页 `data-feature="game-source"` / `group/title` 标题结构，以及首页独立的 composer controls rail；仅当前选中或当前页面目标被覆盖。四张 `group/home-suggestions` 卡片按 DOM 顺序获得稳定索引，分别消费自己的颜色或有界 WebP 图片。响应式标题和首页 composer rail 在节点重建后不得闪回默认白色表面。
 28. LIVE PREVIEW 首页与对话的主要颜色消费者均可反向定位；点击“我的消息文字”和任一首页快捷卡片必须分别聚焦准确颜色项或卡片项，定位后画面、组件样式和高级配置仍可正常切换。键盘激活、减少动画和焦点反馈均有回归覆盖。
 29. Codex 受管启动、状态、安全检查、暂停/恢复与结束会话操作必须位于主题设计页；不再要求用户切换单独的“Codex 会话”页。底层身份验证、外部会话阻断和 operation gate 不得因页面合并而改变。
-30. “输入文字”必须作为独立结构化颜色，仅作用于首页与对话 composer 的已输入正文和光标；旧主题缺少该字段时回落到通用正文色。占位文字继续消费 muted，输入框底部工具栏和首页“选择项目”rail 继续消费 secondary，三者不得互相覆盖。LIVE PREVIEW 必须同时展示并可反向定位输入正文、占位文字和工具栏文字。
-31. Studio 必须提供 15 套互不重复的现代奢华基础配色，覆盖墨绿古铜、藏蓝银辉、酒红香槟、紫晶珍珠、奶油玫瑰金、炭灰蓝宝石等宝石色与金属色方向；原基础预设不再展示。根 v7 的 25 套与独立 v8 的 10 套图片主题必须按各自画面内容独立配色，不得只替换单个 accent。所有基础预设和图片主题的页面背景、panel 与 line 均为 20% alpha；输入正文、发送图标及选区前景/背景必须成对通过对比度回归。
-32. Codex 插件首次启用后，CodexStyle 启动即创建自动发现端点，实际 MCP smoke 必须使用随包 Node.js runtime 按 `.mcp.json` 原样启动、列出七项固定工具并能读取状态和主题列表；错误 token 与浏览器 Origin 返回拒绝，应用退出后端点描述消失。一键安装只能调用固定随包 marketplace 和固定插件 ID，旧插件升级后必须核对安装版本及 enabled 状态；运行时、bundle、许可证与 marketplace 均须通过包内字节校验。派生操作保留源主题和背景，ready 主题更新被拒绝，过期 revision 被拒绝，失败的配色对比度不得写入。用户未明确颜色/视觉方向时使用锁定的现代奢华默认提示，明确颜色或风格时不得套用该默认。Studio 必须固定展示三步：首次只安装/启用一次，日常只启动 CodexStyle，随后在已加载插件的 Codex 任务中描述配色并回到 Studio 预览保存；`listening` 只能表述本机接口已自动就绪，不能推断插件未安装或暗示需要手动连接。
-33. 桌面端左侧主题库必须限制在当前可用视口内，标题、新建/导入、名称搜索和底部统计固定，仅主题列表纵向滚动；100 个及以上主题不得拉长整页。搜索即时、忽略大小写与全半角差异，显示“匹配数/总数”，提供清空和无结果反馈，且不得修改主题顺序、总数、ready 计数、当前编辑项或下次启动选择。单击、双击、图片缩略图、颜色回退和图片失败回退行为保持；760px 以下恢复自动高度与横向列表。
-34. v8 增量包必须与根 v7 并存加载；全新存储首次启动得到 2 个基础主题、25 个 v7 图片主题和 10 个 v8 图片主题，共 37 个 ready 主题。已有 v7 安装只追加尚未安装的 v8 包，旧 pack 标记、现有 revision、checkpoint、选择项与 last-known-good 保持；用户此前删除的 v7 主题不得因 v8 出现而复活，v8 安装并记录 pack 后用户删除的 v8 主题也不得在后续启动重新出现。验收必须证明根 `catalog.json` 与 25 张 v7 资产保持不变，v8 catalog 严格 schema、10 个新 ID/图片名/格式/尺寸/SHA-256、`introducedThemeIds`、20% 页面/panel/line、20% 侧栏遮罩、图片平均色合成后的正文/输入/操作/选区 WCAG 对比度、二次启动幂等、失败全回滚和安装包内 v7 + v8 两套目录均正确；`verify:package` 还必须核对 v8 的 10 张图片与 `SOURCES.md` 授权记录。
-35. selector profile `/12` 必须覆盖插件与技能浏览页共用的 sticky 搜索 rail。只允许通过当前页面语义锚点 `input#plugins-page-search` 与同时具备 `sticky`、`bg-surface` 的祖先容器进行版本化匹配；rail 实色和其 `::after` 底部渐变都消费主题 `background`，SPA 后挂载仍须自动映射。禁止全局覆盖 Codex 的 `--color-surface`，不得借此影响对话框、卡片、按钮或普通输入表面。
-36. selector profile `/13` 必须让助手标准 Markdown 在流式生成阶段和完成阶段使用同一 `assistantMessageText`。完成态继续覆盖 `h1..h6`、段落、列表、引用、强调与表格普通文字；流式态只补这些语义节点的直接 `_FadeIn_` 文本 span。任何包含链接、`code`、`pre` 或 `[data-markdown-copy="inline-code"]` 的流式包装节点必须排除，禁止设置可继承的 `-webkit-text-fill-color`，不得抹平链接、行内代码或代码块原生颜色。
+30. 正常 Studio 页面必须在左侧栏底部持续显示当前正在运行的 CodexStyle 主进程版本，格式为 `vX.Y.Z`。版本唯一来源是通过 bootstrap `rendererReady` 验证后的 `StudioRuntimeInfo.appVersion`，不得使用 GitHub 最新版、更新状态或 renderer 自身常量冒充；协议不兼容时继续显示既有 RuntimeMismatch，不展示未经验证的版本。
+31. “输入文字”必须作为独立结构化颜色，仅作用于首页与对话 composer 的已输入正文和光标；旧主题缺少该字段时回落到通用正文色。占位文字继续消费 muted，输入框底部工具栏和首页“选择项目”rail 继续消费 secondary，三者不得互相覆盖。LIVE PREVIEW 必须同时展示并可反向定位输入正文、占位文字和工具栏文字。
+32. Studio 必须提供 15 套互不重复的现代奢华基础配色，覆盖墨绿古铜、藏蓝银辉、酒红香槟、紫晶珍珠、奶油玫瑰金、炭灰蓝宝石等宝石色与金属色方向；原基础预设不再展示。根 v7 的 25 套与独立 v8 的 10 套图片主题必须按各自画面内容独立配色，不得只替换单个 accent。所有基础预设和图片主题的页面背景、panel 与 line 均为 20% alpha；输入正文、发送图标及选区前景/背景必须成对通过对比度回归。
+33. Codex 插件首次启用后，CodexStyle 启动即创建自动发现端点，实际 MCP smoke 必须使用随包 Node.js runtime 按 `.mcp.json` 原样启动、列出七项固定工具并能读取状态和主题列表；错误 token 与浏览器 Origin 返回拒绝，应用退出后端点描述消失。一键安装只能调用固定随包 marketplace 和固定插件 ID，旧插件升级后必须核对安装版本及 enabled 状态；运行时、bundle、许可证与 marketplace 均须通过包内字节校验。派生操作保留源主题和背景，ready 主题更新被拒绝，过期 revision 被拒绝，失败的配色对比度不得写入。用户未明确颜色/视觉方向时使用锁定的现代奢华默认提示，明确颜色或风格时不得套用该默认。Studio 必须固定展示三步：首次只安装/启用一次，日常只启动 CodexStyle，随后在已加载插件的 Codex 任务中描述配色并回到 Studio 预览保存；`listening` 只能表述本机接口已自动就绪，不能推断插件未安装或暗示需要手动连接。
+34. 桌面端左侧主题库必须限制在当前可用视口内，标题、新建/导入、名称搜索和底部统计固定，仅主题列表纵向滚动；100 个及以上主题不得拉长整页。搜索即时、忽略大小写与全半角差异，显示“匹配数/总数”，提供清空和无结果反馈，且不得修改主题顺序、总数、ready 计数、当前编辑项或下次启动选择。单击、双击、图片缩略图、颜色回退和图片失败回退行为保持；760px 以下恢复自动高度与横向列表。
+35. v8 增量包必须与根 v7 并存加载；全新存储首次启动得到 2 个基础主题、25 个 v7 图片主题和 10 个 v8 图片主题，共 37 个 ready 主题。已有 v7 安装只追加尚未安装的 v8 包，旧 pack 标记、现有 revision、checkpoint、选择项与 last-known-good 保持；用户此前删除的 v7 主题不得因 v8 出现而复活，v8 安装并记录 pack 后用户删除的 v8 主题也不得在后续启动重新出现。验收必须证明根 `catalog.json` 与 25 张 v7 资产保持不变，v8 catalog 严格 schema、10 个新 ID/图片名/格式/尺寸/SHA-256、`introducedThemeIds`、20% 页面/panel/line、20% 侧栏遮罩、图片平均色合成后的正文/输入/操作/选区 WCAG 对比度、二次启动幂等、失败全回滚和安装包内 v7 + v8 两套目录均正确；`verify:package` 还必须核对 v8 的 10 张图片与 `SOURCES.md` 授权记录。
+36. selector profile `/12` 必须覆盖插件与技能浏览页共用的 sticky 搜索 rail。只允许通过当前页面语义锚点 `input#plugins-page-search` 与同时具备 `sticky`、`bg-surface` 的祖先容器进行版本化匹配；rail 实色和其 `::after` 底部渐变都消费主题 `background`，SPA 后挂载仍须自动映射。禁止全局覆盖 Codex 的 `--color-surface`，不得借此影响对话框、卡片、按钮或普通输入表面。
+37. selector profile `/13` 必须让助手标准 Markdown 在流式生成阶段和完成阶段使用同一 `assistantMessageText`。完成态继续覆盖 `h1..h6`、段落、列表、引用、强调与表格普通文字；流式态只补这些语义节点的直接 `_FadeIn_` 文本 span。任何包含链接、`code`、`pre` 或 `[data-markdown-copy="inline-code"]` 的流式包装节点必须排除，禁止设置可继承的 `-webkit-text-fill-color`，不得抹平链接、行内代码或代码块原生颜色。

@@ -1,8 +1,8 @@
 import {
   DEFAULT_BACKGROUND_SCOPE,
   DEFAULT_SIDEBAR_OVERLAY_OPACITY,
-  SIDEBAR_OVERLAY_RGB,
   readThemeConfiguration,
+  resolveSidebarSurface,
   themeTokenDeclarations,
   builtInSendIconMask,
   type BackgroundScope,
@@ -20,8 +20,8 @@ interface PayloadConfig {
   css: string;
   artDataUrl: string;
   backgroundScope: BackgroundScope;
-  sidebarOverlayOpacity: number;
-  sidebarOverlayRgb: string;
+  sidebarSurface: string;
+  sidebarSurfaceTransparent: boolean;
   configuredRecipes?: ThemeConfiguration["styleConfig"]["recipes"];
   sendIcon: ThemeConfiguration["styleConfig"]["sendIcon"];
   sendIconDataUrl?: string;
@@ -52,13 +52,17 @@ export function buildThemePayload(
   artDataUrl: string,
   settings: ThemePayloadSettings = defaultPayloadSettings(),
 ): string {
+  const sidebarSurface = resolveSidebarSurface(
+    settings.colors.panel,
+    settings.sidebarOverlayOpacity,
+  );
   const config: PayloadConfig = {
     marker,
     css,
     artDataUrl,
     backgroundScope: settings.backgroundScope,
-    sidebarOverlayOpacity: settings.sidebarOverlayOpacity,
-    sidebarOverlayRgb: SIDEBAR_OVERLAY_RGB,
+    sidebarSurface: sidebarSurface.color,
+    sidebarSurfaceTransparent: sidebarSurface.transparent,
     configuredRecipes:
       settings.styleConfig.mode === "configured"
         ? settings.styleConfig.recipes
@@ -179,14 +183,15 @@ export function buildThemePayload(
       const instantPluginSearchRailSelector = rootSelector + ' ' + config.pluginSearchRailSelector;
       const pluginSearchRailBridge = '\\n' + pluginSearchRailPartSelector + ', ' + instantPluginSearchRailSelector + ' { background-color: var(--ds-theme-color-background) !important; }' +
         '\\n' + pluginSearchRailPartSelector + '::after, ' + instantPluginSearchRailSelector + '::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }';
-      // Keep the panel color's own alpha independent from the legacy overlay
-      // strength. The shorthand also clears native background layers, while the
-      // paired ::after rule prevents Codex's inherited edge surface from staying opaque.
-      const sidebarOverlayLayer = 'linear-gradient(rgb(' + config.sidebarOverlayRgb + ' / ' + config.sidebarOverlayOpacity + '%), rgb(' + config.sidebarOverlayRgb + ' / ' + config.sidebarOverlayOpacity + '%))';
-      const sidebarBackground = sidebarOverlayLayer + ', var(--ds-theme-color-panel)';
+      // Use one precomputed surface so the panel alpha remains authoritative.
+      // The shorthand clears native background layers, while the paired ::after
+      // rule prevents Codex's inherited edge surface from staying opaque.
       const sidebarSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
       const sidebarBridge = config.backgroundScope === "window"
-        ? '\\n' + sidebarSelector + ', ' + sidebarSelector + '::after { background: ' + sidebarBackground + ' !important; }'
+        ? '\\n' + sidebarSelector + ', ' + sidebarSelector + '::after { background: ' + config.sidebarSurface + ' !important; }' +
+          (config.sidebarSurfaceTransparent
+            ? '\\n' + sidebarSelector + ' { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }'
+            : '')
         : "";
       const sidebarTextSelector = sidebarSelector;
       const sidebarTextBridge = '\\n' + sidebarTextSelector + ' { color: var(--ds-theme-color-sidebar-text) !important; }' +
@@ -210,11 +215,21 @@ export function buildThemePayload(
         return '\\n' + selector + ' { background-color: ' + card.color + ' !important; background-image: ' + image + ' !important; background-position: center !important; background-repeat: no-repeat !important; background-size: cover !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-home-card-text) !important; }';
       }).join('') +
         '\\n' + homeCardSelector + ' :where(a, button, code, em, label, p, small, strong, span, [class*="text-"]) { color: var(--ds-theme-color-home-card-text) !important; }';
+      // MarkdownRoot owns its own foreground color in Store Codex, so changing
+      // only the outer message bubble leaves list text on the native color. Keep
+      // one ordinary-text suffix for user and assistant blocks, while never
+      // targeting links, inline code, fenced code, or their descendants.
+      const ordinaryMarkdownElementSelector = ':where(blockquote, dd, del, dt, em, figcaption, h1, h2, h3, h4, h5, h6, li, ol, p, small, strong, table, tbody, td, tfoot, th, thead, tr, ul):not(a *):not(code *):not(pre *):not([data-markdown-copy="inline-code"] *)';
       const userMessageSelector = '[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="' + config.marker + '"]';
+      const userMessageMarkdownRootSelector = userMessageSelector + ' [data-markdown-text-tone="user-message"]';
+      const userMessageOrdinaryTextSelector = userMessageMarkdownRootSelector + ' ' + ordinaryMarkdownElementSelector;
+      const userMessageNativeCodeSelector = userMessageMarkdownRootSelector + ' :where(code, pre, [data-markdown-copy="inline-code"], [class*="_CodeBlock_"])';
       const userMessageTextBridge = '\\n' + userMessageSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
-        '\\n' + userMessageSelector + ' :where(a, code, em, p, span, strong) { color: var(--ds-theme-color-user-message-text) !important; }';
+        '\\n' + userMessageMarkdownRootSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
+        '\\n' + userMessageOrdinaryTextSelector + ' { color: var(--ds-theme-color-user-message-text) !important; }' +
+        '\\n' + userMessageNativeCodeSelector + ' { color: var(--color-text-user-message) !important; }';
       const assistantMessageSelector = '[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="' + config.marker + '"]';
-      const assistantMessageOrdinaryTextSelector = assistantMessageSelector + ' :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th)';
+      const assistantMessageOrdinaryTextSelector = assistantMessageSelector + ' ' + ordinaryMarkdownElementSelector;
       const assistantMessageAnimatedTextSelector = assistantMessageOrdinaryTextSelector + ' > span[class*="_FadeIn_"]:not(:has(a, code, pre, [data-markdown-copy="inline-code"]))';
       const assistantMessageTextBridge = '\\n' + assistantMessageSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; }' +
         '\\n' + assistantMessageOrdinaryTextSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; }' +

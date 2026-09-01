@@ -41,7 +41,7 @@ plugins/codexstyle-assistant/          Codex 插件、STDIO MCP 与主题设计 
 
 公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`assistant.installPlugin`；`theme.get/createDraft/patchDraft/discardChanges/chooseBackground/chooseSendIcon/chooseHomeCardImage/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`；助手安装调用不接收路径或命令，只能让 main 从固定随包 marketplace 经已核对的当前用户 Codex CLI 安装固定插件 ID。
 
-主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责协议校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏以固定深色遮罩层叠加保持自身 alpha 的 `colors.panel` 底色，任一透明度调整都可见；bridge 以双层 `background` 同时覆盖宿主侧栏和 `::after`，仅内容区则保留 panel 原值并禁用无效遮罩控件。
+主题展示配置归属 theme domain：`backgroundScope` 为 `content | window`，`sidebarOverlayOpacity` 为 `0..100` 整数，缺省兼容值为 `window / 75`。`ThemeDetail` 返回必填规范化值，`ThemePatch` 接收可选更新；main 负责协议校验、持久化、ZIP 往返和注入，renderer 只通过既有 bridge 编辑并按返回 detail 预览。全窗口侧栏由 contracts 纯函数把 panel RGB 按 `sidebarOverlayOpacity` 向固定深色插值，panel alpha 原样成为最终 alpha；main 与 renderer 消费同一单层颜色，bridge 以 `background` 同时覆盖宿主侧栏和 `::after`，透明态还覆盖磨砂。Studio 将兼容字段显示为“左侧栏暗化”；仅内容区保留 panel 原值并禁用该控件。
 
 结构化主题配置同样归属 theme domain：`appearance`、`art`、二十九色 `colors`、固定四项 `homeCards` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/composerText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted/accentText/selectionText` 为可选兼容扩展；旧主题缺少 `homeCards` 时从 `homeCardBackground` 生成四项纯色默认值。规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整二十九色和四张卡片。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色与卡片图片 Data URL 边界、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是图片解码压缩、CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
 
@@ -140,7 +140,7 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 13. 内置图片主题包：将 13 张用户提供图片以 ASCII 资源名和严格 catalog 打入 app.asar；main 在首次需要时逐张有界校验全部资产，避免同时解码大图造成启动内存峰值，再由 secure-store 批量追加 ready 主题并记录稳定 pack ID。验收覆盖已有库升级、二次启动不重复、删除不复活、图片/manifest 篡改、写入失败全回滚、包内文件与哈希，以及不新增 renderer/IPC 路径边界。
 
-14. 预设迁移与 Studio 布局：catalog v2 将页面背景与 panel alpha 固定为 20%、侧栏深色遮罩固定为 20%、line alpha 固定为 10%，main/preview 以双层 `background` 分别保留 panel alpha 与遮罩强度，并覆盖宿主继承背景的伪元素；旧 pack 仅在 fingerprint 精确匹配且无 checkpoint 时原位迁移。下次启动选择卡移动到编辑器上方，主题摘要返回背景色与受控缩略图 URL，renderer 对真实图片使用 lazy thumbnail、对透明占位回退背景色。旧版兼容 ZIP 从导出枚举、写入分支和 Studio 删除，完整 ZIP 与旧包导入保持。
+14. 预设迁移与 Studio 布局：catalog v2 将页面背景与 panel alpha 固定为 20%、历史侧栏暗化字段固定为 20%、line alpha 固定为 10%；当前 main/preview 通过共享单色解析保留 panel 的 20% 最终 alpha，只以暗化值调整 RGB，并覆盖宿主继承背景的伪元素。旧 pack 仅在 fingerprint 精确匹配且无 checkpoint 时原位迁移。下次启动选择卡移动到编辑器上方，主题摘要返回背景色与受控缩略图 URL，renderer 对真实图片使用 lazy thumbnail、对透明占位回退背景色。旧版兼容 ZIP 从导出枚举、写入分支和 Studio 删除，完整 ZIP 与旧包导入保持。
 
 15. 标题、首页与活动颜色：保持 `theme-config.ts` 为唯一跨层颜色契约，将颜色从十八色扩展为二十六色；selector profile `/8` 仅登记当前会话 tab、首页主标题、首页快捷卡片和 `group/activity-header` 活动摘要四类已核对节点。payload 通过独立 token bridge 覆盖背景、主文字和次要文字；renderer 使用相同变量和 `data-ds-part` 构造首页/对话预览，并在聚焦颜色项时自动切换对应页面。catalog v3 为 13 套图片主题补齐新颜色，并保存 v1/v2 两代精确 fingerprint，确保跨版本升级仍不覆盖用户编辑或复活删除项。
 
@@ -160,13 +160,17 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 23. 大型主题库导航：桌面端把应用工作区约束到动态视口，左侧标题、操作、名称搜索和统计保持固定，仅主题列表独立纵向滚动；主编辑区使用独立滚动容器。搜索只在 renderer 对现有 snapshot 派生过滤，不新增 IPC、持久状态或主题排序，使用延迟查询与 `content-visibility` 保持百项以上列表输入流畅。无结果提供明确反馈与清空入口；搜索不改变总数、ready 计数、当前编辑主题、双击选择和缩略图回退。窄屏继续使用自动高度与横向主题列表。
 
-24. v8 增量图片主题：冻结根 v7 catalog 与 25 张资产，在固定子目录新增独立 `user-wallpapers-2026-08-31-v8` catalog、10 张经授权图片和 `SOURCES.md`。10 套主题使用全新稳定 ID、完整二十九色和逐图焦点/安全区/画面参数，页面背景、panel、line 与侧栏遮罩均固定 20%；正文、输入、操作与选区按各自原图缩放至 64×64 后的 RGB 平均色合成并满足 WCAG `4.5:1`。安装路径覆盖全新库得到 37 套、已有 v7 库只追加 10 套、二次启动幂等、用户删除不复活、任一步失败全回滚，并证明根 v7 字节与迁移结果不变。
+24. v8 增量图片主题：冻结根 v7 catalog 与 25 张资产，在固定子目录新增独立 `user-wallpapers-2026-08-31-v8` catalog、10 张经授权图片和 `SOURCES.md`。10 套主题使用全新稳定 ID、完整二十九色和逐图焦点/安全区/画面参数，页面背景、panel、line 与历史侧栏暗化值均固定 20%；正文、输入、操作与选区按各自原图缩放至 64×64 后的 RGB 平均色合成并满足 WCAG `4.5:1`。安装路径覆盖全新库得到 37 套、已有 v7 库只追加 10 套、二次启动幂等、用户删除不复活、任一步失败全回滚，并证明根 v7 字节与迁移结果不变。
 
 25. 插件/技能页搜索 rail：以 Store Codex `26.825.6671.0` 的已核对 bundle 为 selector profile `/12` 基线，将 `div.sticky.bg-surface:has(input#plugins-page-search)` 映射为独立 `plugins-search-rail` part。payload 同时提供 owner-scoped part 规则与 root-scoped 直接规则，使首次渲染和 SPA 延迟挂载都以主题 `background` 覆盖 rail 及其 `::after` 渐变；不修改宿主全局 surface token，不新增颜色字段或 IPC。
 
 26. 助手流式 Markdown 文字：selector profile `/13` 在既有完成态 `h1..h6/li/p/strong/...` 文字规则之外，仅为这些语义节点的直接 `_FadeIn_` span 增加 `assistantMessageText` 桥接。选择器通过 `:has()` 排除承载链接、行内代码与代码块的流式装饰包装，不设置 text-fill，不新增颜色字段或 IPC；使用包含 `##`、紧凑/松散列表、末尾段落和行内代码的同构 fixture 验证生成中与完成后颜色一致。
 
-27. 透明 surface 一致性：全窗口侧栏不再用 relative-color 绝对 alpha 覆盖 panel 自身透明度，改由固定深色遮罩与 panel 底色组成的双层 `background` 同时驱动真实侧栏、`::after` 与 LIVE PREVIEW；仅内容区禁用遮罩滑杆。文件变更卡保留 profile `/13` 的已核对根锚点，由根节点唯一绘制背景，内部列表变量、文件行、展开操作与未来内嵌 diff surface透明继承；普通路径文字消费 `changeCardText`，新增/删除数字保留状态色。跨层高对比 fixture 逐一验证二十九色、四张卡片、画面、配方、透明度、Studio patch、secure-store 重载与 runtime token。
+27. 透明 surface 一致性：全窗口侧栏不得用独立遮罩层提高 panel alpha。contracts 解析受限颜色格式，以 `finalRgb = lerp(panelRgb, [15,23,42], sidebarOverlayOpacity/100)`、`finalAlpha = panelAlpha` 生成单层颜色，同时驱动真实侧栏、`::after` 与 LIVE PREVIEW；panel alpha 为零时额外禁用侧栏磨砂，仅内容区禁用暗化滑杆。文件变更卡保留 profile `/13` 的已核对根锚点，由根节点唯一绘制背景，内部列表变量、文件行、展开操作与未来内嵌 diff surface透明继承；普通路径文字消费 `changeCardText`，新增/删除数字保留状态色。跨层高对比 fixture 逐一验证二十九色、四张卡片、画面、配方、透明度、Studio patch、secure-store 重载与 runtime token。
+
+28. 用户消息结构化 Markdown：保留 profile `/13` 的用户气泡根映射，在 owned bubble 内直接桥接 Store 稳定的 `data-markdown-text-tone="user-message"`。用户与助手共享普通 Markdown 块清单，分别消费 `userMessageText` / `assistantMessageText`；用户桥接删除旧的 `a/code/span` 泛覆盖，并为 inline-code、pre/code 与代码块恢复 Store 原生前景变量。以用户提供的接口说明原文同构覆盖有序列表、缩进段落、表格、示例段落、链接、行内代码与 fenced code，证明列表文字和 marker 跟随主题且原生内容色不被抹平。
+
+29. 页面版本标识：renderer 在 bootstrap 协议与 appVersion 同时验证通过后保存完整 `StudioRuntimeInfo`，左侧栏 footer 以现有诊断元数据行持续显示 `CodexStyle 版本 / vX.Y.Z`。不新增 IPC，不从 update snapshot 或 package.json 推导；首帧使用稳定占位，协议不匹配继续 fail closed。renderer 测试用故意不同的 bootstrap/update 版本证明数据来源，Electron E2E 从真实 `app.getVersion()` 断言 main→preload→renderer 全链路。
 
 ## 验证命令
 

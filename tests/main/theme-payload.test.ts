@@ -2,7 +2,11 @@
 // @vitest-environment-options {"url":"app://codex/"}
 
 import { describe, expect, it } from "vitest";
-import { readThemeConfiguration, THEME_COLOR_KEYS } from "../../src/contracts";
+import {
+  generateConfiguredCss,
+  readThemeConfiguration,
+  THEME_COLOR_KEYS,
+} from "../../src/contracts";
 import { buildThemePayload } from "../../src/main/session/theme-payload";
 import {
   HIGH_CONTRAST_BACKGROUND_SCOPE,
@@ -148,7 +152,7 @@ describe("theme payload", () => {
         "background-attachment: fixed !important",
       );
       expect(style?.textContent).toContain(
-        "background: linear-gradient(rgb(15 23 42 / 75%), rgb(15 23 42 / 75%)), var(--ds-theme-color-panel) !important",
+        "background: rgba(21, 27, 42, 1) !important",
       );
       expect(style?.textContent).toContain(
         "color: var(--ds-theme-color-sidebar-text) !important",
@@ -269,8 +273,9 @@ describe("theme payload", () => {
     expect(style?.textContent).toContain(
       `[data-ds-part="main"][data-codexstyle-owner="${marker}"]`,
     );
+    const sidebarSelector = `[data-ds-part="sidebar"][data-codexstyle-owner="${marker}"]`;
     expect(style?.textContent).not.toContain(
-      "linear-gradient(rgb(15 23 42 / 30%)",
+      `${sidebarSelector}, ${sidebarSelector}::after { background:`,
     );
     expect(style?.textContent).not.toContain(
       "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent)",
@@ -349,7 +354,7 @@ describe("theme payload", () => {
     );
   });
 
-  it("uses the configured sidebar overlay in window mode", () => {
+  it("darkens the configured sidebar without changing its panel alpha", () => {
     resetDocument();
     const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
 
@@ -371,7 +376,7 @@ describe("theme payload", () => {
     );
     const sidebarSelector = `[data-ds-part="sidebar"][data-codexstyle-owner="${marker}"]`;
     expect(style?.textContent).toContain(
-      `${sidebarSelector}, ${sidebarSelector}::after { background: linear-gradient(rgb(15 23 42 / 42%), rgb(15 23 42 / 42%)), var(--ds-theme-color-panel) !important; }`,
+      `${sidebarSelector}, ${sidebarSelector}::after { background: rgba(30, 33, 41, 1) !important; }`,
     );
     expect(style?.textContent).not.toContain(
       "rgb(from var(--ds-theme-color-panel)",
@@ -387,9 +392,50 @@ describe("theme payload", () => {
       "background-color: transparent !important; background-image: none !important",
     );
     expect(style?.textContent).not.toContain("linear-gradient(to top");
-    expect(style?.textContent?.lastIndexOf("42%")).toBeGreaterThan(
-      style?.textContent?.lastIndexOf("#fff") ?? -1,
+    expect(
+      style?.textContent?.lastIndexOf("background: rgba(30, 33, 41, 1)"),
+    ).toBeGreaterThan(style?.textContent?.lastIndexOf("#fff") ?? -1);
+  });
+
+  it("removes every sidebar surface effect when the panel is transparent", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    const styleConfig = {
+      ...defaultConfiguration.styleConfig,
+      mode: "configured" as const,
+    };
+    window.eval(
+      buildThemePayload(
+        marker,
+        generateConfiguredCss(styleConfig),
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          colors: {
+            ...defaultConfiguration.colors,
+            panel: "rgba(240, 0, 0, 0)",
+          },
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 40,
+          styleConfig,
+        },
+      ),
     );
+
+    const sidebarSelector = `[data-ds-part="sidebar"][data-codexstyle-owner="${marker}"]`;
+    const source =
+      document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
+        ?.textContent ?? "";
+    expect(source).toContain(
+      `${sidebarSelector}, ${sidebarSelector}::after { background: rgba(150, 9, 17, 0) !important; }`,
+    );
+    expect(source).toContain(
+      `${sidebarSelector} { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }`,
+    );
+    expect(source).not.toContain("linear-gradient(rgb(15 23 42");
+    expect(
+      source.lastIndexOf("backdrop-filter: none !important"),
+    ).toBeGreaterThan(source.lastIndexOf("backdrop-filter: blur("));
   });
 
   it("carries every high-contrast acceptance setting into the runtime payload", () => {
@@ -425,9 +471,7 @@ describe("theme payload", () => {
     expect(root.getAttribute("data-codexstyle-safe-area")).toBe("right");
     expect(root.getAttribute("data-codexstyle-task-mode")).toBe("full");
     expect(source).toContain("background-position: 17% 83%");
-    expect(source).toContain(
-      "linear-gradient(rgb(15 23 42 / 17%), rgb(15 23 42 / 17%)), var(--ds-theme-color-panel)",
-    );
+    expect(source).toContain("background: rgba(66, 28, 131, 0.72) !important");
     expect(source).toContain("padding: 12px 16px");
     expect(source).toContain("mask-image: url(");
   });
@@ -622,15 +666,19 @@ describe("theme payload", () => {
         ?.textContent ?? "";
     const assistantSelector = `[data-ds-part="message"][data-markdown-text-style="assistant-message"][data-codexstyle-owner="${marker}"]`;
     const userSelector = `[data-ds-part="message"][data-user-message-bubble="true"][data-codexstyle-owner="${marker}"]`;
+    const ordinaryMarkdownSelector =
+      ':where(blockquote, dd, del, dt, em, figcaption, h1, h2, h3, h4, h5, h6, li, ol, p, small, strong, table, tbody, td, tfoot, th, thead, tr, ul):not(a *):not(code *):not(pre *):not([data-markdown-copy="inline-code"] *)';
+    const userMarkdownRootSelector = `${userSelector} [data-markdown-text-tone="user-message"]`;
+    const userNativeCodeSelector = `${userMarkdownRootSelector} :where(code, pre, [data-markdown-copy="inline-code"], [class*="_CodeBlock_"])`;
 
     expect(source).toContain(
       `${assistantSelector} { color: var(--ds-theme-color-assistant-message-text) !important; }`,
     );
     expect(source).toContain(
-      `${assistantSelector} :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) { color: var(--ds-theme-color-assistant-message-text) !important; }`,
+      `${assistantSelector} ${ordinaryMarkdownSelector} { color: var(--ds-theme-color-assistant-message-text) !important; }`,
     );
     expect(source).toContain(
-      `${assistantSelector} :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th) > span[class*="_FadeIn_"]:not(:has(a, code, pre, [data-markdown-copy="inline-code"])) { color: var(--ds-theme-color-assistant-message-text) !important; }`,
+      `${assistantSelector} ${ordinaryMarkdownSelector} > span[class*="_FadeIn_"]:not(:has(a, code, pre, [data-markdown-copy="inline-code"])) { color: var(--ds-theme-color-assistant-message-text) !important; }`,
     );
     expect(source).toContain(
       `${userSelector} { color: var(--ds-theme-color-user-message-text) !important; }`,
@@ -638,13 +686,85 @@ describe("theme payload", () => {
     expect(source).not.toContain(
       `${userSelector} { color: var(--ds-theme-color-assistant-message-text)`,
     );
-    expect(source).not.toContain(
-      `${userSelector} :where(blockquote, em, h1, h2, h3, h4, h5, h6, li, p, small, strong, td, th)`,
+    expect(source).toContain(
+      `${userMarkdownRootSelector} { color: var(--ds-theme-color-user-message-text) !important; }`,
     );
+    expect(source).toContain(
+      `${userMarkdownRootSelector} ${ordinaryMarkdownSelector} { color: var(--ds-theme-color-user-message-text) !important; }`,
+    );
+    expect(source).toContain(
+      `${userNativeCodeSelector} { color: var(--color-text-user-message) !important; }`,
+    );
+    expect(source).not.toContain(`${userSelector} :where(a, code,`);
     expect(source).not.toContain(`${assistantSelector} :where(a,`);
     expect(source).not.toContain(`${assistantSelector} :where(code,`);
     expect(source).not.toContain(`${assistantSelector} :where(pre,`);
     expect(source).not.toContain(`${assistantSelector} :where(span,`);
+  });
+
+  it("recolors structured user Markdown without flattening native link and code colors", () => {
+    resetDocument();
+    const userMessage = document.querySelector(
+      '[data-user-message-bubble="true"]',
+    );
+    userMessage?.replaceChildren();
+    userMessage?.insertAdjacentHTML(
+      "beforeend",
+      '<div class="codex-native-white" data-markdown-text-tone="user-message" data-testid="user-markdown-root"><p class="codex-native-white" data-testid="user-intro">沟通页面左侧沟通列表</p><ol class="codex-native-white"><li class="codex-native-white" data-testid="user-list-item">接口<p class="codex-native-white" data-testid="user-list-copy">GET /pc/shipcargo/message/conversations</p><table><tbody><tr><td class="codex-native-white" data-testid="user-table-copy">refType SHIP</td></tr></tbody></table><a class="codex-native-link" data-testid="user-link" href="https://example.com">接口文档</a><span data-markdown-copy="inline-code" data-testid="user-inline-code">SHIP</span><pre><code><span class="codex-native-pre-code" data-testid="user-pre-code">{&quot;code&quot;:0}</span></code></pre></li></ol><p class="codex-native-white" data-testid="user-example"><strong>示例：</strong></p></div>',
+    );
+    const nativeMarkdownStyle = document.createElement("style");
+    nativeMarkdownStyle.textContent = `
+      .codex-native-white { color: rgb(255, 255, 255) !important; }
+      .codex-native-link { color: rgb(74, 144, 226) !important; }
+      .codex-native-pre-code { color: rgb(152, 195, 121) !important; }
+    `;
+    document.head.append(nativeMarkdownStyle);
+
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    window.eval(
+      buildThemePayload(
+        marker,
+        '[data-ds-part="root"] { color: #fff; }',
+        "data:image/png;base64,AA==",
+        {
+          ...defaultConfiguration,
+          colors: {
+            ...defaultConfiguration.colors,
+            userMessageText: "#292c31",
+          },
+          backgroundScope: "window",
+          sidebarOverlayOpacity: 75,
+        },
+      ),
+    );
+
+    const userText = "var(--ds-theme-color-user-message-text)";
+    for (const testId of [
+      "user-markdown-root",
+      "user-intro",
+      "user-list-item",
+      "user-list-copy",
+      "user-table-copy",
+      "user-example",
+    ]) {
+      expect(
+        getComputedStyle(document.querySelector(`[data-testid="${testId}"]`)!)
+          .color,
+      ).toBe(userText);
+    }
+    expect(
+      getComputedStyle(document.querySelector('[data-testid="user-link"]')!)
+        .color,
+    ).toBe("rgb(74, 144, 226)");
+    expect(
+      getComputedStyle(
+        document.querySelector('[data-testid="user-inline-code"]')!,
+      ).color,
+    ).toBe("var(--color-text-user-message)");
+    expect(
+      getComputedStyle(document.querySelector('[data-testid="user-pre-code"]')!)
+        .color,
+    ).toBe("rgb(152, 195, 121)");
   });
 
   it("recolors streamed ordinary Markdown spans without overriding native content colors", () => {

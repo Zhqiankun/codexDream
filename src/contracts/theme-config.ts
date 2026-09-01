@@ -153,6 +153,9 @@ const LEGACY_THEME_COLOR_KEYS = THEME_COLOR_KEYS.filter(
 const COLOR_PATTERN =
   /^(#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|#[0-9a-fA-F]{3,4}|rgb\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*\)|rgba\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}\s*,\s*(?:0|1|1\.0|0?\.[0-9]{1,6})\s*\))$/u;
 
+export const SIDEBAR_OVERLAY_RGB = "15 23 42";
+const SIDEBAR_OVERLAY_CHANNELS = [15, 23, 42] as const;
+
 export const DEFAULT_THEME_ART: ThemeArt = {
   focusX: 0.5,
   focusY: 0.5,
@@ -442,6 +445,85 @@ export function isThemeColor(value: unknown): value is string {
     channels?.length === 3 &&
     channels.every((channel) => Number(channel) <= 255)
   );
+}
+
+export interface ParsedThemeColor {
+  red: number;
+  green: number;
+  blue: number;
+  alpha: number;
+}
+
+/**
+ * Parses the deliberately small theme-color grammar shared by persistence,
+ * Studio inputs, and runtime style generation. It never delegates to a browser,
+ * so main and renderer derive identical channels from the same saved value.
+ */
+export function parseThemeColor(value: unknown): ParsedThemeColor | undefined {
+  if (!isThemeColor(value)) return undefined;
+  const hex = value.match(/^#([0-9a-f]{3,8})$/iu)?.[1];
+  if (hex) {
+    const expanded =
+      hex.length <= 4
+        ? hex
+            .split("")
+            .map((character) => character.repeat(2))
+            .join("")
+        : hex;
+    return {
+      red: Number.parseInt(expanded.slice(0, 2), 16),
+      green: Number.parseInt(expanded.slice(2, 4), 16),
+      blue: Number.parseInt(expanded.slice(4, 6), 16),
+      alpha:
+        expanded.length === 8
+          ? Number.parseInt(expanded.slice(6, 8), 16) / 255
+          : 1,
+    };
+  }
+  const rgb = value.match(
+    /^rgba?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})(?:\s*,\s*(0|1|1\.0|0?\.[0-9]{1,6}))?\s*\)$/iu,
+  );
+  if (!rgb) return undefined;
+  return {
+    red: Number(rgb[1]),
+    green: Number(rgb[2]),
+    blue: Number(rgb[3]),
+    alpha: rgb[4] === undefined ? 1 : Number(rgb[4]),
+  };
+}
+
+export interface SidebarSurface {
+  color: string;
+  transparent: boolean;
+}
+
+/**
+ * Resolves the full-window sidebar to one color layer. The panel alpha is the
+ * final surface alpha; the legacy overlay value only darkens RGB toward the
+ * fixed sidebar tint and can never make a transparent panel opaque. Invalid
+ * in-progress Studio colors fail visually closed to transparent, while normal
+ * persistence validation still rejects them before save or injection.
+ */
+export function resolveSidebarSurface(
+  panelColor: string,
+  darkeningPercent: number,
+): SidebarSurface {
+  const panel = parseThemeColor(panelColor);
+  if (!panel) return { color: "rgba(0, 0, 0, 0)", transparent: true };
+  const strength = Math.min(
+    1,
+    Math.max(0, Number.isFinite(darkeningPercent) ? darkeningPercent / 100 : 0),
+  );
+  const channels = [panel.red, panel.green, panel.blue].map((channel, index) =>
+    Math.round(
+      channel * (1 - strength) + SIDEBAR_OVERLAY_CHANNELS[index] * strength,
+    ),
+  );
+  const alpha = Math.round(panel.alpha * 1_000_000) / 1_000_000;
+  return {
+    color: `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${alpha})`,
+    transparent: alpha === 0,
+  };
 }
 
 export function isThemeHomeCardImageDataUrl(value: unknown): value is string {

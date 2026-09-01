@@ -9,7 +9,9 @@ import {
   isCompleteThemeHomeCards,
   isCompatibleThemeColors,
   isThemeColor,
+  parseThemeColor,
   readThemeConfiguration,
+  resolveSidebarSurface,
   themeTokenDeclarations,
   type ThemeShadow,
 } from "../../src/contracts";
@@ -21,6 +23,53 @@ describe("structured theme configuration", () => {
     expect(isThemeColor("rgba(0, 255, 128, 0.2)")).toBe(true);
     expect(isThemeColor("rgb(256, 0, 0)")).toBe(false);
     expect(isThemeColor("rgba(0, 999, 0, 0.2)")).toBe(false);
+  });
+
+  it("parses every supported theme color form without browser dependencies", () => {
+    expect(parseThemeColor("#f00")).toEqual({
+      red: 255,
+      green: 0,
+      blue: 0,
+      alpha: 1,
+    });
+    expect(parseThemeColor("#f0000080")).toEqual({
+      red: 240,
+      green: 0,
+      blue: 0,
+      alpha: 128 / 255,
+    });
+    expect(parseThemeColor("rgba(12, 34, 56, .5)")).toEqual({
+      red: 12,
+      green: 34,
+      blue: 56,
+      alpha: 0.5,
+    });
+    expect(parseThemeColor("not-a-color")).toBeUndefined();
+  });
+
+  it("darkens sidebar RGB without changing the panel alpha", () => {
+    expect(resolveSidebarSurface("rgba(240, 0, 0, 0)", 40)).toEqual({
+      color: "rgba(150, 9, 17, 0)",
+      transparent: true,
+    });
+    expect(resolveSidebarSurface("rgba(240, 0, 0, 0.5)", 40)).toEqual({
+      color: "rgba(150, 9, 17, 0.5)",
+      transparent: false,
+    });
+    expect(resolveSidebarSurface("rgb(240, 0, 0)", 40)).toEqual({
+      color: "rgba(150, 9, 17, 1)",
+      transparent: false,
+    });
+    expect(resolveSidebarSurface("rgba(240, 0, 0, 0.5)", 0).color).toBe(
+      "rgba(240, 0, 0, 0.5)",
+    );
+    expect(resolveSidebarSurface("rgba(240, 0, 0, 0.5)", 100).color).toBe(
+      "rgba(15, 23, 42, 0.5)",
+    );
+    expect(resolveSidebarSurface("invalid", 75)).toEqual({
+      color: "rgba(0, 0, 0, 0)",
+      transparent: true,
+    });
   });
 
   it("generates non-empty Safe CSS across every bounded surface extreme", () => {

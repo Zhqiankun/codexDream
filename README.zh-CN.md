@@ -61,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.14`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.15`：
 
-- `CodexStyle-1.3.14-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.14-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.15-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.15-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.14` 修复助手标准 Markdown 流式文字、左侧栏面板透明度，以及文件变更卡背景、操作和路径文字未按配置生效的问题；链接、代码、语法高亮和新增/删除状态色继续保留原生颜色。已核对的 Store Codex selector profile 升级至 `/13`。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留；升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让 `/13` 生效。
+`v1.3.15` 让“左侧面板与弹窗”alpha 成为侧栏最终透明度，将历史侧栏遮罩改为只调整颜色深浅的“左侧栏暗化”，修复用户发送消息中有序列表等结构化 Markdown 的文字颜色，并在 Studio 左侧栏显示当前 CodexStyle 版本；链接与代码继续保留 Store 原生颜色。selector profile `/13` 保持不变。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留；升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让新版主题桥接生效。
 
 ## 运行要求
 

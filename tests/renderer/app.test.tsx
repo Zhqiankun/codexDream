@@ -292,6 +292,15 @@ describe("Studio renderer", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the running main-process version in the sidebar footer", async () => {
+    render(<App />);
+
+    const versionRow = await screen.findByLabelText("CodexStyle 当前版本");
+    expect(versionRow).toHaveTextContent("CodexStyle 版本");
+    expect(versionRow).toHaveTextContent("v1.3.8");
+    expect(versionRow).not.toHaveTextContent("v1.0.0");
+  });
+
   it("uses background thumbnails in the theme list and falls back to the page color", async () => {
     const api = makeApi();
     const colorOnly = {
@@ -937,23 +946,22 @@ describe("Studio renderer", () => {
       document.querySelector(".mock-main > .mock-background"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
+      screen.getByRole("slider", { name: "左侧栏暗化强度" }),
     ).toBeDisabled();
     expect(
-      screen.getByText("仅内容区不使用左侧栏遮罩；切换到全窗口后可调整。"),
+      screen.getByText("仅内容区不使用侧栏暗化；切换到全窗口后可调整。"),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "全窗口" }));
     expect(
-      screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
+      screen.getByRole("slider", { name: "左侧栏暗化强度" }),
     ).toBeEnabled();
-    fireEvent.change(
-      screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
-      { target: { value: "35" } },
-    );
+    fireEvent.change(screen.getByRole("slider", { name: "左侧栏暗化强度" }), {
+      target: { value: "35" },
+    });
     expect(screen.getByText("35%")).toBeInTheDocument();
     expect(document.querySelector(".mock-codex")).toHaveStyle({
-      "--preview-sidebar-opacity": "35%",
+      "--preview-sidebar-surface": "rgba(31, 34, 41, 1)",
     });
 
     fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
@@ -971,6 +979,31 @@ describe("Studio renderer", () => {
     expect(
       PatchDraftSchema.safeParse({ v: PROTOCOL_VERSION, ...request }).success,
     ).toBe(true);
+  });
+
+  it("keeps the panel alpha authoritative for the full-window sidebar", async () => {
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("tab", { name: "颜色" }));
+    const preview = document.querySelector(".mock-codex") as HTMLElement;
+    const panelOpacity = screen.getByRole("slider", {
+      name: "左侧面板与弹窗透明度",
+    });
+
+    fireEvent.change(panelOpacity, { target: { value: "0" } });
+    expect(preview).toHaveStyle({
+      "--preview-sidebar-surface": "rgba(21, 27, 42, 0)",
+    });
+    expect(preview).toHaveAttribute("data-sidebar-surface-transparent", "true");
+
+    fireEvent.change(panelOpacity, { target: { value: "50" } });
+    expect(preview).toHaveStyle({
+      "--preview-sidebar-surface": "rgba(21, 27, 42, 0.5)",
+    });
+    expect(preview).toHaveAttribute(
+      "data-sidebar-surface-transparent",
+      "false",
+    );
   });
 
   it("blocks configured-theme persistence until every color uses a supported format", async () => {
@@ -1212,10 +1245,12 @@ describe("Studio renderer", () => {
     }
 
     fireEvent.click(screen.getByRole("tab", { name: "画面" }));
-    fireEvent.change(
-      screen.getByRole("slider", { name: "左侧栏遮罩不透明度" }),
-      { target: { value: String(HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY) } },
-    );
+    fireEvent.change(screen.getByRole("slider", { name: "左侧栏暗化强度" }), {
+      target: { value: String(HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY) },
+    });
+    expect(preview).toHaveStyle({
+      "--preview-sidebar-surface": "rgba(66, 28, 131, 0.72)",
+    });
     fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
 
     await waitFor(() => expect(api.patchDraft).toHaveBeenCalledOnce());

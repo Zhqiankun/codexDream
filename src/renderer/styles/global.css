@@ -486,6 +486,11 @@ textarea:focus-visible {
 .library-stat strong {
   color: #ced7eb;
 }
+.version-stat strong {
+  color: #e4c479;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.035em;
+}
 .online-dot {
   color: #4ade80 !important;
 }
@@ -1969,12 +1974,7 @@ input.opacity-range {
   color: var(--preview-sidebar-text, #dce6f6);
 }
 .mock-codex[data-background-scope="window"] .mock-sidebar {
-  background:
-    linear-gradient(
-      rgb(15 23 42 / var(--preview-sidebar-opacity, 75%)),
-      rgb(15 23 42 / var(--preview-sidebar-opacity, 75%))
-    ),
-    var(--preview-panel, #111a2d);
+  background: var(--preview-sidebar-surface, transparent);
 }
 .mock-sidebar-head {
   height: 25px;
@@ -2598,6 +2598,11 @@ input.opacity-range {
   border-style: solid;
   border-radius: var(--preview-radius, 12px);
   backdrop-filter: blur(var(--preview-blur, 18px));
+}
+.mock-codex[data-background-scope="window"][data-sidebar-surface-transparent="true"]
+  .mock-sidebar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 .mock-codex[data-style-mode="configured"][data-recipe-composer="true"]
   .mock-composer {

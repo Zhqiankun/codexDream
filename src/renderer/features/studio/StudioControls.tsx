@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  parseThemeColor,
   THEME_COLOR_KEYS,
   type ThemeAppearance,
   type ThemeColors,
@@ -590,11 +591,11 @@ function DesignPanel({
                 onChange={(backgroundScope) => update({ backgroundScope })}
               />
               <RangeField
-                label="左侧栏遮罩"
+                label="左侧栏暗化"
                 value={draft.sidebarOverlayOpacity}
                 max={100}
                 suffix="%"
-                ariaLabel="左侧栏遮罩不透明度"
+                ariaLabel="左侧栏暗化强度"
                 disabled={draft.backgroundScope !== "window"}
                 onChange={(sidebarOverlayOpacity) =>
                   update({ sidebarOverlayOpacity })
@@ -602,8 +603,8 @@ function DesignPanel({
               />
               <p className="field-hint">
                 {draft.backgroundScope === "window"
-                  ? "遮罩会与左侧面板颜色自身的透明度共同生效；数值越低，背景越清晰。"
-                  : "仅内容区不使用左侧栏遮罩；切换到全窗口后可调整。"}
+                  ? "只调整面板颜色的深浅，不增加不透明度；面板透明度为 0% 时侧栏完全透明。"
+                  : "仅内容区不使用侧栏暗化；切换到全窗口后可调整。"}
               </p>
             </StudioSection>
 
@@ -1381,13 +1382,6 @@ function RangeField({
   );
 }
 
-interface ParsedThemeColor {
-  red: number;
-  green: number;
-  blue: number;
-  alpha: number;
-}
-
 function toPickerHex(value: string): string {
   const color = parseThemeColor(value);
   if (!color) return "#000000";
@@ -1411,36 +1405,4 @@ function withColorOpacity(value: string, opacity: number): string {
   const hex = toPickerHex(`rgb(${color.red}, ${color.green}, ${color.blue})`);
   if (boundedOpacity === 100) return hex;
   return `rgba(${color.red}, ${color.green}, ${color.blue}, ${boundedOpacity / 100})`;
-}
-
-function parseThemeColor(value: string): ParsedThemeColor | undefined {
-  const hex = value.match(/^#([0-9a-f]{3,8})$/iu)?.[1];
-  if (hex && [3, 4, 6, 8].includes(hex.length)) {
-    const expanded =
-      hex.length <= 4
-        ? hex
-            .split("")
-            .map((character) => character.repeat(2))
-            .join("")
-        : hex;
-    return {
-      red: Number.parseInt(expanded.slice(0, 2), 16),
-      green: Number.parseInt(expanded.slice(2, 4), 16),
-      blue: Number.parseInt(expanded.slice(4, 6), 16),
-      alpha:
-        expanded.length === 8
-          ? Number.parseInt(expanded.slice(6, 8), 16) / 255
-          : 1,
-    };
-  }
-  const rgb = value.match(
-    /^rgba?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})(?:\s*,\s*(0|1|1\.0|0?\.[0-9]{1,6}))?\s*\)$/iu,
-  );
-  if (!rgb) return undefined;
-  return {
-    red: Math.min(255, Number(rgb[1])),
-    green: Math.min(255, Number(rgb[2])),
-    blue: Math.min(255, Number(rgb[3])),
-    alpha: rgb[4] === undefined ? 1 : Number(rgb[4]),
-  };
 }

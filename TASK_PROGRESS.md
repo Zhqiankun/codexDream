@@ -1,6 +1,6 @@
 # CodexStyle 任务进度
 
-更新时间：2026-08-31
+更新时间：2026-09-01
 
 ## 目标与范围
 
@@ -65,9 +65,15 @@
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
 - 当前用户安装的 Store 包：`OpenAI.Codex 26.825.6671.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其插件/技能页搜索 rail、页面布局与 surface 变量，未修改 Store 包。
-- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.13`，本轮目标版本已确认并锁定为 `v1.3.14`。版本文件与中英文发布说明已更新，等待最终发布验证、提交、标签和 Actions 成品。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.14`，本轮目标版本已确认并锁定为 `v1.3.15`。版本文件与中英文发布说明已更新，等待最终发布验证、提交、标签和 Actions 成品。
 
 ## 验证证据
+
+- 2026-09-01 页面版本可见性：为便于远程用户报告 Store Codex 兼容问题，Studio 左侧栏 footer 新增“CodexStyle 版本”，只显示 bootstrap 已验证的主进程 `appVersion`。现有握手、contract、preload 与 IPC 不变；renderer fixture 的 bootstrap `1.3.8` 与 update snapshot `1.0.0` 故意不同，用于证明页面不会误显示更新状态版本。正式包继续使用 Electron 签入的应用版本；未打包 dev/E2E 仅在 `app.getVersion()` 等于 Electron runtime 时读取经过稳定 SemVer 校验的 npm 项目版本，避免误显示 `v43.3.0`。真实 Electron E2E 与截图确认左侧 footer 显示当前项目版本。连同侧栏与用户 Markdown 修复，238 项主进程、61 项 renderer、7 项集成、1 项 Electron E2E、类型、lint、格式、架构、精确 Node.js 22.22.0 生产构建、Windows x64 打包及包校验均通过；目标发布版本已锁定为 `v1.3.15`。
+
+- 2026-09-01 用户消息 Markdown 线上反馈：同一粉色用户气泡中，顶层段落与“示例/注意”正确使用黑色 `userMessageText`，只有 `1. 接口` 及缩进列表回退白色，证明不是用户设置错误。Store `26.825.6671.0` 的用户 MarkdownRoot 稳定为 `data-markdown-text-tone="user-message"` 并自行声明原生前景；旧 bridge 只覆盖 `a/code/em/p/span/strong`，既漏掉 `li/h/table`，又错误压平链接与代码。当前修复桥接内层根和共享普通 Markdown 清单，后置恢复 inline-code/pre/code/codeblock 原生变量，并以用户接口说明结构做 computed-style 回归；最终验证计数见上方页面版本可见性记录。修复已纳入 `v1.3.15` 发布候选。
+
+- 2026-09-01 v1.3.14 侧栏线上反馈：用户截图证明“左侧面板与弹窗”alpha 已设为 `0%`，Studio LIVE PREVIEW 与真实 Store Codex 侧栏仍被独立深色遮罩覆盖。根因不是选择器遗漏，而是 v1.3.14 双层 source-over 令独立遮罩在 panel 全透明时仍保留，并叠加配置模式磨砂。新契约以共享纯函数保留 panel alpha 为最终 alpha，兼容 `sidebarOverlayOpacity` 只暗化 RGB；透明态同时关闭磨砂。受限颜色解析、main/renderer 同构、0/50/100 alpha 与真实 Electron computed-style 回归已完成；最终验证计数见上方用户消息 Markdown 反馈。修复已纳入 `v1.3.15` 发布候选。
 
 - 2026-08-31 透明 surface 修复：Store Codex `26.825.6671.0` 的侧栏原生 `background` 与继承背景 `::after` 会绕过仅覆盖 `background-color` 的旧 bridge，relative-color 绝对 alpha 还会抹掉 panel 自身透明度；文件变更卡根锚点仍有效，但内部列表变量、`bg-surface/70` 文件行与按钮内路径文字绕过旧规则。当前实现改为固定深色遮罩与 panel 自身 alpha 分层合成、文件变更根层唯一背景及透明后代表面，并加入覆盖全部二十九色和结构化设置的高对比跨层 fixture。234 项主进程、59 项 renderer、7 项集成、1 项真实 Electron E2E、格式、lint、类型、架构、精确 Node.js 22.22.0 构建、Windows x64 打包与包校验均通过；用户已要求提交并发布 `v1.3.14`。
 
