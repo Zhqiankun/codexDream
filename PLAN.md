@@ -162,7 +162,7 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 24. v8 增量图片主题：冻结根 v7 catalog 与 25 张资产，在固定子目录新增独立 `user-wallpapers-2026-08-31-v8` catalog、10 张经授权图片和 `SOURCES.md`。10 套主题使用全新稳定 ID、完整二十九色和逐图焦点/安全区/画面参数，页面背景、panel、line 与历史侧栏暗化值均固定 20%；正文、输入、操作与选区按各自原图缩放至 64×64 后的 RGB 平均色合成并满足 WCAG `4.5:1`。安装路径覆盖全新库得到 37 套、已有 v7 库只追加 10 套、二次启动幂等、用户删除不复活、任一步失败全回滚，并证明根 v7 字节与迁移结果不变。
 
-25. 插件/技能页搜索 rail：以 Store Codex `26.825.6671.0` 的已核对 bundle 为 selector profile `/12` 基线，将 `div.sticky.bg-surface:has(input#plugins-page-search)` 映射为独立 `plugins-search-rail` part。payload 同时提供 owner-scoped part 规则与 root-scoped 直接规则，使首次渲染和 SPA 延迟挂载都以主题 `background` 覆盖 rail 及其 `::after` 渐变；不修改宿主全局 surface token，不新增颜色字段或 IPC。
+25. 页面搜索 rail：selector profile `/14` 基于 Store Codex `26.901.2854.0` 已核对 bundle，插件/技能和已安排页共用 `sticky bg-surface` 组件，搜索 ID 分别为 `plugins-page-search`、`scheduled-page-search`。以限定这两个 ID 的 `:has(input#plugins-page-search, input#scheduled-page-search)` 将容器映射为内部 `page-search-rail` part；payload 提供 owner-scoped part 规则与 root-scoped 直接规则，使首次渲染和 SPA 延迟挂载都以主题 `background`（含 alpha）覆盖 rail 及其 `::after` 渐变。容器复用且锚点移除时由现有观察器撤销映射；不修改宿主全局 surface token，不新增颜色字段、Safe CSS 接口或 IPC。以独立 Electron 页面验证实际背景与伪元素渐变、普通输入/卡片不受影响，以及两页动态切换。
 
 26. 助手流式 Markdown 文字：selector profile `/13` 在既有完成态 `h1..h6/li/p/strong/...` 文字规则之外，仅为这些语义节点的直接 `_FadeIn_` span 增加 `assistantMessageText` 桥接。选择器通过 `:has()` 排除承载链接、行内代码与代码块的流式装饰包装，不设置 text-fill，不新增颜色字段或 IPC；使用包含 `##`、紧凑/松散列表、末尾段落和行内代码的同构 fixture 验证生成中与完成后颜色一致。
 
@@ -170,7 +170,9 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 28. 用户消息结构化 Markdown：保留 profile `/13` 的用户气泡根映射，在 owned bubble 内直接桥接 Store 稳定的 `data-markdown-text-tone="user-message"`。用户与助手共享普通 Markdown 块清单，分别消费 `userMessageText` / `assistantMessageText`；用户桥接删除旧的 `a/code/span` 泛覆盖，并为 inline-code、pre/code 与代码块恢复 Store 原生前景变量。以用户提供的接口说明原文同构覆盖有序列表、缩进段落、表格、示例段落、链接、行内代码与 fenced code，证明列表文字和 marker 跟随主题且原生内容色不被抹平。
 
-29. 页面版本标识：renderer 在 bootstrap 协议与 appVersion 同时验证通过后保存完整 `StudioRuntimeInfo`，左侧栏 footer 以现有诊断元数据行持续显示 `CodexStyle 版本 / vX.Y.Z`。不新增 IPC，不从 update snapshot 或 package.json 推导；首帧使用稳定占位，协议不匹配继续 fail closed。renderer 测试用故意不同的 bootstrap/update 版本证明数据来源，Electron E2E 从真实 `app.getVersion()` 断言 main→preload→renderer 全链路。
+29. Markdown 文件阅读背景：Store `26.901.2854.0` 的本地 Markdown 预览由 CodeMirror 承载，原生 editor 的透明背景会透出全窗口壁纸。profile `/14` 将 `[data-editor-search-surface]:has(> .cm-editor > .cm-scroller > .cm-content[data-language="markdown"])` 映射为内部 `markdown-document`；在整个编辑视口上绘制白底，并局部覆盖正文/标题、引用/辅助文字、链接、行内代码/光标、边框与查找面板/搜索命中的语义变量。仅文档内 `.cm-markdown-code-line` 直接绘制浅灰背景，避免原生额外 10% 混色使背景失效。即时 root-scoped selector 与 owned part 同步覆盖首次/延迟挂载，MutationObserver 增加 `data-language` 以撤销复用编辑器的失效归属。源码模式的 Pierre 与其它语言编辑器保持原样。新增 `tests/fixtures/theme-payload-shell.cjs` 作为搜索栏/文档/聊天 CSS 测试共用的隔离 `app:` 壳，只负责独立 Electron profile 和浏览器窗口，不加载 launcher 或访问用户会话；真实 Electron 测试覆盖白底留白、可读语义颜色、挂载/切换，并用当前 Store 样式验证聊天浅/深色、生成中/完成态、列表 marker 及链接/代码颜色。
+
+30. 页面版本标识：renderer 在 bootstrap 协议与 appVersion 同时验证通过后保存完整 `StudioRuntimeInfo`，左侧栏 footer 以现有诊断元数据行持续显示 `CodexStyle 版本 / vX.Y.Z`。不新增 IPC，不从 update snapshot 或 package.json 推导；首帧使用稳定占位，协议不匹配继续 fail closed。renderer 测试用故意不同的 bootstrap/update 版本证明数据来源，Electron E2E 从真实 `app.getVersion()` 断言 main→preload→renderer 全链路。
 
 ## 验证命令
 

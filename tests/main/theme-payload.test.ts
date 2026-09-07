@@ -139,7 +139,7 @@ describe("theme payload", () => {
         "composer-backdrop",
       );
       expect(pluginsSearchRail?.getAttribute("data-ds-part")).toBe(
-        "plugins-search-rail",
+        "page-search-rail",
       );
       expect(userMessage?.getAttribute("data-ds-part")).toBe("message");
       expect(assistantMessage?.getAttribute("data-ds-part")).toBe("message");
@@ -202,9 +202,9 @@ describe("theme payload", () => {
         "color: var(--ds-theme-color-assistant-message-text) !important",
       );
       const rootSelector = `[data-ds-part="root"][data-codexstyle-owner="${marker}"]`;
-      const pluginsSearchRailSelector = `[data-ds-part="plugins-search-rail"][data-codexstyle-owner="${marker}"]`;
+      const pluginsSearchRailSelector = `[data-ds-part="page-search-rail"][data-codexstyle-owner="${marker}"]`;
       const pluginsSearchRailDomSelector =
-        'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search)';
+        'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)';
       expect(style?.textContent).toContain(
         `${pluginsSearchRailSelector}, ${rootSelector} ${pluginsSearchRailDomSelector} { background-color: var(--ds-theme-color-background) !important; }`,
       );
@@ -222,32 +222,71 @@ describe("theme payload", () => {
     }
   });
 
-  it("maps a plugins search rail mounted after SPA navigation", async () => {
+  it.each(["plugins-page-search", "scheduled-page-search"])(
+    "maps %s after SPA navigation and removes stale ownership",
+    async (searchId) => {
+      resetDocument();
+      const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+      window.eval(
+        buildThemePayload(
+          marker,
+          '[data-ds-part="root"] { color: #fff; }',
+          "data:image/png;base64,AA==",
+        ),
+      );
+
+      document
+        .querySelector("main")
+        ?.insertAdjacentHTML(
+          "afterbegin",
+          `<div class="sticky bg-surface" data-testid="late-plugins-search-rail"><div><input id="${searchId}" /></div></div>`,
+        );
+      const rail = document.querySelector(
+        '[data-testid="late-plugins-search-rail"]',
+      );
+      expect(rail?.getAttribute("data-ds-part")).toBeNull();
+
+      await new Promise((resolve) => setTimeout(resolve, 120));
+
+      expect(rail?.getAttribute("data-ds-part")).toBe("page-search-rail");
+      expect(rail?.getAttribute("data-codexstyle-owner")).toBe(marker);
+
+      // SPA views can reuse the container; dropping the search anchor must also
+      // release our surface styling rather than leave a stale owned part behind.
+      rail?.replaceChildren();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      expect(rail?.getAttribute("data-ds-part")).toBeNull();
+      expect(rail?.getAttribute("data-codexstyle-owner")).toBeNull();
+    },
+  );
+
+  it("leaves unrelated search surfaces and native inputs unmapped", () => {
     resetDocument();
-    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    document.querySelector("main")?.insertAdjacentHTML(
+      "beforeend",
+      `
+      <div class="sticky bg-surface" data-testid="unrelated-rail"><input id="project-page-search" /></div>
+      <div class="bg-surface" data-testid="non-sticky"><input id="scheduled-page-search" /></div>
+      <div class="sticky" data-testid="non-surface"><input id="plugins-page-search" /></div>
+    `,
+    );
     window.eval(
       buildThemePayload(
-        marker,
-        '[data-ds-part="root"] { color: #fff; }',
+        "codexstyle-00000000-0000-4000-8000-000000000000",
+        "",
         "data:image/png;base64,AA==",
       ),
     );
-
-    document
-      .querySelector("main")
-      ?.insertAdjacentHTML(
-        "afterbegin",
-        '<div class="sticky bg-surface" data-testid="late-plugins-search-rail"><div><input id="plugins-page-search" /></div></div>',
-      );
-    const rail = document.querySelector(
-      '[data-testid="late-plugins-search-rail"]',
-    );
-    expect(rail?.getAttribute("data-ds-part")).toBeNull();
-
-    await new Promise((resolve) => setTimeout(resolve, 120));
-
-    expect(rail?.getAttribute("data-ds-part")).toBe("plugins-search-rail");
-    expect(rail?.getAttribute("data-codexstyle-owner")).toBe(marker);
+    for (const selector of [
+      '[data-testid="unrelated-rail"]',
+      '[data-testid="non-sticky"]',
+      '[data-testid="non-surface"]',
+      "input",
+    ]) {
+      for (const node of document.querySelectorAll(selector)) {
+        expect(node.hasAttribute("data-codexstyle-owner")).toBe(false);
+      }
+    }
   });
 
   it("targets only the main surface in content mode", () => {

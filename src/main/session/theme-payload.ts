@@ -11,7 +11,8 @@ import {
 import {
   EDGE_SCROLL_THREAD_TITLE_SELECTOR,
   HOME_COMPOSER_RAIL_SELECTOR,
-  PLUGIN_SEARCH_RAIL_SELECTOR,
+  MARKDOWN_DOCUMENT_SELECTOR,
+  PAGE_SEARCH_RAIL_SELECTOR,
   SELECTOR_PARTS,
 } from "./selector-profile";
 
@@ -31,7 +32,8 @@ interface PayloadConfig {
   homeCards: ThemeConfiguration["homeCards"];
   edgeScrollThreadTitleSelector: string;
   homeComposerRailSelector: string;
-  pluginSearchRailSelector: string;
+  pageSearchRailSelector: string;
+  markdownDocumentSelector: string;
   tokens: Array<readonly [string, string]>;
   parts: ReadonlyArray<readonly [string, string]>;
 }
@@ -75,7 +77,8 @@ export function buildThemePayload(
     homeCards: settings.homeCards,
     edgeScrollThreadTitleSelector: EDGE_SCROLL_THREAD_TITLE_SELECTOR,
     homeComposerRailSelector: HOME_COMPOSER_RAIL_SELECTOR,
-    pluginSearchRailSelector: PLUGIN_SEARCH_RAIL_SELECTOR,
+    pageSearchRailSelector: PAGE_SEARCH_RAIL_SELECTOR,
+    markdownDocumentSelector: MARKDOWN_DOCUMENT_SELECTOR,
     tokens: themeTokenDeclarations(settings),
     parts: SELECTOR_PARTS,
   };
@@ -179,10 +182,19 @@ export function buildThemePayload(
         ? '\\n[data-ds-part="main-top-fade"][data-codexstyle-owner="' + config.marker + '"] { background-color: transparent !important; background-image: none !important; }' +
           '\\n.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"] { background-color: transparent !important; background-image: none !important; }'
         : "";
-      const pluginSearchRailPartSelector = '[data-ds-part="plugins-search-rail"][data-codexstyle-owner="' + config.marker + '"]';
-      const instantPluginSearchRailSelector = rootSelector + ' ' + config.pluginSearchRailSelector;
-      const pluginSearchRailBridge = '\\n' + pluginSearchRailPartSelector + ', ' + instantPluginSearchRailSelector + ' { background-color: var(--ds-theme-color-background) !important; }' +
-        '\\n' + pluginSearchRailPartSelector + '::after, ' + instantPluginSearchRailSelector + '::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }';
+      const pageSearchRailPartSelector = '[data-ds-part="page-search-rail"][data-codexstyle-owner="' + config.marker + '"]';
+      const instantPageSearchRailSelector = rootSelector + ' ' + config.pageSearchRailSelector;
+      // The direct rule covers SPA insertion before the observer assigns parts;
+      // the local fade uses the same alpha without changing global surface tokens.
+      const pageSearchRailBridge = '\\n' + pageSearchRailPartSelector + ', ' + instantPageSearchRailSelector + ' { background-color: var(--ds-theme-color-background) !important; }' +
+        '\\n' + pageSearchRailPartSelector + '::after, ' + instantPageSearchRailSelector + '::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }';
+      const markdownDocumentPartSelector = '[data-ds-part="markdown-document"][data-codexstyle-owner="' + config.marker + '"]';
+      const instantMarkdownDocumentSelector = rootSelector + ' ' + config.markdownDocumentSelector;
+      // A document is a white reading surface even when the wallpaper/theme is
+      // dark. Override the editor's local semantic tokens so headings, links,
+      // quotes and code remain distinct, without blanket descendant color rules.
+      const markdownDocumentBridge = '\\n' + markdownDocumentPartSelector + ', ' + instantMarkdownDocumentSelector + ' { background: #ffffff !important; color: #1f2328 !important; color-scheme: light; --color-text: #1f2328 !important; --color-text-secondary: #4b5563 !important; --color-text-tertiary: #5b6470 !important; --color-text-info: #0969da !important; --color-codex-editor-inline-code-background: #f3f4f6 !important; --color-codex-editor-inline-code-foreground: #1f2328 !important; --color-codex-editor-cursor: #1f2328 !important; --color-border: #d1d5db !important; --color-border-subtle: #e5e7eb !important; --color-border-strong: #9ca3af !important; --color-surface-secondary: #f3f4f6 !important; --color-codex-description: #5b6470 !important; --color-background-info-soft: #dbeafe !important; --color-background-info-surface: #bfdbfe !important; }' +
+        '\\n' + markdownDocumentPartSelector + ' .cm-markdown-code-line, ' + instantMarkdownDocumentSelector + ' .cm-markdown-code-line { background-color: #f3f4f6 !important; }';
       // Use one precomputed surface so the panel alpha remains authoritative.
       // The shorthand clears native background layers, while the paired ::after
       // rule prevents Codex's inherited edge surface from staying opaque.
@@ -308,7 +320,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pluginSearchRailBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };
@@ -330,7 +342,7 @@ export function buildThemePayload(
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["aria-label", "aria-selected", "class"],
+        attributeFilter: ["aria-label", "aria-selected", "class", "data-language"],
       });
     }
     return true;

@@ -1,6 +1,6 @@
 # CodexStyle 任务进度
 
-更新时间：2026-09-01
+更新时间：2026-09-07
 
 ## 目标与范围
 
@@ -64,10 +64,16 @@
 ## 当前环境
 
 - Windows；Node `22.22.0`、npm `10.9.4`、pnpm `9.12.3`。
-- 当前用户安装的 Store 包：`OpenAI.Codex 26.825.6671.0`，x64，`SignatureKind=Store`，非开发模式；本轮只读核对其插件/技能页搜索 rail、页面布局与 surface 变量，未修改 Store 包。
-- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；当前远程发布基线为 `v1.3.14`，本轮目标版本已确认并锁定为 `v1.3.15`。版本文件与中英文发布说明已更新，等待最终发布验证、提交、标签和 Actions 成品。
+- 当前用户安装的 Store 包：`OpenAI.Codex 26.901.2854.0`（2026-09-07 本地查询）；本轮只读核对其页面搜索栏、聊天 Markdown 和文档编辑器结构，未修改 Store 包。
+- `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；已确认发布基线为 `v1.3.15`（提交 `4d0f838`）。用户已要求提交并部署，本轮搜索栏与 Markdown 文档阅读背景修复进入 `v1.3.16` 发布候选，正式安装包由标签触发的 GitHub Actions 构建与发布。
 
 ## 验证证据
+
+- 2026-09-07 `v1.3.16` 发布候选：版本文件与中英文 README/CHANGELOG 已统一为 1.3.16；241 项主进程（2 workers）、61 项 renderer、7 项集成、7 项 Electron E2E、类型、Lint、格式、架构、精确 Node.js 22.22.0 生产构建、Windows x64 打包与包校验通过。首次桌面回归中隐藏文档窗口的截图产物生成超时；此前已有人工截图验收，本次移除无像素比较断言的截图写入，保留全部实际颜色、视口几何、查找高亮、模式切换和异步挂载断言，独立复核后完整 7 项重跑通过。未修改聊天颜色或托盘退出行为。发布前远端 main 仍为 `4d0f838`，`v1.3.16` 本地/远端标签和 Release 均无冲突；16 个明确文件进入发布范围，临时目录与本地产物不提交，正式附件由 GitHub Actions 生成。
+
+- 2026-09-07 Markdown 文档白底：当前 Store 的 `text-file-editor-tab-content.electron-cc8361a9dcf0.js` 使用 CodeMirror 与 `data-language="markdown"`，`file-editor-theme-a062b3d8d0fc.js` 明确 editor 背景透明。新增 `markdown-document` 窄域视口桥接，白底覆盖正文及剩余空白；配套局部深色正文、引用、链接、inline-code、围栏代码行、搜索面板与命中颜色。`data-language` 变化或切换 Pierre 源码模式时撤销映射，SPA 新打开文档在 80ms 映射前即可应用 CSS。隔离 Electron 文档测试已通过并有 `test-results/e2e/markdown-document.png` 截图；当前 Store 样式的聊天浅/深色、用户/助手、流式/完成态、标题/列表/表格/marker 与原生链接/代码另有两项 Electron 测试通过，未复现用户所述聊天颜色异常，未扩大聊天选择器，仍待异常原文/主题或实际截图定位。合并既有搜索栏回归共 6 项渲染场景通过；55 项 selector/payload/session 定向测试和生产构建通过。独立审查发现并修正了围栏代码原生二次混色与暗色 Ctrl+F 变量问题。新增测试共用隔离 `theme-payload-shell.cjs`，无业务模块或依赖变化，未连接或修改用户当前会话。
+
+- 2026-09-07 页面搜索栏白条：截图实际为已安排页。只读检查 Store Codex `26.901.2854.0` 的 `automations-page-5923e102009a.js`、`plugins-page-8a53e1445e7e.js` 与共享 `app-initial-14e7352db43a.js`，确认两页分别通过 `scheduled-page-search`、`plugins-page-search` 使用同一 sticky/bg-surface 容器及 32px `::after` 渐变。profile `/14` 将两者收窄映射为内部 `page-search-rail`，继续复用主题 background（含 alpha）与即时 CSS 桥接；新增 SPA 插入/移除和非目标 surface 回归。241 项主进程测试通过（限制为 2 workers；首次默认并发时无关的 25 图壁纸加载测试略超 5 秒，未修改超时门槛）；4 项真实 Electron E2E 通过，其中 3 项在隔离页面验证透明、半透明、深色主题和两页点击切换瞬时计算样式、底部渐变及输入/普通卡片不受影响。临时仅移除 scheduled 选择器的负控准确失败并得到白色背景，恢复后全部通过。类型、Lint、格式、架构检查及 Node.js 22.22.0 生产构建通过；独立只读审查与 55 项定向测试通过。未连接或修改用户正在运行的 Codex；已安装版本需取得修复版并重新启动受管会话后生效。未改托盘退出逻辑。
 
 - 2026-09-01 页面版本可见性：为便于远程用户报告 Store Codex 兼容问题，Studio 左侧栏 footer 新增“CodexStyle 版本”，只显示 bootstrap 已验证的主进程 `appVersion`。现有握手、contract、preload 与 IPC 不变；renderer fixture 的 bootstrap `1.3.8` 与 update snapshot `1.0.0` 故意不同，用于证明页面不会误显示更新状态版本。正式包继续使用 Electron 签入的应用版本；未打包 dev/E2E 仅在 `app.getVersion()` 等于 Electron runtime 时读取经过稳定 SemVer 校验的 npm 项目版本，避免误显示 `v43.3.0`。真实 Electron E2E 与截图确认左侧 footer 显示当前项目版本。连同侧栏与用户 Markdown 修复，238 项主进程、61 项 renderer、7 项集成、1 项 Electron E2E、类型、lint、格式、架构、精确 Node.js 22.22.0 生产构建、Windows x64 打包及包校验均通过；目标发布版本已锁定为 `v1.3.15`。
 

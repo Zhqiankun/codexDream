@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.15` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.16` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.15-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.15-x64.zip` — portable archive.
+- `CodexStyle-1.3.16-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.16-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.15` makes the left-panel alpha authoritative, turns the legacy sidebar overlay into color-only darkening, fixes ordered-list and other structured Markdown colors in user-sent messages, and shows the running CodexStyle version in the Studio sidebar. Links and code keep their Store-native colors. Selector profile `/13` remains unchanged. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so the updated theme bridge takes effect.
+`v1.3.16` fixes the white search banner on Scheduled tasks and keeps both Scheduled and Plugins search surfaces aligned with the theme background and transparency. Markdown document previews now have an opaque white reading area with readable text, links, code, and find highlights. Selector profile advances to `/14`; chat Markdown color behavior is unchanged and has additional light/dark regression coverage. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so the updated theme bridge takes effect.
 
 ## Requirements
 

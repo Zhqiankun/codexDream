@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.16 — 2026-09-07
+
+### English
+
+- Fixed the white search banner on Scheduled tasks. Scheduled and Plugins now share a narrowly scoped theme bridge for the sticky search background and its bottom fade, including transparency and immediate styling after page navigation.
+- Added an opaque white reading viewport for Markdown document previews, with dark prose, distinct quote/link/inline-code colors, shaded code lines, and readable find controls and matches. Switching to source mode or another language releases the preview-specific styling.
+- Advanced the verified Store Codex selector profile to `/14`, based on Store `26.901.2854.0`. Added isolated Electron coverage for search surfaces, document previews, and light/dark chat Markdown; chat color behavior is unchanged because the reported chat issue was not reproduced.
+- Release verification passed 241 main-process, 61 renderer, 7 integration, and 7 Electron E2E tests, plus type, lint, formatting, architecture, Node.js 22.22.0 production build, Windows x64 packaging, and package verification.
+
+> This release is unsigned. Windows SmartScreen may display an unknown-publisher warning; verify `SHA256SUMS.txt` before running the installer. Install over the existing copy to preserve local themes, then end and relaunch the CodexStyle-managed Codex session to apply the new theme bridge.
+
+### 简体中文
+
+- 修复“已安排”页白色搜索横条。插件与已安排页共用收窄的主题桥接，搜索栏背景及底部渐变跟随主题颜色与透明度，切换页面后即时生效。
+- Markdown 文档预览新增覆盖整个阅读视口的不透明白底，并配套深色正文、引用/链接/行内代码颜色、浅灰代码行及可读的查找框和搜索命中。切换到源码模式或其它语言时撤销文档专属样式。
+- 基于 Store Codex `26.901.2854.0` 将版本化选择器升级至 `/14`。新增隔离 Electron 测试覆盖搜索栏、文档预览以及浅/深色聊天 Markdown；本轮未复现用户报告的聊天颜色异常，因此未改变聊天颜色行为。
+- 发布验证通过 241 项主进程、61 项界面、7 项集成及 7 项 Electron E2E 测试，以及类型、Lint、格式、架构、Node.js 22.22.0 生产构建、Windows x64 打包和包校验。
+
+> 本版本尚未签名。Windows SmartScreen 仍可能显示“未知发布者”；运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可保留本地主题，随后结束并重新启动由 CodexStyle 管理的 Codex 会话，让新版主题桥接生效。
+
 ## v1.3.15 — 2026-09-01
 
 ### English

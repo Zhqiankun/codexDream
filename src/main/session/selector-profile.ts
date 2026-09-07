@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/13" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/14" as const;
 
 export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
   'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"])' as const;
@@ -6,8 +6,15 @@ export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
 export const HOME_COMPOSER_RAIL_SELECTOR =
   '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
 
-export const PLUGIN_SEARCH_RAIL_SELECTOR =
-  'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search)' as const;
+// Store 26.901.2854.0 shares this surface between plugins and scheduled tasks.
+// Keep the verified search IDs explicit so unrelated sticky surfaces stay native.
+export const PAGE_SEARCH_RAIL_SELECTOR =
+  'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)' as const;
+
+// The Markdown document viewer uses CodeMirror, not the chat MarkdownRoot.
+// Own the viewport (including empty space) and exclude source/other languages.
+export const MARKDOWN_DOCUMENT_SELECTOR =
+  '[data-editor-search-surface]:has(> .cm-editor > .cm-scroller > .cm-content[data-language="markdown"])' as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -74,7 +81,8 @@ export const SELECTOR_PARTS = [
     "composer-backdrop",
     '.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"]',
   ],
-  ["plugins-search-rail", PLUGIN_SEARCH_RAIL_SELECTOR],
+  ["page-search-rail", PAGE_SEARCH_RAIL_SELECTOR],
+  ["markdown-document", MARKDOWN_DOCUMENT_SELECTOR],
   ["dialog", '[role="dialog"]'],
 ] as const;
 
