@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.16` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.17` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.16-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.16-x64.zip` — portable archive.
+- `CodexStyle-1.3.17-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.17-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.16` fixes the white search banner on Scheduled tasks and keeps both Scheduled and Plugins search surfaces aligned with the theme background and transparency. Markdown document previews now have an opaque white reading area with readable text, links, code, and find highlights. Selector profile advances to `/14`; chat Markdown color behavior is unchanged and has additional light/dark regression coverage. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so the updated theme bridge takes effect.
+`v1.3.17` makes the wide search banners and their bottom fades fully transparent on Plugins/Skills and Scheduled tasks. The search field keeps its readable background and blur, while the page background is no longer painted twice. Markdown documents retain their white reading area, and selector profile `/14` remains unchanged. Install over the existing copy—no uninstall or computer restart is required, and local themes are preserved. End and relaunch the CodexStyle-managed Codex session after upgrading so the updated theme bridge takes effect.
 
 ## Requirements
 

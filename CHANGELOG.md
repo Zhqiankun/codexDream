@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.17 — 2026-09-08
+
+### English
+
+- Made the wide search banners on Plugins/Skills and Scheduled tasks fully transparent, including their bottom fades. The banner no longer adds a second layer of the theme background, eliminating the remaining white or tinted strip.
+- Preserved the search capsule's native background, blur, sticky positioning, and input behavior. Page colors, other surfaces, and the Markdown document reading background remain unchanged.
+- Revalidated the existing selector profile `/14` against Store Codex `26.901.6511.0`. Added an opaque-white regression case and verified transparent, translucent, white, and dark page backgrounds, page navigation, sticky scrolling, and search input in isolated Electron windows.
+- Release verification passed 241 main-process, 61 renderer, 7 integration, and 8 Electron E2E tests, plus type, lint, formatting, architecture, Node.js 22.22.0 production build, Windows x64 packaging, and package verification.
+
+> This release is unsigned. Verify `SHA256SUMS.txt` before running the installer. Install over the existing copy to preserve local themes, then end and relaunch the CodexStyle-managed Codex session to apply the new styles.
+
+### 简体中文
+
+- 将插件/技能和已安排页的宽搜索横幅及底部渐变改为完全透明，不再额外叠加主题背景，清除残留的白色或淡色横条。
+- 保留搜索框原生底色、模糊、吸顶定位及输入行为；页面配色、其它表面和 Markdown 文档白底保持不变。
+- 在 Store Codex `26.901.6511.0` 中重新核对现有选择器，继续使用 profile `/14`。新增纯白背景回归，并在隔离 Electron 中验证透明、半透明、纯白与深色背景，以及页面切换、滚动吸顶和搜索输入。
+- 发布验证通过 241 项主进程、61 项界面、7 项集成和 8 项 Electron E2E 测试，以及类型、Lint、格式、架构、Node.js 22.22.0 生产构建、Windows x64 打包和包校验。
+
+> 本版本尚未签名。运行安装程序前请核对 `SHA256SUMS.txt`。直接覆盖原安装即可保留本地主题，随后结束并重新启动由 CodexStyle 管理的 Codex 会话，让新版样式生效。
+
 ## v1.3.16 — 2026-09-07
 
 ### English

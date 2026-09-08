@@ -185,9 +185,11 @@ export function buildThemePayload(
       const pageSearchRailPartSelector = '[data-ds-part="page-search-rail"][data-codexstyle-owner="' + config.marker + '"]';
       const instantPageSearchRailSelector = rootSelector + ' ' + config.pageSearchRailSelector;
       // The direct rule covers SPA insertion before the observer assigns parts;
-      // the local fade uses the same alpha without changing global surface tokens.
-      const pageSearchRailBridge = '\\n' + pageSearchRailPartSelector + ', ' + instantPageSearchRailSelector + ' { background-color: var(--ds-theme-color-background) !important; }' +
-        '\\n' + pageSearchRailPartSelector + '::after, ' + instantPageSearchRailSelector + '::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }';
+      // clear both layers rather than compositing the page color a second time.
+      // Background shorthand also removes the native fade; input capsules keep
+      // their own readable surface, and the sticky layout remains unchanged.
+      const pageSearchRailBridge = '\\n' + pageSearchRailPartSelector + ', ' + instantPageSearchRailSelector + ' { background: transparent !important; }' +
+        '\\n' + pageSearchRailPartSelector + '::after, ' + instantPageSearchRailSelector + '::after { background: transparent !important; }';
       const markdownDocumentPartSelector = '[data-ds-part="markdown-document"][data-codexstyle-owner="' + config.marker + '"]';
       const instantMarkdownDocumentSelector = rootSelector + ' ' + config.markdownDocumentSelector;
       // A document is a white reading surface even when the wallpaper/theme is

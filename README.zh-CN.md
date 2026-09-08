@@ -61,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.16`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.17`：
 
-- `CodexStyle-1.3.16-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.16-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.17-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.17-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.16` 修复“已安排”页的白色搜索横条，插件与已安排页的搜索背景、渐变统一跟随主题颜色和透明度；Markdown 文档预览新增不透明白底，并配套可读的正文、链接、代码与查找高亮。selector profile 升级至 `/14`；聊天 Markdown 颜色行为保持不变，新增浅/深色回归覆盖。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留；升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让新版主题桥接生效。
+`v1.3.17` 将插件/技能和已安排页的宽搜索横幅及底部渐变设为完全透明，消除页面背景重复叠加产生的色带；搜索框本身保留可读的底色与模糊。Markdown 文档继续使用白色阅读背景，selector profile `/14` 保持不变。直接覆盖原安装即可，无需卸载或重启电脑，本地主题会保留；升级后请结束并重新启动由 CodexStyle 管理的 Codex 会话，让新版主题桥接生效。
 
 ## 运行要求
 

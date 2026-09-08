@@ -162,7 +162,7 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 24. v8 增量图片主题：冻结根 v7 catalog 与 25 张资产，在固定子目录新增独立 `user-wallpapers-2026-08-31-v8` catalog、10 张经授权图片和 `SOURCES.md`。10 套主题使用全新稳定 ID、完整二十九色和逐图焦点/安全区/画面参数，页面背景、panel、line 与历史侧栏暗化值均固定 20%；正文、输入、操作与选区按各自原图缩放至 64×64 后的 RGB 平均色合成并满足 WCAG `4.5:1`。安装路径覆盖全新库得到 37 套、已有 v7 库只追加 10 套、二次启动幂等、用户删除不复活、任一步失败全回滚，并证明根 v7 字节与迁移结果不变。
 
-25. 页面搜索 rail：selector profile `/14` 基于 Store Codex `26.901.2854.0` 已核对 bundle，插件/技能和已安排页共用 `sticky bg-surface` 组件，搜索 ID 分别为 `plugins-page-search`、`scheduled-page-search`。以限定这两个 ID 的 `:has(input#plugins-page-search, input#scheduled-page-search)` 将容器映射为内部 `page-search-rail` part；payload 提供 owner-scoped part 规则与 root-scoped 直接规则，使首次渲染和 SPA 延迟挂载都以主题 `background`（含 alpha）覆盖 rail 及其 `::after` 渐变。容器复用且锚点移除时由现有观察器撤销映射；不修改宿主全局 surface token，不新增颜色字段、Safe CSS 接口或 IPC。以独立 Electron 页面验证实际背景与伪元素渐变、普通输入/卡片不受影响，以及两页动态切换。
+25. 页面搜索 rail：selector profile `/14` 的两种搜索 ID 在 Store Codex `26.901.6511.0` 再次核对有效。插件/技能与已安排页共用 `sticky bg-surface` 组件，继续以限定这两个 ID 的 `:has(input#plugins-page-search, input#scheduled-page-search)` 映射内部 `page-search-rail` part。按用户要求，payload 的 owner-scoped part 与 root-scoped 直接规则均对横幅本体及 `::after` 使用 `background: transparent !important`，同时清除实色和原生渐变，避免页面背景重复叠加。搜索胶囊是独立的 `no-drag` 后代，保留其 90% 原生底色、模糊和透明 input；sticky 布局与输入行为保持。容器复用且锚点移除时由现有观察器撤销映射；不修改宿主全局 surface token，不新增颜色字段、Safe CSS 接口或 IPC，选择器边界不变故保留 `/14`。独立 Electron 回归覆盖页面背景为透明、半透明、纯白、深色时横幅始终透明，两页动态切换、滚动吸顶、输入及非目标表面隔离。
 
 26. 助手流式 Markdown 文字：selector profile `/13` 在既有完成态 `h1..h6/li/p/strong/...` 文字规则之外，仅为这些语义节点的直接 `_FadeIn_` span 增加 `assistantMessageText` 桥接。选择器通过 `:has()` 排除承载链接、行内代码与代码块的流式装饰包装，不设置 text-fill，不新增颜色字段或 IPC；使用包含 `##`、紧凑/松散列表、末尾段落和行内代码的同构 fixture 验证生成中与完成后颜色一致。
 

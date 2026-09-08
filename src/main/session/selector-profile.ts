@@ -6,7 +6,8 @@ export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
 export const HOME_COMPOSER_RAIL_SELECTOR =
   '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
 
-// Store 26.901.2854.0 shares this surface between plugins and scheduled tasks.
+// Verified in Store 26.901.2854.0 and 26.901.6511.0: plugins and scheduled
+// tasks share this surface. Its input capsule is a separate descendant.
 // Keep the verified search IDs explicit so unrelated sticky surfaces stay native.
 export const PAGE_SEARCH_RAIL_SELECTOR =
   'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)' as const;

@@ -206,10 +206,10 @@ describe("theme payload", () => {
       const pluginsSearchRailDomSelector =
         'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)';
       expect(style?.textContent).toContain(
-        `${pluginsSearchRailSelector}, ${rootSelector} ${pluginsSearchRailDomSelector} { background-color: var(--ds-theme-color-background) !important; }`,
+        `${pluginsSearchRailSelector}, ${rootSelector} ${pluginsSearchRailDomSelector} { background: transparent !important; }`,
       );
       expect(style?.textContent).toContain(
-        `${pluginsSearchRailSelector}::after, ${rootSelector} ${pluginsSearchRailDomSelector}::after { background-image: linear-gradient(to bottom, var(--ds-theme-color-background), transparent) !important; }`,
+        `${pluginsSearchRailSelector}::after, ${rootSelector} ${pluginsSearchRailDomSelector}::after { background: transparent !important; }`,
       );
     } finally {
       if (mutationObserver)
