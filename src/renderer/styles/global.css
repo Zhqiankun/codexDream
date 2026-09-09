@@ -483,6 +483,39 @@ textarea:focus-visible {
   color: #73809b;
   font-size: 11px;
 }
+.startup-setting {
+  color: #b6c2d9;
+  font-size: 11px;
+}
+.startup-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  cursor: pointer;
+}
+.startup-setting-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #e4c479;
+}
+.startup-setting-row input:focus-visible {
+  outline: 2px solid #e4c479;
+  outline-offset: 3px;
+}
+.startup-setting small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.startup-setting button {
+  margin-top: 4px;
+  color: #e4c479;
+  background: transparent;
+  border: 1px solid #3a4865;
+  border-radius: 6px;
+}
 .library-stat strong {
   color: #ced7eb;
 }

@@ -58,6 +58,7 @@ describe("preload public boundary", () => {
       "endOwnedSession",
       "exportZip",
       "getSnapshot",
+      "getStartupSettings",
       "getTheme",
       "getUpdateStatus",
       "importZip",
@@ -74,10 +75,20 @@ describe("preload public boundary", () => {
       "resolveImport",
       "resumeSession",
       "selectForNextLaunch",
+      "setStartupSettings",
     ]);
     expect(api).not.toHaveProperty("invoke");
+    await api.getStartupSettings();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("startup.getSettings", {
+      v: 6,
+    });
+    await api.setStartupSettings({ enabled: true });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("startup.setSettings", {
+      v: 6,
+      enabled: true,
+    });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
-      v: 5,
+      v: 6,
     });
 
     await api.rendererReady();
@@ -87,12 +98,12 @@ describe("preload public boundary", () => {
 
     await api.openLogDirectory();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("diagnostics.openLogs", {
-      v: 5,
+      v: 6,
     });
 
     await api.installAssistantPlugin();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("assistant.installPlugin", {
-      v: 5,
+      v: 6,
     });
 
     await api.discardChanges({
@@ -100,7 +111,7 @@ describe("preload public boundary", () => {
       expectedRevision: 2,
     });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.discardChanges", {
-      v: 5,
+      v: 6,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 2,
     });
@@ -113,7 +124,7 @@ describe("preload public boundary", () => {
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(
       "theme.chooseHomeCardImage",
       {
-        v: 5,
+        v: 6,
         libraryId: "11111111-1111-4111-8111-111111111111",
         expectedRevision: 2,
         cardIndex: 3,
@@ -121,10 +132,10 @@ describe("preload public boundary", () => {
     );
 
     await api.cancelUpdate();
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 5 });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 6 });
     await api.installUpdate({ mode: "now" });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.install", {
-      v: 5,
+      v: 6,
       mode: "now",
     });
   });

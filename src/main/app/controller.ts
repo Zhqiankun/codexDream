@@ -24,6 +24,7 @@ import {
   type ImportResult,
   type Result,
   type StudioRuntimeInfo,
+  type StartupSettings,
   type ThemeDetail,
   type ThemePatch,
   type ThemeSnapshot,
@@ -41,6 +42,7 @@ import {
 import { CodexAssistantBridge } from "../assistant/assistant-bridge";
 import { CodexAssistantService } from "../assistant/assistant-service";
 import { CodexPluginInstaller } from "../assistant/plugin-installer";
+import { LoginStartupSettings } from "../platform/login-startup";
 
 const STUDIO_STARTUP_TIMEOUT_MS = 10_000;
 const STUDIO_RETRY_DELAY_MS = 250;
@@ -59,6 +61,7 @@ export class AppController {
   readonly assistantBridge: CodexAssistantBridge;
   private assistantPluginInstaller?: CodexPluginInstaller;
   private readonly operationGate = new MainOperationGate();
+  private readonly loginStartup = new LoginStartupSettings();
   private quitting = false;
   private showStudioRequested = true;
   private studioRendererReady = false;
@@ -236,6 +239,26 @@ export class AppController {
     this.createTray();
     this.createWindow();
     this.scheduleUpdateAvailabilityCheck(UPDATE_INITIAL_CHECK_DELAY_MS);
+  }
+
+  getStartupSettings(): Result<StartupSettings> {
+    try {
+      return { ok: true, data: this.loginStartup.snapshot() };
+    } catch (error) {
+      this.logger?.error("startup.settings.readFailed", error);
+      return resultError("UNKNOWN", "startup.readFailed");
+    }
+  }
+
+  async setStartupSettings(enabled: boolean): Promise<Result<StartupSettings>> {
+    return this.runSideEffect(() => {
+      try {
+        return { ok: true, data: this.loginStartup.setEnabled(enabled) };
+      } catch (error) {
+        this.logger?.error("startup.settings.writeFailed", error);
+        return resultError("UNKNOWN", "startup.writeFailed");
+      }
+    });
   }
 
   snapshot(): ThemeSnapshot {

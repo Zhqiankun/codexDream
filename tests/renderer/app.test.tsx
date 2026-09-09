@@ -149,9 +149,17 @@ const snapshot: ThemeSnapshot = {
 
 function makeApi() {
   const api = {
+    getStartupSettings: vi.fn().mockResolvedValue({
+      ok: true,
+      data: { supported: true, enabled: false },
+    }),
+    setStartupSettings: vi.fn().mockResolvedValue({
+      ok: true,
+      data: { supported: true, enabled: true },
+    }),
     rendererReady: vi.fn().mockResolvedValue({
       ok: true,
-      data: { appVersion: "1.3.8", protocolVersion: 5 },
+      data: { appVersion: "1.3.8", protocolVersion: 6 },
     }),
     openLogDirectory: vi.fn().mockResolvedValue({ ok: true, data: true }),
     installAssistantPlugin: vi.fn().mockResolvedValue({

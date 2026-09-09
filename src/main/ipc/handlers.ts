@@ -12,6 +12,7 @@ import {
   RendererReadySchema,
   ResolveImportSchema,
   RevisionSchema,
+  StartupSettingsSchema,
   type ErrorCode,
   type Result,
   type SafeDetail,
@@ -69,6 +70,12 @@ export function registerIpc(
   );
   handle("diagnostics.openLogs", EmptyRequestSchema, () =>
     controller.openLogDirectory(),
+  );
+  handle("startup.getSettings", EmptyRequestSchema, () =>
+    controller.getStartupSettings(),
+  );
+  handle("startup.setSettings", StartupSettingsSchema, ({ enabled }) =>
+    controller.setStartupSettings(enabled),
   );
   handle("assistant.installPlugin", EmptyRequestSchema, () =>
     controller.installAssistantPlugin(),

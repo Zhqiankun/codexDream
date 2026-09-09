@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.18` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.19` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.18-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.18-x64.zip` — portable archive.
+- `CodexStyle-1.3.19-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.19-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.18` themes the editor opened by double-clicking a sent message using the existing background, opacity, input text, and send-button colors. It also retries a temporarily rebuilding page before initial theme injection, while continuing to block identity mismatches and persistent incompatibility. Selector profile `/15` is verified against Store Codex `26.901.6511.0`. Install over the existing copy to preserve local themes, then end and relaunch the CodexStyle-managed Codex session to apply the fixes.
+`v1.3.19` adds **Launch at Windows login** at the bottom of the Studio sidebar, off by default. The switch reflects Windows settings and starts CodexStyle without automatically launching Store Codex. Upgrades preserve your choice; uninstalling removes only this installation's startup entry. Install over the existing copy to preserve local themes, then completely exit and reopen CodexStyle to load the new settings interface.
 
 ## Requirements
 

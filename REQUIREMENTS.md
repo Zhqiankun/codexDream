@@ -98,7 +98,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 - native `.node` 必须位于 ASAR unpacked 资源中并随 Windows x64 安装包交付。生产运行时模块缺失、加载失败、N-API/架构不兼容或解析到 ASAR 内错误位置时必须 `STORE_TAMPERED`，禁止使用 JavaScript 文件系统实现降级。
 - 用户通过原生保存对话框选择的主题导出 ZIP 不属于受保护根；它继续使用既有有界 ZIP 导出、取消无副作用和目标文件原子替换规则。该例外不得成为访问任意 managed path 的通道。
 - 主进程诊断日志固定写入 Electron `userData/logs`，与 secure-store 保护域隔离。日志使用按日本地 JSONL、单文件不超过 5 MiB、默认保留 7 天；启动时及每 24 小时清理过期文件。只允许事件、版本、错误码、Zod 字段路径和脱敏截断后的错误信息，不得写入主题/CSS/JSON/图片内容、Codex 对话、nonce、令牌、密钥、完整命令行或 URL 查询参数。用户只能通过固定 IPC 打开日志目录，renderer 不接收路径。日志创建、写入、清理或打开失败不得改变主题、会话或更新控制流。
-- 当前 IPC 为 `v: 5`；`rendererReady` 使用固定 `v: 1` bootstrap 并返回主进程版本/协议，专门识别覆盖安装后仍驻留的旧主进程。其余请求版本不一致时必须返回明确的不兼容错误。该边界不改变 `../old/` 或主题 ZIP 三件套兼容契约。
+- 当前 IPC 为 `v: 6`；`rendererReady` 使用固定 `v: 1` bootstrap 并返回主进程版本/协议，专门识别覆盖安装后仍驻留的旧主进程。其余请求版本不一致时必须返回明确的不兼容错误。该边界不改变 `../old/` 或主题 ZIP 三件套兼容契约。
 
 ## 会话与退出行为
 
@@ -119,6 +119,8 @@ preload 暴露版本化强类型方法：snapshot、固定助手插件安装、�
 错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`THEME_IN_USE`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_UNSUPPORTED`、`UPDATE_CHECK_FAILED`、`UPDATE_DOWNLOAD_FAILED`、`UPDATE_INSTALL_FAILED`、`UPDATE_OPEN_FAILED`。
 
 ## 可观察验收
+
+开机自启动补充（2026-09-09）：左侧栏底部提供“开机自启动”开关，新安装默认关闭；仅用户明确开启后注册当前用户的 CodexStyle 登录项，登录后使用正常应用启动流程。该设置只启动 CodexStyle，不自动启动 Store Codex；不属于主题、不导出到 ZIP。读写均使用主进程确定的当前可执行文件及固定注册项名，IPC 仅接收布尔值。Windows 状态为唯一事实来源，任务管理器禁用后返回应用须显示关闭；保存失败须回读并提示。开发 Electron 与非 Windows 环境禁用该开关，禁止注册开发运行时。覆盖升级保留用户选择，真正卸载只清理指向本次安装的登录项。
 
 消息编辑与启动时序补充（2026-09-09）：
 

@@ -25,6 +25,7 @@ import {
   type UpdateSnapshot,
 } from "../../contracts";
 import { bridge } from "../api/bridge";
+import { StartupSetting } from "../features/settings/StartupSetting";
 import {
   StudioControls,
   type PreviewColorTarget,
@@ -36,7 +37,7 @@ import { isStudioThemeColor } from "../features/studio/theme-color-input";
 
 const MAX_CSS_CHARACTERS = 262_144;
 const MAX_CSS_BYTES = 256 * 1024;
-const RENDERER_PROTOCOL_VERSION = 5;
+const RENDERER_PROTOCOL_VERSION = 6;
 const cssTextEncoder = new TextEncoder();
 const EMPTY_THEME_SUMMARIES: ThemeSnapshot["themes"] = [];
 
@@ -955,6 +956,7 @@ export function App() {
             ) : null}
           </div>
           <div className="sidebar-footer">
+            {!runtimeMismatch && runtimeInfo && <StartupSetting />}
             <div className="library-stat">
               <span>可用主题</span>
               <strong>{readyCount}</strong>

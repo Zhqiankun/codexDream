@@ -69,6 +69,10 @@
 
 ## 验证证据
 
+- 2026-09-09 v1.3.19 发布候选：用户确认提交、推送并发布 v1.3.19。同步 package/lock、CHANGELOG 与中英文 README；沿用功能阶段 252 项 main、65 项 renderer、7 项 acceptance 证据，并完成新版全量 10 项 Electron E2E。全仓格式、类型、lint、架构、版本一致性和 diff 检查通过，Node.js 22.22.0 的原生/插件/main/preload/renderer 构建通过。自启动默认关闭、IPC v6/bootstrap v1、只读回读及卸载保护纳入发布；正式产物由 GitHub Actions 标签构建、校验和上传，本地历史测试目录不提交。
+
+- 2026-09-09 开机自启动：新增主进程 `platform/login-startup.ts`（固定当前用户登录项读写与回读校验）和 renderer `features/settings/StartupSetting.tsx`（独立开关、焦点刷新与失败反馈）；位于侧栏底部，新安装默认关闭，只有明确操作才注册。Windows 状态为唯一事实来源，不新增主题字段、存储迁移或共享依赖，不自动启动 Store Codex。普通 IPC 升级到 v6，bootstrap v1 保持，preload/鉴权/schema/旧版本拒绝测试同步；重建的 MCP bundle 随当前 contracts 更新，助手协议不变。卸载宏保留升级时的设置，仅真正卸载且路径匹配时移除自身登录项。252 项 main、65 项 renderer、7 项 acceptance 通过；一次大批量联跑遇到既有图片校验超时和预设 UI 时序失败，限制并发并单独复验 renderer 后通过。类型、lint、架构、格式、diff 检查与精确 Node.js 22.22.0 生产构建通过；独立 NSIS 编译夹具通过，仅编译未执行安装/卸载。1 项真实 Electron app E2E 验证新开关可见、开发环境默认关闭且不可注册，并完成原有主题写入与 MCP 回归；已查看 `test-results/e2e/codexstyle-studio.png` 确认布局。未改动本机真实自启动项，未注销/重启 Windows 或进行实际安装卸载，尚未提交或发布本功能。
+
 - 2026-09-09 v1.3.18 发布候选：用户明确确认版本及推送发布。同步 package/lock、中英文 README 和 CHANGELOG；沿用上方代码阶段通过的 246 项主进程测试、类型、lint 和架构证据，补齐 61 项 renderer、7 项 acceptance、完整 10 项 Electron E2E，以及全仓库格式和版本一致性检查。使用现有 Node.js `22.22.0` 完成原生模块、插件及 main/preload/renderer 生产构建。正式安装包、便携包、更新清单和校验文件由标签触发的 GitHub Actions 构建与发布；本地历史测试目录不纳入提交。
 
 - 2026-09-09 已发送消息编辑与启动时序：只读核对 Store `26.901.6511.0` 的消息编辑表单和 RichTextInput；profile `/15` 新增 `message-editor`，复用 panelAlt/composerText/accent/accentText，取消按钮复用 secondary/line，保留文字发送按钮和原生交互。改动仅在 session selector/payload/service 及测试、需求和计划内，无新业务模块、共享抽象或依赖。注入前额外 15 秒有界等待用于首次探测成功后页面重建，每次重验同一身份，身份不符立即退出；错误提示恢复 CDP/身份/页面分类。`npm run test:unit` 30 文件 / 246 测试通过；`npx playwright test tests/e2e/user-message-editor.spec.ts tests/e2e/markdown-chat-colors.spec.ts tests/e2e/page-search-rail.spec.ts` 8 场景通过；类型、lint、架构、改动文件格式和 diff 检查通过。完整构建四阶段使用仓库已有 Node.js `22.22.0` 逐项执行通过；默认终端 `22.22.2` 被插件构建版本校验拒绝，首次并行构建还发生原生输出占用，均已改为精确运行时串行执行。浅色隔离表单截图已人工查看；隐藏窗口深色截图曾超时，已沿用既有测试约定将截图与计算样式断言分离，浅深色全部行为断言均通过。实际 Roaming 日志记录了当日 09:33 的 `TARGET_INCOMPATIBLE`，但无阶段详情，尚不能证明用户的全部偶发失败都由此竞态引起。未连接或修改当前 Codex 会话，未发布或更新已安装版本。

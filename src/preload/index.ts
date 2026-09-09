@@ -11,6 +11,10 @@ const invoke = <T>(channel: string, payload: unknown): Promise<Result<T>> =>
   ipcRenderer.invoke(channel, payload) as Promise<Result<T>>;
 
 const api: CodexStyleApi = {
+  getStartupSettings: () =>
+    invoke("startup.getSettings", { v: PROTOCOL_VERSION }),
+  setStartupSettings: (request) =>
+    invoke("startup.setSettings", { v: PROTOCOL_VERSION, ...request }),
   rendererReady: () =>
     invoke("studio.rendererReady", { v: BOOTSTRAP_PROTOCOL_VERSION }),
   openLogDirectory: () =>

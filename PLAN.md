@@ -14,6 +14,8 @@
 
 ## 模块与公开契约
 
+开机自启动由 `src/main/platform/login-startup.ts` 独占 Windows 登录项读写；`AppController` 经既有 operation gate 编排写入，IPC v6 的 `startup.getSettings` / `startup.setSettings` 只交换 supported/enabled，不暴露路径、命令或注册表入口。Windows 为唯一存储，避免主题库设置与任务管理器状态分叉，启动时只读且不自动注册。`StartupSetting` 负责独立 UI 状态、焦点回读及保存反馈，不依赖主题草稿；卸载宏仅在真实卸载且登录项指向本次安装时清理，升级不变。责任归属沿用主进程平台与 renderer 功能目录，无新增共享抽象或依赖。
+
 ```text
 src/contracts/                         IPC 类型、schema、Result/ErrorCode
 src/main/app/                          Electron 生命周期与编排
@@ -37,7 +39,7 @@ native/secure-store/                   Windows x64 N-API 源码、预定义路�
 plugins/codexstyle-assistant/          Codex 插件、STDIO MCP 与主题设计 Skill
 ```
 
-`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:5`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
+`Result<T>` 固定为 `{ok:true,data:T}` 或 `{ok:false,error:{code,messageKey,details?}}`。普通 IPC 协议版本为 `v:6`；`studio.rendererReady` 单独保留固定 `v:1` bootstrap 并返回主进程版本/协议，用于识别覆盖安装后的驻留旧主进程。handler 验证唯一主窗口 `webContents`、`app://` frame、协议、Zod schema、上限和操作锁。租户上下文固定为当前 Windows SID 和其 `%LOCALAPPDATA%\\CodexStyle`。
 
 公开调用固定为：bootstrap `studio.rendererReady`；`studio.getSnapshot`；`assistant.installPlugin`；`theme.get/createDraft/patchDraft/discardChanges/chooseBackground/chooseSendIcon/chooseHomeCardImage/commit/delete/importZip/resolveImport/exportZip/selectForNextLaunch/clearSelection`；`session.launch/pause/resume/endOwned`；`update.getStatus/request/cancel/install/openRelease`；`diagnostics.openLogs`。唯一事件是 `studio:state-changed`。诊断调用不接收路径，只能打开主进程固定的 Electron `userData/logs`；助手安装调用不接收路径或命令，只能让 main 从固定随包 marketplace 经已核对的当前用户 Codex CLI 安装固定插件 ID。
 
@@ -45,7 +47,7 @@ plugins/codexstyle-assistant/          Codex 插件、STDIO MCP 与主题设计 
 
 结构化主题配置同样归属 theme domain：`appearance`、`art`、二十九色 `colors`、固定四项 `homeCards` 和 `style` 由 `theme.json` 持久化。原十色继续作为 v1 导入必填兼容基线，`sidebarText/assistantPanel/assistantMessageText/userMessageText/composerText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted/accentText/selectionText` 为可选兼容扩展；旧主题缺少 `homeCards` 时从 `homeCardBackground` 生成四项纯色默认值。规范化后的 `ThemeDetail` 与 renderer patch 始终携带完整二十九色和四张卡片。`src/contracts/theme-config.ts` 是唯一允许的新跨层公开抽象，负责稳定类型、默认值、规范化、颜色与卡片图片 Data URL 边界、token CSS 和配置模式 Safe CSS 生成；renderer 只 type-import 这些契约，并通过预览专用属性反映尚未保存的结构化值，main 仍是图片解码压缩、CSS 生成、验证、revision、持久化、导入导出和注入的权威。该模块不得依赖 React、Electron、Node 或存储实现，并由独立单元测试证明生成结果始终通过 `dreamskin-safe-css/1`。
 
-`theme.patchDraft` 在普通 IPC `v:5` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/homeCards/styleConfig 与高级 CSS；`theme.chooseHomeCardImage` 只接收 library ID、revision 和 `0..3` 卡片索引，main 将选定的 PNG/JPEG/WebP 有界解码并尝试多档尺寸/质量，最终只写入不超过 48 KiB 的 WebP Data URL。`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；四张卡片图嵌入 `theme.json`，不改变三件套 ZIP。旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
+`theme.patchDraft` 在普通 IPC `v:6` 下接收结构化字段及有界 `themeJson` 源码。普通 patch 可携带 name/description/themeId/backgroundScope/sidebarOverlayOpacity/appearance/art/colors/homeCards/styleConfig 与高级 CSS；`theme.chooseHomeCardImage` 只接收 library ID、revision 和 `0..3` 卡片索引，main 将选定的 PNG/JPEG/WebP 有界解码并尝试多档尺寸/质量，最终只写入不超过 48 KiB 的 WebP Data URL。`themeJson` patch 必须单独提交，main 完成 JSON 语法、严格字段、图片引用和范围校验后才更新 name/themeId/description/config，并在配置模式下重新生成 CSS。第一次持久化编辑前由 store 建立受管 checkpoint；`theme.discardChanges` 只接受 revisioned 主题标识，并原子恢复最近 commit 或新建起点，revision 保持单调且不改变“下次启动”选择。主题索引升级为 v2 并单向迁移 v1；背景替换、导入替换和恢复均写入新的全局唯一 UUID 文件，再以索引原子替换作为唯一提交点，不覆盖活动图片。旧记录缺少 style 时规范化为 advanced，新草稿显式写入 configured 默认值和透明占位背景。`theme.exportZip` 保持同一调用，只接受完整 `simplified` 与未编辑正式包 `formal`；四张卡片图嵌入 `theme.json`，不改变三件套 ZIP。旧版兼容降级导出从契约、main 和 renderer 一并移除，历史十色或十二色 ZIP 的读取兼容仍保留。
 
 内置图片主题包归属 main infrastructure：根 `resources/presets/catalog.json` 与 25 张图片继续作为不可改写的 schema v4 / pack v7 历史基线；新增 `resources/presets/user-wallpapers-2026-08-31-v8/catalog.json`、同目录 10 张图片及 `SOURCES.md` 组成独立固定增量包，不覆盖、不替代也不迁移 v7。`bundled-presets.ts` 对两套已知 catalog 分别有界读取，校验稳定 pack/theme ID、图片格式、尺寸与 SHA-256，并区分 `introducedThemeIds`、`previousFingerprints` 和 `previousImageSha256`；不得退化为扫描任意资源目录。`LocalThemeStore` 保留 pack v7 的既有事务语义，再以独立 `user-wallpapers-2026-08-31-v8` pack 标记在单事务中仅追加 10 个新 ready 主题；已有主题、用户编辑、用户删除、revision、checkpoint、选择项与 last-known-good 均不变化，任一图片、索引或持久化失败必须回滚本包全部写入。全新安装最终为原有 2 个基础主题 + 25 个 v7 图片主题 + 10 个 v8 图片主题，共 37 套。`ThemeSummary` 只返回页面背景色与受控缩略图 URL，不暴露文件路径、图片字节或新 IPC 方法；`SOURCES.md` 仅作为随包授权记录，不进入运行时配置解析。
 

@@ -61,6 +61,15 @@ test("starts the real Electron shell with native storage and completes a local w
       .toBe("ORPHANED");
     await expect(page.getByText("Midnight Copper").first()).toBeVisible();
     await expect(page.getByText("Paper Light").first()).toBeVisible();
+    // Dev Electron must show the setting without ever registering electron.exe
+    // in the real Windows startup list. Packaged writes are covered at the OS port.
+    const startupSwitch = page.getByRole("switch", { name: "开机自启动" });
+    await expect(startupSwitch).toBeVisible();
+    await expect(startupSwitch).not.toBeChecked();
+    await expect(startupSwitch).toBeDisabled();
+    expect(
+      await page.evaluate(() => window.codexStyle.getStartupSettings()),
+    ).toEqual({ ok: true, data: { supported: false, enabled: false } });
     await expect(page.getByLabel("CodexStyle 当前版本")).toContainText(
       `v${packageVersion}`,
     );

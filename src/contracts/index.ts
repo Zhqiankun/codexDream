@@ -13,7 +13,7 @@ import { isThemeIconDataUrl } from "./send-icon";
 export * from "./theme-config";
 export * from "./send-icon";
 
-export const PROTOCOL_VERSION = 5 as const;
+export const PROTOCOL_VERSION = 6 as const;
 export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
@@ -59,6 +59,12 @@ export interface SafeDetail {
 export interface StudioRuntimeInfo {
   appVersion: string;
   protocolVersion: typeof PROTOCOL_VERSION;
+}
+
+/** Actual Windows login-item state; it is application-wide, not a theme field. */
+export interface StartupSettings {
+  supported: boolean;
+  enabled: boolean;
 }
 
 export type Result<T> =
@@ -439,6 +445,9 @@ const ThemeStyleConfigSchema = z
   );
 
 export const EmptyRequestSchema = z.object(VersionField).strict();
+export const StartupSettingsSchema = z
+  .object({ ...VersionField, enabled: z.boolean() })
+  .strict();
 export const RendererReadySchema = z
   .object({ v: z.literal(BOOTSTRAP_PROTOCOL_VERSION) })
   .strict();
@@ -521,6 +530,10 @@ export const ExportSchema = z
   .strict();
 
 export interface CodexStyleApi {
+  getStartupSettings(): Promise<Result<StartupSettings>>;
+  setStartupSettings(
+    request: Omit<z.infer<typeof StartupSettingsSchema>, "v">,
+  ): Promise<Result<StartupSettings>>;
   rendererReady(): Promise<Result<StudioRuntimeInfo>>;
   openLogDirectory(): Promise<Result<boolean>>;
   installAssistantPlugin(): Promise<Result<CodexAssistantPluginInstallResult>>;

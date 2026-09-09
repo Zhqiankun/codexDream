@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.19 — 2026-09-09
+
+### English
+
+- Added **Launch at Windows login** at the bottom of the Studio sidebar. New installations default to off; enabling it registers only the current user's CodexStyle executable, and disabling it removes that entry. It starts CodexStyle using its normal startup flow, without automatically launching Store Codex.
+- Windows is the source of truth. The switch reads back the saved state, refreshes when the app regains focus, and reflects Task Manager disabling. Failed reads or writes show actionable feedback; development Electron and non-Windows environments cannot register a login item.
+- Upgrades preserve the preference. A real uninstall removes the startup entry only when it points to that installation, preserving an entry belonging to a different portable copy.
+- Advanced the application IPC protocol to v6 for the typed startup-settings API while keeping bootstrap v1 and the theme format unchanged. Added OS-boundary, IPC, UI, and Electron startup regression coverage. Windows logout/reboot and real install/uninstall execution have not been tested locally.
+
+> Install over the existing copy to preserve local themes. Completely exit and reopen CodexStyle after updating. Launch at Windows login remains off until you enable it.
+
+### 简体中文
+
+- 在 Studio 左侧栏底部新增 **“开机自启动”**，新安装默认关闭。开启时只注册当前用户的 CodexStyle 程序，关闭即取消；登录 Windows 后按正常流程打开 CodexStyle，不自动启动 Store Codex。
+- 以 Windows 实际状态为准，保存后回读、返回应用时刷新，并同步任务管理器中的禁用状态。读取或保存失败提供提示和重试入口；开发 Electron 与非 Windows 环境不能注册自启动。
+- 覆盖升级保留用户选择。真正卸载时，仅清理指向本次安装的自启动项，避免影响另一份便携程序。
+- 为强类型自启动设置接口将应用 IPC 升级到 v6，bootstrap v1 与主题格式保持不变。新增系统接口、IPC、界面和 Electron 启动回归；本地尚未执行 Windows 注销/重启或真实安装卸载测试。
+
+> 直接覆盖安装即可保留本地主题。升级后请完全退出并重新打开 CodexStyle。自启动默认关闭，需自行开启。
+
 ## v1.3.18 — 2026-09-09
 
 ### English
