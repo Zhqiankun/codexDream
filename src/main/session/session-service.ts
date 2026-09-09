@@ -42,6 +42,7 @@ interface OwnedSession {
 
 export const CODEX_STARTUP_VERIFY_TIMEOUT_MS = 90_000;
 const CODEX_STARTUP_POLL_INTERVAL_MS = 250;
+const CODEX_PRE_INJECTION_READY_TIMEOUT_MS = 15_000;
 
 interface PersistedOwnedSession {
   version: 1;
@@ -191,7 +192,7 @@ export class CodexSessionService {
       await this.rollbackVerifiedLaunch(owned);
       this.state = "INCOMPATIBLE";
       this.messageKey = isTargetError(error)
-        ? "session.targetIncompatible"
+        ? verificationFailureMessageKey(error)
         : "session.injectionFailed";
       throw error;
     }
@@ -415,7 +416,7 @@ export class CodexSessionService {
       throw new Error("INCOMPLETE_THEME:selection-changed");
     const validation = validateSafeCss(theme.css);
     if (!validation.valid || validation.empty) throw new Error("UNSAFE_CSS");
-    await this.verifyOwnedIdentity(session, true);
+    await this.waitForInjectionReadiness(session);
     const marker = `codexstyle-${theme.libraryId}`;
     const configuration = readThemeConfiguration(theme.json);
     const expression = buildThemePayload(
@@ -559,6 +560,32 @@ export class CodexSessionService {
     }
   }
 
+  /**
+   * The first shell probe can succeed before startup navigation remounts React.
+   * Retry only this pre-injection read, on the same verified session, with a
+   * bounded grace period. Every attempt rechecks process/CDP ownership; identity
+   * failures are never retried and no injection or relaunch occurs while waiting.
+   */
+  private async waitForInjectionReadiness(
+    session: OwnedSession,
+  ): Promise<void> {
+    const deadline = Date.now() + CODEX_PRE_INJECTION_READY_TIMEOUT_MS;
+    while (true) {
+      try {
+        await this.verifyOwnedIdentity(session, true);
+        return;
+      } catch (error) {
+        if (
+          !isTransientReadinessError(error) ||
+          session.selectorProfile !== CODEX_SELECTOR_PROFILE ||
+          Date.now() >= deadline
+        )
+          throw error;
+        await delay(CODEX_STARTUP_POLL_INTERVAL_MS);
+      }
+    }
+  }
+
   private startWatcher(): void {
     this.stopWatcher();
     this.watcher = setInterval(() => {
@@ -695,6 +722,18 @@ function isTargetError(error: unknown): boolean {
   return (
     error instanceof Error &&
     (error.message.startsWith("TARGET_") || error.message.startsWith("CDP_"))
+  );
+}
+
+function isTransientReadinessError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message === "TARGET_INCOMPATIBLE:selector-profile" ||
+    error.message.startsWith("CDP_UNAVAILABLE") ||
+    // Chromium invalidates Runtime.evaluate's context during navigation.
+    /^(Execution context was destroyed|Cannot find context with specified id)/u.test(
+      error.message,
+    )
   );
 }
 

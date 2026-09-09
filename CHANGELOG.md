@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.18 — 2026-09-09
+
+### English
+
+- The editor opened by double-clicking a sent message now follows the existing composer/message background and opacity, input text and caret color, and send-button colors. Cancel uses the secondary text and border colors. Text labels, mentions, focus, loading, and disabled behavior remain intact.
+- Added a bounded 15-second readiness retry before initial theme injection when the already-verified Codex page remounts or its JavaScript context is briefly unavailable. Each retry revalidates the same process and CDP identity; identity mismatches fail immediately and persistent incompatibility remains blocked.
+- Startup failures now distinguish CDP availability, process identity, and page compatibility instead of reporting all three as an outdated theme adapter. This fixes a verified startup race; existing diagnostic logs do not establish that every intermittent launch failure has the same cause.
+- Advanced the selector profile to `/15`, verified against Store Codex `26.901.6511.0`, and added isolated Electron coverage for inline message editing plus regression tests for startup recovery, timeout, and ownership changes.
+
+> Install over the existing copy to preserve local themes, then end and relaunch the CodexStyle-managed Codex session to apply the changes.
+
+### 简体中文
+
+- 双击已发送消息后的编辑框接入现有主题：背景与透明度复用“输入框与我的消息”，正文和光标复用“输入文字”，发送按钮复用现有配色，取消按钮复用次要文字和边框颜色。保留文字按钮、提及、聚焦、加载和禁用行为。
+- 在初次应用主题前增加最多 15 秒的就绪重试，处理已验证页面短暂重建或 JavaScript 上下文暂不可用。每次重试仍校验同一进程与 CDP 身份；身份不符立即失败，持续不兼容仍会拦截。
+- 启动失败提示区分 CDP 不可用、进程身份不符和页面不兼容，不再全部提示主题适配过旧。本次修复了一处已验证的启动时序问题；现有诊断日志不足以证明全部偶发启动失败都属于同一原因。
+- 基于 Store Codex `26.901.6511.0` 将 selector profile 升级到 `/15`，新增隔离 Electron 消息编辑回归，以及启动恢复、超时和身份变化测试。
+
+> 直接覆盖原安装即可保留本地主题，随后结束并重新启动由 CodexStyle 管理的 Codex 会话，让修复生效。
+
 ## v1.3.17 — 2026-09-08
 
 ### English

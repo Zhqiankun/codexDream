@@ -174,6 +174,10 @@ secure-store 实施明确禁止修改 `src/contracts/**`、`src/preload/**`、`s
 
 30. 页面版本标识：renderer 在 bootstrap 协议与 appVersion 同时验证通过后保存完整 `StudioRuntimeInfo`，左侧栏 footer 以现有诊断元数据行持续显示 `CodexStyle 版本 / vX.Y.Z`。不新增 IPC，不从 update snapshot 或 package.json 推导；首帧使用稳定占位，协议不匹配继续 fail closed。renderer 测试用故意不同的 bootstrap/update 版本证明数据来源，Electron E2E 从真实 `app.getVersion()` 断言 main→preload→renderer 全链路。
 
+31. 已发送消息编辑：Store `26.901.6511.0` 的消息气泡在编辑时被 `form.bg-text/5` 替换，内层 RichTextInput 默认不提供 `data-codex-composer`。profile `/15` 增加用户消息锚点内的 `message-editor`，以富文本结构及 submit 按钮收窄；payload 在所属表单上只绘制一层 panelAlt，正文/光标消费 composerText，取消消费 secondary/line，发送消费 accent/accentText。配方开关与普通输入框一致，不复用会替换发送图标的 composer-submit part，不新增主题字段或依赖。
+
+32. 注入前页面重建：由 `CodexSessionService` 在初次注入前提供 15 秒有界宽限，按既有 250ms 轮询间隔重复完整身份及 selector 验证；只重试 selector 暂缺、CDP 暂不可用及 Chromium 上下文销毁。身份错误立即失败，真实不兼容超时后继续拦截，不扩展到暂停/结束、不重试注入副作用。沿用既有错误分类向用户呈现 CDP、身份和页面问题，以边界 mock 下的实际 inject 流程测试验证时序。
+
 ## 验证命令
 
 ```powershell

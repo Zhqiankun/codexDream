@@ -1,6 +1,6 @@
 # CodexStyle 任务进度
 
-更新时间：2026-09-08
+更新时间：2026-09-09
 
 ## 目标与范围
 
@@ -68,6 +68,10 @@
 - `codexStyle/` 已连接公开仓库 `Zhqiankun/codexDream`；已确认发布基线为 `v1.3.16`（提交 `668c6b4`）。用户已要求发布，本轮搜索横幅固定透明修复进入 `v1.3.17` 发布候选；正式安装包由标签触发的 GitHub Actions 构建与发布。
 
 ## 验证证据
+
+- 2026-09-09 v1.3.18 发布候选：用户明确确认版本及推送发布。同步 package/lock、中英文 README 和 CHANGELOG；沿用上方代码阶段通过的 246 项主进程测试、类型、lint 和架构证据，补齐 61 项 renderer、7 项 acceptance、完整 10 项 Electron E2E，以及全仓库格式和版本一致性检查。使用现有 Node.js `22.22.0` 完成原生模块、插件及 main/preload/renderer 生产构建。正式安装包、便携包、更新清单和校验文件由标签触发的 GitHub Actions 构建与发布；本地历史测试目录不纳入提交。
+
+- 2026-09-09 已发送消息编辑与启动时序：只读核对 Store `26.901.6511.0` 的消息编辑表单和 RichTextInput；profile `/15` 新增 `message-editor`，复用 panelAlt/composerText/accent/accentText，取消按钮复用 secondary/line，保留文字发送按钮和原生交互。改动仅在 session selector/payload/service 及测试、需求和计划内，无新业务模块、共享抽象或依赖。注入前额外 15 秒有界等待用于首次探测成功后页面重建，每次重验同一身份，身份不符立即退出；错误提示恢复 CDP/身份/页面分类。`npm run test:unit` 30 文件 / 246 测试通过；`npx playwright test tests/e2e/user-message-editor.spec.ts tests/e2e/markdown-chat-colors.spec.ts tests/e2e/page-search-rail.spec.ts` 8 场景通过；类型、lint、架构、改动文件格式和 diff 检查通过。完整构建四阶段使用仓库已有 Node.js `22.22.0` 逐项执行通过；默认终端 `22.22.2` 被插件构建版本校验拒绝，首次并行构建还发生原生输出占用，均已改为精确运行时串行执行。浅色隔离表单截图已人工查看；隐藏窗口深色截图曾超时，已沿用既有测试约定将截图与计算样式断言分离，浅深色全部行为断言均通过。实际 Roaming 日志记录了当日 09:33 的 `TARGET_INCOMPATIBLE`，但无阶段详情，尚不能证明用户的全部偶发失败都由此竞态引起。未连接或修改当前 Codex 会话，未发布或更新已安装版本。
 
 - 2026-09-08 `v1.3.17` 发布候选：package/lock、中英文 README 和 CHANGELOG 已统一到 1.3.17，生产差异仅为两个现有搜索横幅表面固定透明及相应回归，profile 仍为 `/14`。精确 Node.js 22.22.0 下原生模块构建、241 项主进程（2 workers）、61 项 renderer、7 项集成、8 项 Electron E2E、类型、Lint、格式、架构、生产构建、Windows x64 打包和包校验全部通过。实现阶段已完成独立源码审查及四项搜索横幅 Electron 复跑。发布前远端 main 为 `668c6b4`，新标签与 Release 均不存在；只暂存 12 个发布相关文件，临时目录和本地安装包不提交，正式附件由 Actions 构建。
 

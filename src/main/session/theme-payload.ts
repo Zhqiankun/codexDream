@@ -14,6 +14,7 @@ import {
   MARKDOWN_DOCUMENT_SELECTOR,
   PAGE_SEARCH_RAIL_SELECTOR,
   SELECTOR_PARTS,
+  USER_MESSAGE_EDITOR_SELECTOR,
 } from "./selector-profile";
 
 interface PayloadConfig {
@@ -34,6 +35,7 @@ interface PayloadConfig {
   homeComposerRailSelector: string;
   pageSearchRailSelector: string;
   markdownDocumentSelector: string;
+  userMessageEditorSelector: string;
   tokens: Array<readonly [string, string]>;
   parts: ReadonlyArray<readonly [string, string]>;
 }
@@ -79,6 +81,7 @@ export function buildThemePayload(
     homeComposerRailSelector: HOME_COMPOSER_RAIL_SELECTOR,
     pageSearchRailSelector: PAGE_SEARCH_RAIL_SELECTOR,
     markdownDocumentSelector: MARKDOWN_DOCUMENT_SELECTOR,
+    userMessageEditorSelector: USER_MESSAGE_EDITOR_SELECTOR,
     tokens: themeTokenDeclarations(settings),
     parts: SELECTOR_PARTS,
   };
@@ -288,6 +291,22 @@ export function buildThemePayload(
         '\\n' + composerSelector + ' :where(input, textarea)::placeholder { color: var(--ds-theme-color-muted) !important; opacity: 1 !important; }';
       const composerTextBridge = '\\n' + composerInputSelector + ' { color: var(--ds-theme-color-composer-text) !important; caret-color: var(--ds-theme-color-composer-text) !important; }';
       const composerPermissionSelector = composerToolbarSelector + ' [data-permission-mode]';
+      // The inline editor is an optional user-message form, with no primary
+      // composer marker. Cover insertion immediately and paint alpha only once.
+      // Its text submit button must never receive the composer icon replacement.
+      const messageEditorSelector = ':is([data-ds-part="message-editor"][data-codexstyle-owner="' + config.marker + '"], ' + rootSelector + ' ' + config.userMessageEditorSelector + ')';
+      const messageEditorInputSelector = messageEditorSelector + ' [data-rich-text-layout] > [contenteditable]';
+      const messageEditorActionsSelector = messageEditorSelector + ' > div > div:has(> button[type="submit"])';
+      const messageEditorCancelSelector = messageEditorActionsSelector + ' > button:not([type="submit"])';
+      const messageEditorSubmitSelector = messageEditorActionsSelector + ' > button[type="submit"]';
+      const messageEditorTextBridge = '\\n' + messageEditorInputSelector + ' { color: var(--ds-theme-color-composer-text) !important; caret-color: var(--ds-theme-color-composer-text) !important; }';
+      const messageEditorSurfaceBridge = config.configuredRecipes?.composer
+        ? '\\n' + messageEditorSelector + ' { background: var(--ds-theme-color-panel-alt) !important; }' +
+          '\\n' + messageEditorInputSelector + ' { background: transparent !important; }' +
+          '\\n' + messageEditorCancelSelector + ' { background: transparent !important; border-color: var(--ds-theme-color-line) !important; color: var(--ds-theme-color-secondary) !important; }' +
+          '\\n' + messageEditorCancelSelector + ':hover:not(:disabled) { background: color-mix(in srgb, var(--ds-theme-color-secondary) 8%, transparent) !important; }' +
+          '\\n' + messageEditorSubmitSelector + ' { background-color: var(--ds-theme-color-accent) !important; color: var(--ds-theme-color-accent-text) !important; }'
+        : '';
       const configuredSurfaceBridge = config.configuredRecipes
         ? '\\n' + rootSelector + ' ::selection { background-color: var(--ds-theme-color-highlight); color: var(--ds-theme-color-selection-text); }' +
           (config.configuredRecipes.sidebar && config.backgroundScope === "content"
@@ -322,7 +341,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

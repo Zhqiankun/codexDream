@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/14" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/15" as const;
 
 export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
   'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"])' as const;
@@ -16,6 +16,12 @@ export const PAGE_SEARCH_RAIL_SELECTOR =
 // Own the viewport (including empty space) and exclude source/other languages.
 export const MARKDOWN_DOCUMENT_SELECTOR =
   '[data-editor-search-surface]:has(> .cm-editor > .cm-scroller > .cm-content[data-language="markdown"])' as const;
+
+// Store 26.901.6511.0 replaces the user bubble with this form on edit.
+// RichTextInput here omits data-codex-composer (reserved for the primary input).
+// Match structure, not translated labels; keep the form owned while disabled.
+export const USER_MESSAGE_EDITOR_SELECTOR =
+  '[data-local-conversation-user-anchor="true"] form[class~="bg-text/5"]:has([data-rich-text-layout] > [contenteditable]):has(button[type="submit"])' as const;
 
 export const SELECTOR_PARTS = [
   ["sidebar", "aside.app-shell-left-panel"],
@@ -68,6 +74,7 @@ export const SELECTOR_PARTS = [
   ],
   ["change-card", 'div:has(> [class~="group/turn-diff-header"])'],
   ["activity", '[class~="group/activity-header"]'],
+  ["message-editor", USER_MESSAGE_EDITOR_SELECTOR],
   ["composer", "[data-codex-composer-root] [data-composer-surface-variant]"],
   ["composer", HOME_COMPOSER_RAIL_SELECTOR],
   [
