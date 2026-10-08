@@ -9,11 +9,16 @@ import {
   type ThemeConfiguration,
 } from "../../contracts";
 import {
+  COLLAPSED_TURN_DISCLOSURE_SELECTOR,
   EDGE_SCROLL_THREAD_TITLE_SELECTOR,
   HOME_COMPOSER_RAIL_SELECTOR,
+  MAIN_TOP_FADE_SELECTOR,
   MARKDOWN_DOCUMENT_SELECTOR,
   PAGE_SEARCH_RAIL_SELECTOR,
   SELECTOR_PARTS,
+  THREAD_BOTTOM_FADE_SELECTOR,
+  THREAD_FOOTER_BACKDROP_SELECTOR,
+  THREAD_FOOTER_SELECTOR,
   USER_MESSAGE_EDITOR_SELECTOR,
 } from "./selector-profile";
 
@@ -36,6 +41,11 @@ interface PayloadConfig {
   pageSearchRailSelector: string;
   markdownDocumentSelector: string;
   userMessageEditorSelector: string;
+  collapsedTurnDisclosureSelector: string;
+  mainTopFadeSelector: string;
+  threadBottomFadeSelector: string;
+  threadFooterBackdropSelector: string;
+  threadFooterSelector: string;
   tokens: Array<readonly [string, string]>;
   parts: ReadonlyArray<readonly [string, string]>;
 }
@@ -82,6 +92,11 @@ export function buildThemePayload(
     pageSearchRailSelector: PAGE_SEARCH_RAIL_SELECTOR,
     markdownDocumentSelector: MARKDOWN_DOCUMENT_SELECTOR,
     userMessageEditorSelector: USER_MESSAGE_EDITOR_SELECTOR,
+    collapsedTurnDisclosureSelector: COLLAPSED_TURN_DISCLOSURE_SELECTOR,
+    mainTopFadeSelector: MAIN_TOP_FADE_SELECTOR,
+    threadBottomFadeSelector: THREAD_BOTTOM_FADE_SELECTOR,
+    threadFooterBackdropSelector: THREAD_FOOTER_BACKDROP_SELECTOR,
+    threadFooterSelector: THREAD_FOOTER_SELECTOR,
     tokens: themeTokenDeclarations(settings),
     parts: SELECTOR_PARTS,
   };
@@ -182,8 +197,8 @@ export function buildThemePayload(
         ? '\\n[data-ds-part="main"][data-codexstyle-owner="' + config.marker + '"] { background-color: var(--ds-theme-color-background) !important; }'
         : "";
       const edgeFadeBridge = config.backgroundScope === "window" && config.art.taskMode !== "off"
-        ? '\\n[data-ds-part="main-top-fade"][data-codexstyle-owner="' + config.marker + '"] { background-color: transparent !important; background-image: none !important; }' +
-          '\\n.thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"] { background-color: transparent !important; background-image: none !important; }'
+        ? '\\n[data-ds-part="main-top-fade"][data-codexstyle-owner="' + config.marker + '"], ' + rootSelector + ' ' + config.mainTopFadeSelector + ' { background-color: transparent !important; background-image: none !important; }' +
+          '\\n' + rootSelector + ' .thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"], ' + rootSelector + ' ' + config.threadBottomFadeSelector + ', ' + rootSelector + ' ' + config.threadFooterBackdropSelector + ', ' + rootSelector + ' ' + config.threadFooterSelector + ' { background-color: transparent !important; background-image: none !important; }'
         : "";
       const pageSearchRailPartSelector = '[data-ds-part="page-search-rail"][data-codexstyle-owner="' + config.marker + '"]';
       const instantPageSearchRailSelector = rootSelector + ' ' + config.pageSearchRailSelector;
@@ -200,12 +215,29 @@ export function buildThemePayload(
       // quotes and code remain distinct, without blanket descendant color rules.
       const markdownDocumentBridge = '\\n' + markdownDocumentPartSelector + ', ' + instantMarkdownDocumentSelector + ' { background: #ffffff !important; color: #1f2328 !important; color-scheme: light; --color-text: #1f2328 !important; --color-text-secondary: #4b5563 !important; --color-text-tertiary: #5b6470 !important; --color-text-info: #0969da !important; --color-codex-editor-inline-code-background: #f3f4f6 !important; --color-codex-editor-inline-code-foreground: #1f2328 !important; --color-codex-editor-cursor: #1f2328 !important; --color-border: #d1d5db !important; --color-border-subtle: #e5e7eb !important; --color-border-strong: #9ca3af !important; --color-surface-secondary: #f3f4f6 !important; --color-codex-description: #5b6470 !important; --color-background-info-soft: #dbeafe !important; --color-background-info-surface: #bfdbfe !important; }' +
         '\\n' + markdownDocumentPartSelector + ' .cm-markdown-code-line, ' + instantMarkdownDocumentSelector + ' .cm-markdown-code-line { background-color: #f3f4f6 !important; }';
-      // Use one precomputed surface so the panel alpha remains authoritative.
-      // The shorthand clears native background layers, while the paired ::after
-      // rule prevents Codex's inherited edge surface from staying opaque.
+      // Store 26.1002.7124.0 paints an additional sidebar-navigation surface
+      // and an opaque peeking popover. Own one paint layer in either state.
       const sidebarSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
+      const sidebarContentSelector = sidebarSelector + ' [data-slate-sidebar-content].sidebar-navigation';
+      const sidebarPeekSelector = sidebarSelector + '[data-slate-sidebar-peeking="true"]:has([data-slate-sidebar-content].sidebar-navigation)';
+      const sidebarPeekContentSelector = sidebarPeekSelector + ' [data-slate-sidebar-content].sidebar-navigation';
+      const sidebarPeekBlur = config.configuredRecipes?.sidebar && !config.sidebarSurfaceTransparent
+        ? 'blur(var(--ds-theme-surface-blur))'
+        : 'none';
+      // Advanced CSS still owns its existing custom blur; only configured
+      // recipes move blur with the paint layer. Zero alpha always disables it.
+      const relocateSidebarBlur = Boolean(config.configuredRecipes) || config.sidebarSurfaceTransparent;
+      const sidebarPeekOuterBlur = relocateSidebarBlur
+        ? ' backdrop-filter: none !important; -webkit-backdrop-filter: none !important;'
+        : '';
+      const sidebarPeekInnerBlur = relocateSidebarBlur
+        ? ' backdrop-filter: ' + sidebarPeekBlur + ' !important; -webkit-backdrop-filter: ' + sidebarPeekBlur + ' !important;'
+        : '';
       const sidebarBridge = config.backgroundScope === "window"
-        ? '\\n' + sidebarSelector + ', ' + sidebarSelector + '::after { background: ' + config.sidebarSurface + ' !important; }' +
+        ? '\\n' + sidebarSelector + ' { background: ' + config.sidebarSurface + ' !important; }' +
+          '\\n' + sidebarSelector + '::after, ' + sidebarContentSelector + ' { background: transparent !important; }' +
+          '\\n' + sidebarPeekSelector + ' { background: transparent !important;' + sidebarPeekOuterBlur + ' }' +
+          '\\n' + sidebarPeekContentSelector + ' { background: ' + config.sidebarSurface + ' !important;' + sidebarPeekInnerBlur + ' }' +
           (config.sidebarSurfaceTransparent
             ? '\\n' + sidebarSelector + ' { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }'
             : '')
@@ -279,6 +311,10 @@ export function buildThemePayload(
       const activityBridge = '\\n' + activityOwnedSelector + ' { background-color: var(--ds-theme-color-activity-background) !important; border-radius: var(--ds-theme-surface-radius); box-shadow: inset 0 0 0 1px var(--ds-theme-color-line); color: var(--ds-theme-color-activity-text) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-text) !important; }' +
         '\\n' + activityOwnedSelector + ' :where(a, button, code, em, p, span, strong, svg) { color: var(--ds-theme-color-activity-text) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-text) !important; }' +
         '\\n' + activityOwnedSelector + ' :where(small, [class*="text-secondary"], [class*="text-tertiary"], [class*="text-text/40"], [class*="text-codex-description"]) { color: var(--ds-theme-color-activity-muted) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-muted) !important; }';
+      // Match directly under the owned root so SPA insertion is styled before
+      // the observer runs. Preserve the native disclosure layout and behavior.
+      const turnDisclosureSelector = rootSelector + ' ' + config.collapsedTurnDisclosureSelector;
+      const turnDisclosureBridge = '\\n' + turnDisclosureSelector + ', ' + turnDisclosureSelector + ' :where(span, svg) { color: var(--ds-theme-color-activity-muted) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-muted) !important; }';
       const composerSelector = '[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]';
       const composerToolbarSelector = '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"]';
       const instantHomeComposerRailSelector = rootSelector + ' ' + config.homeComposerRailSelector;
@@ -341,7 +377,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

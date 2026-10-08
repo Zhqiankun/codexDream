@@ -84,7 +84,7 @@ describe("theme payload", () => {
         '[data-codex-composer-root] button[class~="bg-primary-solid"]',
       );
       const mainTopFade = document.querySelector(
-        "[data-app-shell-main-content-top-fade]",
+        '[class*="_MainContentTopFade_"]',
       );
       const composerBackdrop = document.querySelector(
         '[class~="bg-gradient-to-t"]',
@@ -415,7 +415,7 @@ describe("theme payload", () => {
     );
     const sidebarSelector = `[data-ds-part="sidebar"][data-codexstyle-owner="${marker}"]`;
     expect(style?.textContent).toContain(
-      `${sidebarSelector}, ${sidebarSelector}::after { background: rgba(30, 33, 41, 1) !important; }`,
+      `${sidebarSelector} { background: rgba(30, 33, 41, 1) !important; }`,
     );
     expect(style?.textContent).not.toContain(
       "rgb(from var(--ds-theme-color-panel)",
@@ -466,7 +466,7 @@ describe("theme payload", () => {
       document.querySelector(`style[data-codexstyle-owner="${marker}"]`)
         ?.textContent ?? "";
     expect(source).toContain(
-      `${sidebarSelector}, ${sidebarSelector}::after { background: rgba(150, 9, 17, 0) !important; }`,
+      `${sidebarSelector} { background: rgba(150, 9, 17, 0) !important; }`,
     );
     expect(source).toContain(
       `${sidebarSelector} { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }`,
@@ -1216,6 +1216,12 @@ function resetDocument(
 ) {
   document.head.innerHTML = "";
   document.body.innerHTML = body;
+  document
+    .querySelector("[data-app-shell-main-content-top-fade]")
+    ?.insertAdjacentHTML(
+      "afterbegin",
+      '<div aria-hidden="true" class="_MainContentTopFade_fixture"></div>',
+    );
   document.documentElement.removeAttribute("data-ds-part");
   document.documentElement.removeAttribute("data-codexstyle-owner");
   document.documentElement.removeAttribute("data-codexstyle-part");

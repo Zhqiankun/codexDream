@@ -11,9 +11,10 @@ import { LoginStartupSettings } from "../../src/main/platform/login-startup";
 
 function nativeState(enabled: boolean, approved = enabled) {
   return {
-    openAtLogin: enabled,
+    // Electron checks AppUserModelID for this legacy field, not our custom name.
+    openAtLogin: false,
     launchItems: enabled
-      ? [{ name: "CodexStyle", scope: "user", enabled: approved }]
+      ? [{ name: "CodexStyle", scope: "user", args: [], enabled: approved }]
       : [],
   };
 }
@@ -64,6 +65,27 @@ describe("Windows login startup settings", () => {
     host.getLoginItemSettings.mockReturnValue({
       openAtLogin: true,
       launchItems: [{ name: "Other", scope: "user", enabled: true }],
+    });
+    expect(new LoginStartupSettings().snapshot().enabled).toBe(false);
+  });
+
+  it("quotes the executable lookup so installation paths with spaces are not truncated", () => {
+    new LoginStartupSettings().snapshot();
+    expect(host.getLoginItemSettings).toHaveBeenCalledWith({
+      path: '"C:\\Program Files\\CodexStyle\\CodexStyle.exe"',
+      args: [],
+    });
+  });
+
+  it.each([
+    { name: "CodexStyle", scope: "machine", args: [], enabled: true },
+    { name: "Other", scope: "user", args: [], enabled: true },
+    { name: "CodexStyle", scope: "user", args: ["--other"], enabled: true },
+  ])("ignores launch entries outside the owned configuration: %j", (item) => {
+    host.getLoginItemSettings.mockReturnValue({
+      openAtLogin: true,
+      executableWillLaunchAtLogin: true,
+      launchItems: [item],
     });
     expect(new LoginStartupSettings().snapshot().enabled).toBe(false);
   });

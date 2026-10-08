@@ -1,6 +1,36 @@
 # CodexStyle 任务进度
 
-更新时间：2026-09-09
+更新时间：2026-10-08
+
+## 2026-10-08 v1.3.20 发布准备
+
+- 用户明确授权推送并发布，目标版本已确认 `v1.3.20`。package.json、package-lock.json 根版本、双语 README 与 CHANGELOG 同步；发布日期为 2026-10-08，发布说明包含自启动回读、折叠回合配色和新版侧栏/上下覆盖层三项修复，并明确升级后需通过 CodexStyle 启动新会话加载主题规则。
+- 发布前完整回归：`vitest run tests/main tests/renderer tests/acceptance --maxWorkers=1` 共 37 文件、330 项通过；`playwright test` 全部 18 项通过。已有类型与架构检查通过，全体受版本控制文件及本轮新增测试的格式/lint、发布版本一致性与 diff 检查通过，既有临时审计及用户数据目录未修改、未纳入提交。
+- 使用现有 Node.js 22.22.0 顺序完成图标生成、native secure-store 重建、插件构建与 electron-vite main/preload/renderer 构建。未重新安装依赖、改动全局 PATH 或执行 Windows 注销/重启；未在正式受管 Store Codex 会话验证本次视觉修复。
+- 正式 Windows x64 安装包、ZIP、blockmap、latest.yml 和 SHA256SUMS.txt 只能由 `.github/workflows/release.yml` 按 `v1.3.20` 标签构建、校验并发布；本地不上传替代产物。发布完成状态以该标签对应的 GitHub Actions 结果及 Release 产物核对为准。
+
+## 2026-10-08 新版侧栏及上下白色覆盖层
+
+- 只读核对 Store Codex 26.1002.7124.0，确认侧栏内容层新增不透明悬浮表面与固定页染色；页头渐变位于状态容器的子节点，底部拆为滚动渐变、footer 自身条件背景与独立实色背板。旧规则遗漏实际绘制节点。
+- profile 升至 `/17`，沿用既有主题 payload 和公共 part。固定侧栏只在外层绘制 resolveSidebarSurface，悬浮侧栏只在内容层绘制同一表面；清空内部原生底色和 ::after，配置磨砂随表面迁移。当前主题 9% 粉色 alpha 和已保存数据未改写，高级 CSS 磨砂与 0% alpha 规则保留。顶部/底部即时规则只覆盖 owner root 下已核对的结构；新底部渐变限定直接 sticky 占位子节点，footer 限定直接布局子节点，保留输入框、消息、卡片、滚动遮罩和点击穿透。
+- `vitest run tests/main/theme-payload.test.ts tests/main/selector-profile.test.ts --maxWorkers=1` 27 项通过；`vitest run tests/main/session-service.test.ts tests/main/session-startup-readiness.test.ts --maxWorkers=1` 35 项通过，验证 profile 变化后的会话与就绪边界。
+- 新增 `tests/e2e/shell-surfaces.spec.ts` 6 项隔离 Electron 回归通过：深浅色、固定/悬浮/切回、0/9/100% alpha、半透明暗化与磨砂、动态内容、行 hover、原生 tooltip、新旧上下渐变、0/20% 页面、内容区/off 回退、高级 CSS 和无关渐变隔离。侧栏每种配置按真实 Studio CSS 对照表面采样像素，共 24 组一致；两张 9% 粉色截图已实际查看。测试夹具仅在显式测试环境启用 offscreen，产品 UI 和已有测试默认窗口策略不变。
+- `playwright test tests/e2e/shell-surfaces.spec.ts tests/e2e/turn-disclosure.spec.ts` 共 8 项通过，包含原折叠回合配色修复。`tsc --noEmit`、本轮修改代码 ESLint/Prettier、架构检查、`git diff --check` 和 `electron-vite build`（main/preload/renderer）通过。无新增依赖、IPC 或存储字段；新增模块仅为上述回归测试。
+- 未附着、改写或重启现有官方 Codex 会话，未修改 WindowsApps、app.asar 或用户主题。修复阶段未提交、推送、打包或发布，正式安装包与真实受管 Codex 会话当时尚未验证；后续用户确认 v1.3.20 发布，发布准备与最终产物验证按上方记录及该标签的 Actions 执行。
+
+## 2026-09-26 折叠回合提示配色
+
+- 只读核对 Store Codex 26.924.2738.0 打包组件，确认“用时”和“上 N 条消息”共用独立折叠按钮，原活动区域规则未覆盖。profile `/16` 精确匹配此按钮并在 owner root 下接入 activityMuted，保留透明背景和原生交互。
+- 27 项 selector/profile 与 payload 单元测试、2 项隔离 Electron E2E 通过。E2E 验证黑底亮字、白底深字、箭头、展开旋转、键盘焦点、禁用状态、动态插入、主题重新注入及无关控件隔离。使用本地真实 Electron，未附着或改变现有官方 Codex 会话；尚未在正式安装包验证。
+- 原有自启动修复和 v1.3.20 发布准备改动保留。本轮未提交、推送或发布；发布版本号仍待用户确认。
+- 类型、修改文件 lint/格式、架构、diff 检查与 main/preload/renderer 生产构建通过。首轮类型检查发现测试回调的 DOM 联合类型不支持 disabled 属性，改为标准 setAttribute 后通过。
+
+## 2026-09-24 自启动勾选回读修复
+
+- 根因：自定义写入名为 `CodexStyle`，应用 AppUserModelID 为 `com.codexstyle.desktop`；Electron 43.3.0 的 `openAtLogin` 只读后者，原逻辑将其与 launchItems 同时判断导致误报关闭和保存失败。另一个同范围问题是查询路径被 Electron 按命令行解析，裸路径含空格时无法完整匹配。
+- 主进程改为对加引号的 exe 查询结果中固定名称、当前用户、空参数和 enabled 做判断；保留默认关闭、Windows 唯一状态源、写后回读、任务管理器禁用和开发环境保护。无 renderer、IPC、依赖、共享抽象或注册写入行为变化；需求和架构文档同步。
+- 先运行修复前的回归用例，复现保存回读失败、含空格路径未引用、错误参数登录项误判共 3 项失败；修复后 `vitest run tests/main/login-startup.test.ts tests/renderer/startup-setting.test.tsx --maxWorkers=1` 共 13 项通过。`tsc --noEmit`、修改文件 ESLint/Prettier、架构检查、`git diff --check` 与 `electron-vite build` 通过。
+- 当前沙箱中默认 npx 因 Volta 无法创建用户目录而失败，改用仓库现有 Node.js 22.22.0 运行上述本地工具；只读检查 HKCU Run 返回路径不存在，未据此推断宿主用户状态，未修改真实登录项或执行 Windows 注销/重启。正式安装版重启验证尚未执行；本次未提交、推送或发布。
 
 ## 目标与范围
 

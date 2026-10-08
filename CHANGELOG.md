@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.3.20 — 2026-10-08
+
+### English
+
+- Fixed **Launch at Windows login** remaining unchecked or reporting a save failure even though Windows had already enabled it. Readback now checks the same named user entry that CodexStyle writes, rather than requiring Electron's separate AppUserModelID entry.
+- Fixed startup-state lookup for executable paths containing spaces. Only the current executable's named user entry with no launch arguments is considered; unrelated or machine-wide entries do not turn on the switch.
+- Fixed native sidebar surfaces introduced in newer Store Codex builds making transparent themes appear washed out. Fixed and floating sidebars now paint the configured surface once, preserving saved alpha, darkening, native interactions, and advanced CSS blur.
+- Fixed white bands at the top and bottom of conversations after the Store Codex layout update. The actual top fade, split bottom gradient, and footer backplate are cleared while composer, message, and unrelated preview surfaces keep their backgrounds.
+- Matched collapsed-turn duration and previous-message-count labels and arrows to the theme's activity hint color, including expanded and dynamically inserted controls.
+- Preserved the default-off startup behavior, existing preferences, Task Manager disable detection, and read-only startup checks. Theme data and application IPC v6 are unchanged. Automated regressions cover the verified native structures; a real managed Store Codex session and Windows logout/reboot have not been tested locally.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules. Saved themes and startup preferences are kept; an already-enabled startup entry is recognized without toggling it again.
+
+### 简体中文
+
+- 修复 **“开机自启动”** 已在 Windows 生效，界面却仍未勾选或误报保存失败的问题。回读改为检查 CodexStyle 实际写入的同名用户登录项，不再要求 Electron 的另一个 AppUserModelID 登录项同时存在。
+- 修复安装路径含空格时自启动状态识别失败的问题。只识别当前程序、固定名称、当前用户且无启动参数的登录项，不将其他项或机器级登录项误判为已开启。
+- 修复新版 Store Codex 的侧栏原生底色叠加，使透明主题看起来蒙上一层白色的问题。固定与悬浮侧栏只绘制一次配置表面，保留已有透明度、暗化、原生交互和高级 CSS 磨砂。
+- 修复 Store Codex 布局更新后对话顶部、底部的白色覆盖层。清除实际顶部渐变、分离的底部渐变和 footer 背板，保留输入框、消息及无关预览的背景。
+- 修复折叠回合的“用时”“上 N 条消息”文字和箭头未跟随主题辅助色的问题，覆盖展开状态及动态挂载。
+- 保留自启动默认关闭、已有选择、任务管理器禁用同步和启动时只读行为。主题数据与应用 IPC v6 不变；已核对的原生结构有自动化回归，本地尚未验证真实受管 Store Codex 会话及 Windows 注销、重启。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话以加载更新后的主题规则。已保存主题与自启动选择保留；已生效的自启动项会正确显示，无需再次切换。
+
 ## v1.3.19 — 2026-09-09
 
 ### English

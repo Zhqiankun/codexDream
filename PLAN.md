@@ -4,6 +4,12 @@
 
 ## 固定技术栈
 
+2026-10-08 上下边缘兼容（已实现，隔离 Electron 已验证）：保留原先的 part 公共名称与旧版底部选择器，新增对 Store 26.1002.7124.0 已核对的 MainContentTopFade 子节点、group/thread-scroll-layout 直接 footer 的直接背板、thread-scroll-container 直接 sticky/bottom-0 占位层的直接渐变节点的映射。即时 CSS 全部限定 owner root，同时清空 footer 自身的条件性背景；透明化只改绘制属性，不改变布局和裁剪。根图片背景继续复用原有生成器。
+
+2026-10-08 侧栏表面兼容（已实现，隔离 Electron 已验证）：只读核对 Store Codex 26.1002.7124.0 后，将 profile 升至 `/17`。在已拥有的侧栏内精确限定 `[data-slate-sidebar-content].sidebar-navigation`；全窗口模式清除该节点的额外底色，固定态沿用外层单层表面，peeking 态将同一表面迁至内容层并清空外层与 ::after，配置模式的磨砂随实际绘制层迁移。高级 CSS 自定义磨砂保留，0% alpha 仍禁止磨砂。颜色/alpha 仍由现有 resolveSidebarSurface 决定，不扩展 IPC、主题格式或配置项，不依赖泛化的后代透明规则。Studio 当前无需新增背景层。像素回归只在隔离 Electron 测试窗口启用 offscreen，避免 Windows 挂起隐藏窗口截图；产品窗口策略不变。
+
+2026-09-26 折叠回合适配：基于 Store Codex 26.924.2738.0 的 `collapsed-turn-disclosure` 组件核对，选择器 profile 升至 `/16`。以对话滚动容器、固定父级/按钮类、aria-expanded 和直接箭头子节点限定范围；在已有 owner root 下直接生成颜色规则，覆盖 SPA 新挂载及展开状态，不增加 DOM part 或公开契约。复用 activityMuted，仅修改文字与箭头前景，不引入新配置、依赖或共享模块。
+
 - Electron `43.3.0`，启用 context isolation、sandbox、asar integrity/fuses。
 - React `19.2.8`、TypeScript `5.9.3`、electron-vite `5.0.0`、Vite `7.3.6`。
 - Zod `4.4.3`、css-tree `3.2.1`、yauzl `3.3.1`、yazl `3.3.1`、sharp `0.35.3`、ws `8.21.2`。
@@ -15,6 +21,8 @@
 ## 模块与公开契约
 
 开机自启动由 `src/main/platform/login-startup.ts` 独占 Windows 登录项读写；`AppController` 经既有 operation gate 编排写入，IPC v6 的 `startup.getSettings` / `startup.setSettings` 只交换 supported/enabled，不暴露路径、命令或注册表入口。Windows 为唯一存储，避免主题库设置与任务管理器状态分叉，启动时只读且不自动注册。`StartupSetting` 负责独立 UI 状态、焦点回读及保存反馈，不依赖主题草稿；卸载宏仅在真实卸载且登录项指向本次安装时清理，升级不变。责任归属沿用主进程平台与 renderer 功能目录，无新增共享抽象或依赖。
+
+2026-09-24 回读修正：Electron 43.3.0 的 `openAtLogin` 固定按 AppUserModelID 查询，与本应用自定义名称 `CodexStyle` 不同；状态以按可执行文件过滤的 `launchItems` 中名称、user scope、空参数和 enabled 匹配为准。传入查询的 exe 路径加引号，因为 Electron 在筛选 launchItems 时按命令行解析该值，裸路径的空格会截断可执行文件名。写入仍由 Electron 管理同一固定项，renderer 无需修改；不增加状态副本、依赖或共享抽象。
 
 ```text
 src/contracts/                         IPC 类型、schema、Result/ErrorCode

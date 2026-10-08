@@ -17,7 +17,11 @@ app.whenReady().then(async () => {
     show: false,
     width: 1100,
     height: 800,
-    webPreferences: { sandbox: true, contextIsolation: true },
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      offscreen: process.env.CODEXSTYLE_TEST_OFFSCREEN === "1",
+    },
   });
   await window.loadURL("app://test/");
 });

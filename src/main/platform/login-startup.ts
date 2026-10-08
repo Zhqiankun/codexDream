@@ -13,17 +13,19 @@ export class LoginStartupSettings {
     if (process.platform !== "win32" || !app.isPackaged)
       return { supported: false, enabled: false };
     const path = app.getPath("exe");
-    const settings = app.getLoginItemSettings({ path, args: [] });
+    // Electron parses the lookup as a command line; quote paths with spaces.
+    const settings = app.getLoginItemSettings({ path: `"${path}"`, args: [] });
     return {
       supported: true,
-      enabled:
-        settings.openAtLogin &&
-        settings.launchItems.some(
-          (item) =>
-            item.name === LOGIN_ITEM_NAME &&
-            item.scope === "user" &&
-            item.enabled,
-        ),
+      // openAtLogin checks the AppUserModelID entry, not our custom entry name.
+      // launchItems is already filtered by exe path and includes OS approval.
+      enabled: settings.launchItems.some(
+        (item) =>
+          item.name === LOGIN_ITEM_NAME &&
+          item.scope === "user" &&
+          item.args.length === 0 &&
+          item.enabled,
+      ),
     };
   }
 
