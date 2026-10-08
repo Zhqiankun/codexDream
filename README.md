@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.20` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.21` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.20-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.20-x64.zip` — portable archive.
+- `CodexStyle-1.3.21-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.21-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.20` fixes Windows startup-state readback, newer Store Codex sidebar and conversation-edge overlays, and collapsed-turn hint colors. Saved theme transparency and startup preferences are preserved. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules.
+`v1.3.21` fixes the remaining white backplate and fade behind the conversation composer in newer Store Codex builds. Saved themes, configured transparency, and Windows startup preferences are preserved. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the corrected theme rules.
 
 ## Requirements
 

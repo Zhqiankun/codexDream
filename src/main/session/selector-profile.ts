@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/17" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/18" as const;
 
 // Store 26.924.2738.0 collapsed-turn-disclosure renders duration and previous
 // message count through the same button. Keep expanded state and locale agnostic.
@@ -9,12 +9,13 @@ export const COLLAPSED_TURN_DISCLOSURE_SELECTOR =
 export const MAIN_TOP_FADE_SELECTOR =
   ':is([data-app-shell-main-content-top-fade][aria-hidden="true"], [data-app-shell-main-content-top-fade] [aria-hidden="true"][class*="_MainContentTopFade_"])' as const;
 
-// New thread layout separates the scroll fade from the footer's solid plate.
-// Do not match gradients in message cards, shared previews, or detail panels.
+// Store 26.1002.7124.0 nests the sticky fade inside the transcript wrapper.
+// Default/panel footers sit beside that wrapper in the scroll container; compact
+// footers sit directly in the layout root. Keep message-card gradients native.
 export const THREAD_BOTTOM_FADE_SELECTOR =
-  '.thread-scroll-container > [aria-hidden="true"][class~="sticky"][class~="bottom-0"] > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="bg-gradient-to-t"][class~="from-surface"]' as const;
+  '[class~="group/thread-scroll-layout"] > .thread-scroll-container > [class~="[container-name:thread-content]"] > [aria-hidden="true"][class~="pointer-events-none"][class~="sticky"][class~="bottom-0"] > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="bg-gradient-to-t"][class~="from-surface"]' as const;
 export const THREAD_FOOTER_SELECTOR =
-  '[class~="group/thread-scroll-layout"] > [data-thread-scroll-footer="true"]' as const;
+  ':is([class~="group/thread-scroll-layout"], [class~="group/thread-scroll-layout"] > .thread-scroll-container) > [data-thread-scroll-footer="true"]' as const;
 export const THREAD_FOOTER_BACKDROP_SELECTOR =
   `${THREAD_FOOTER_SELECTOR} > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="bg-surface"]` as const;
 

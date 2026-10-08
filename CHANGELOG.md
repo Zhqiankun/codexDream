@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.21 — 2026-10-08
+
+### English
+
+- Fixed the white backplate and upper fade still visible behind the conversation composer in v1.3.20. Theme matching now follows the actual transcript and footer nesting in Store Codex 26.1002.7124.0.
+- Covered both the footer inside the scrolling conversation in default/panel layouts and the separate footer in compact layouts. Focus-mode backgrounds and recreated nodes stay clear, while composer, message, card, and unrelated preview surfaces keep their backgrounds.
+- Corrected the isolated Electron fixtures that had placed the bottom layers at the wrong depth. Eight surface regressions now include bottom-background pixel comparisons; 63 related unit tests and production build checks pass. A real managed Store Codex session has not been verified locally.
+- Advanced the selector profile to `/18`. Theme data, configured transparency, application IPC v6, and Windows startup preferences are unchanged.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the corrected theme rules. Saved themes and startup preferences are kept.
+
+### 简体中文
+
+- 修复 v1.3.20 中输入框后方仍残留的白色底板与上沿渐变。主题匹配改为遵循 Store Codex 26.1002.7124.0 的实际对话内容和底部容器嵌套结构。
+- 同时覆盖普通/面板布局中位于滚动区内的底部容器，以及紧凑布局中独立的底部容器。焦点模式背景与节点重建后仍保持透明；输入框、消息、卡片和无关预览保留自身底色。
+- 改正上一轮隔离 Electron 样例中底部层级错误的问题。8 项表面回归加入底部背景像素比较，63 项相关单元测试及生产构建检查通过；本地尚未验证真实受管 Store Codex 会话。
+- 选择器 profile 升至 `/18`，主题数据、已配置透明度、应用 IPC v6 与 Windows 自启动选择保持不变。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载修正后的主题规则。已保存主题与自启动选择保留。
+
 ## v1.3.20 — 2026-10-08
 
 ### English

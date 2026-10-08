@@ -4,9 +4,9 @@
 
 ## 固定技术栈
 
-2026-10-08 上下边缘兼容（已实现，隔离 Electron 已验证）：保留原先的 part 公共名称与旧版底部选择器，新增对 Store 26.1002.7124.0 已核对的 MainContentTopFade 子节点、group/thread-scroll-layout 直接 footer 的直接背板、thread-scroll-container 直接 sticky/bottom-0 占位层的直接渐变节点的映射。即时 CSS 全部限定 owner root，同时清空 footer 自身的条件性背景；透明化只改绘制属性，不改变布局和裁剪。根图片背景继续复用原有生成器。
+2026-10-08 上下边缘兼容（底部层级修正已实现，隔离 Electron 已验证）：只读核对 Store 26.1002.7124.0 的 ThreadScrollLayout 与背景组件后，修正上一轮样例和选择器中错误的直接子节点假设。profile 升至 `/18`，保留原先的 part 公共名称与旧版合并底部选择器；新版渐变须限定布局根 → thread-scroll-container → 带 `[container-name:thread-content]` 的 transcript 容器 → aria-hidden sticky/bottom-0 占位层 → 直接渐变节点。普通/面板 footer 限定为布局根的直接滚动区子节点，紧凑 footer 限定为布局根直接子节点，背板继续只匹配 footer 的直接 aria-hidden 背景节点。即时 CSS 全部限定 owner root，同时清空 footer 自身的条件性背景；透明化只改绘制属性，不改变布局和裁剪。隔离 Electron 样例保留上述真实嵌套及紧凑布局无渐变/背板的差异，使用独立原生 surface 色先复现漏层；修正后 8 项 shell-surfaces 回归与 63 项相关单元测试通过，底部空白和渐变区像素、输入框和消息表面、焦点模式背景、节点重建及范围外渐变均通过验证。类型、lint、架构边界及生产构建通过，正式 Codex 会话未验证。根图片背景继续复用原有生成器，不改主题数据、IPC 或外部会话边界。
 
-2026-10-08 侧栏表面兼容（已实现，隔离 Electron 已验证）：只读核对 Store Codex 26.1002.7124.0 后，将 profile 升至 `/17`。在已拥有的侧栏内精确限定 `[data-slate-sidebar-content].sidebar-navigation`；全窗口模式清除该节点的额外底色，固定态沿用外层单层表面，peeking 态将同一表面迁至内容层并清空外层与 ::after，配置模式的磨砂随实际绘制层迁移。高级 CSS 自定义磨砂保留，0% alpha 仍禁止磨砂。颜色/alpha 仍由现有 resolveSidebarSurface 决定，不扩展 IPC、主题格式或配置项，不依赖泛化的后代透明规则。Studio 当前无需新增背景层。像素回归只在隔离 Electron 测试窗口启用 offscreen，避免 Windows 挂起隐藏窗口截图；产品窗口策略不变。
+2026-10-08 侧栏表面兼容（已实现，隔离 Electron 已验证）：只读核对 Store Codex 26.1002.7124.0 后，在 profile `/17` 引入以下侧栏映射，本次 `/18` 延续此行为。在已拥有的侧栏内精确限定 `[data-slate-sidebar-content].sidebar-navigation`；全窗口模式清除该节点的额外底色，固定态沿用外层单层表面，peeking 态将同一表面迁至内容层并清空外层与 ::after，配置模式的磨砂随实际绘制层迁移。高级 CSS 自定义磨砂保留，0% alpha 仍禁止磨砂。颜色/alpha 仍由现有 resolveSidebarSurface 决定，不扩展 IPC、主题格式或配置项，不依赖泛化的后代透明规则。Studio 当前无需新增背景层。像素回归只在隔离 Electron 测试窗口启用 offscreen，避免 Windows 挂起隐藏窗口截图；产品窗口策略不变。
 
 2026-09-26 折叠回合适配：基于 Store Codex 26.924.2738.0 的 `collapsed-turn-disclosure` 组件核对，选择器 profile 升至 `/16`。以对话滚动容器、固定父级/按钮类、aria-expanded 和直接箭头子节点限定范围；在已有 owner root 下直接生成颜色规则，覆盖 SPA 新挂载及展开状态，不增加 DOM part 或公开契约。复用 activityMuted，仅修改文字与箭头前景，不引入新配置、依赖或共享模块。
 
