@@ -465,6 +465,17 @@ export class AppController {
     return this.runSideEffect(() => this.themeService.clearSelection());
   }
 
+  async recheckSession(): Promise<Result<ThemeSnapshot>> {
+    return this.runSideEffect(async () => {
+      try {
+        await this.session.recheck();
+        return { ok: true, data: this.snapshot() };
+      } catch (error) {
+        return sessionError(error);
+      }
+    });
+  }
+
   async launchSession(): Promise<Result<ThemeSnapshot>> {
     return this.runSideEffect(async () => {
       try {

@@ -205,12 +205,13 @@ describe("theme payload", () => {
       const pluginsSearchRailSelector = `[data-ds-part="page-search-rail"][data-codexstyle-owner="${marker}"]`;
       const pluginsSearchRailDomSelector =
         'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)';
-      expect(style?.textContent).toContain(
-        `${pluginsSearchRailSelector}, ${rootSelector} ${pluginsSearchRailDomSelector} { background: transparent !important; }`,
-      );
-      expect(style?.textContent).toContain(
-        `${pluginsSearchRailSelector}::after, ${rootSelector} ${pluginsSearchRailDomSelector}::after { background: transparent !important; }`,
-      );
+      const inlineHeaderDomSelector =
+        '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] input#plugins-page-search, > div[class*="_content_"] > div[class*="_headerRow_"] input#scheduled-page-search)';
+      for (const pseudo of ["", "::before", "::after"]) {
+        expect(style?.textContent).toContain(
+          `${pluginsSearchRailSelector}${pseudo}, ${rootSelector} ${pluginsSearchRailDomSelector}${pseudo}, ${rootSelector} ${inlineHeaderDomSelector}${pseudo} { background: transparent !important; }`,
+        );
+      }
     } finally {
       if (mutationObserver)
         Object.defineProperty(window, "MutationObserver", mutationObserver);
@@ -281,6 +282,45 @@ describe("theme payload", () => {
       '[data-testid="unrelated-rail"]',
       '[data-testid="non-sticky"]',
       '[data-testid="non-surface"]',
+      "input",
+    ]) {
+      for (const node of document.querySelectorAll(selector)) {
+        expect(node.hasAttribute("data-codexstyle-owner")).toBe(false);
+      }
+    }
+  });
+
+  it("owns only the verified inline header structure and search anchors", () => {
+    resetDocument();
+    document.querySelector("main")?.insertAdjacentHTML(
+      "beforeend",
+      `
+      <div data-app-shell-inline-page-header><div>
+        <div data-testid="inline-header" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div></div></div>
+        <div data-testid="inline-no-sticky" class="_shell_bomwa_2"><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div></div></div>
+        <div data-testid="inline-other-page" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="other-page-search"></div></div></div>
+        <div data-testid="inline-misplaced-search" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"></div><input id="plugins-page-search"></div></div>
+      </div></div>
+      <div data-testid="inline-no-page-anchor" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div></div></div>
+    `,
+    );
+    window.eval(
+      buildThemePayload(
+        "codexstyle-00000000-0000-4000-8000-000000000000",
+        "",
+        "",
+      ),
+    );
+    expect(
+      document
+        .querySelector('[data-testid="inline-header"]')
+        ?.getAttribute("data-ds-part"),
+    ).toBe("page-search-rail");
+    for (const selector of [
+      '[data-testid="inline-no-sticky"]',
+      '[data-testid="inline-other-page"]',
+      '[data-testid="inline-misplaced-search"]',
+      '[data-testid="inline-no-page-anchor"]',
       "input",
     ]) {
       for (const node of document.querySelectorAll(selector)) {

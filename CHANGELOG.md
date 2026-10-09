@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.3.22 — 2026-10-09
+
+### English
+
+- Fixed newly sent messages briefly showing native black/white colors before the selected theme. New message nodes receive their existing theme mapping before the first paint, while the full-page compatibility check remains batched.
+- Studio now opens the checked next-launch theme and scrolls its row into view. If no theme is checked, it opens the first item; subsequent manual browsing, editing, and searching preserve the current editor selection.
+- Added **Recheck** beside **Launch Codex** after a failed check or stale-session warning. It only rereads the saved theme, Safe CSS, Store registration, and running-process baseline; it never launches, connects, injects, or closes Codex. Passing this check still requires an explicit launch for session identity and page compatibility verification.
+- Fixed the white header above Skills and Plugins in Store Codex 26.1002.7124.0. The updated selector profile `/19` clears the verified native header layer immediately, including after page navigation, while preserving search, actions, cards, and unrelated surfaces.
+- Local validation passed 354 main-process, renderer, and acceptance tests plus 37 isolated Electron E2E tests, type, lint, formatting, architecture, and production build checks. Coverage includes message first-paint timing, theme-library navigation, failure recovery and duplicate-operation protection, header/background pixels, and existing theme surfaces. A real managed Store Codex session has not been verified locally. Saved themes, configured transparency, Windows startup preferences, and application IPC v6 are preserved.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules. Recheck is available after a failure and does not automatically launch Codex.
+
+### 简体中文
+
+- 修复发送消息后短暂闪出原生黑白颜色的问题。新增消息在首次绘制前获得既有主题归属，同时保留全页面兼容性复核的批处理。
+- 工作台打开时默认展示已勾选的下次启动主题，并把对应行滚动到可见区域。没有勾选项时打开第一项；后续手动浏览、编辑和搜索保留当前编辑项。
+- 检测失败或出现上次会话待确认提示时，在 **“启动 Codex”** 旁新增 **“重新检测”**。只重新读取已保存主题、Safe CSS、Store 注册与运行进程基线，不启动、连接、注入或关闭 Codex；通过基础检查后仍需显式启动，才能验证会话身份和页面兼容性。
+- 修复 Store Codex 26.1002.7124.0 中技能、插件页顶部的白色背景。选择器 profile 升至 `/19`，首次打开及切换页面时立即清除已核对的原生页头底层，保留搜索、操作、卡片和无关表面。
+- 本地验证通过 354 项主进程、界面与集成测试、37 项隔离 Electron E2E，以及类型、Lint、格式、架构和生产构建检查，覆盖消息首次绘制、主题库导航、失败恢复与重复操作保护、页头背景像素和既有主题表面；尚未验证真实受管 Store Codex 会话。已保存主题、配置透明度、Windows 自启动选择及应用 IPC v6 保留。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。“重新检测”仅在失败后提供，不会自动启动 Codex。
+
 ## v1.3.21 — 2026-10-08
 
 ### English

@@ -194,6 +194,7 @@ function makeApi() {
     }),
     selectForNextLaunch: vi.fn(),
     clearSelection: vi.fn(),
+    recheckSession: vi.fn(),
     launchSession: vi.fn(),
     pauseSession: vi.fn(),
     resumeSession: vi.fn(),
@@ -227,6 +228,225 @@ describe("Studio renderer", () => {
 
   beforeEach(() => {
     window.codexStyle = makeApi();
+  });
+
+  it("opens the checked theme first and preserves subsequent browsing", async () => {
+    const api = makeApi();
+    const checked = {
+      ...theme,
+      libraryId: "22222222-2222-4222-8222-222222222222",
+      name: "Checked Theme",
+      selectedForNextLaunch: true,
+    };
+    const library = {
+      ...snapshot,
+      selectedLibraryId: checked.libraryId,
+      themes: [snapshot.themes[0], { ...snapshot.themes[0], ...checked }],
+    };
+    api.getSnapshot.mockResolvedValue({ ok: true, data: library });
+    api.getTheme.mockImplementation(
+      async ({ libraryId }: { libraryId: string }) => ({
+        ok: true,
+        data: libraryId === checked.libraryId ? checked : theme,
+      }),
+    );
+    let stateChanged: ((value: ThemeSnapshot) => void) | undefined;
+    api.onStateChanged.mockImplementation(
+      (listener: (value: ThemeSnapshot) => void) => {
+        stateChanged = listener;
+        return () => undefined;
+      },
+    );
+    window.codexStyle = api;
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Checked Theme")).toBeVisible();
+    const list = screen.getByLabelText("主题列表");
+    const checkedRow = within(list).getByRole("button", {
+      name: /Checked Theme/u,
+    });
+    expect(checkedRow).toHaveClass("active");
+    expect(checkedRow).toHaveTextContent("✓");
+    expect(api.getTheme).toHaveBeenCalledWith({ libraryId: checked.libraryId });
+
+    const firstRow = within(list).getByRole("button", {
+      name: /Midnight Copper/u,
+    });
+    fireEvent.click(firstRow);
+    expect(await screen.findByDisplayValue("Midnight Copper")).toBeVisible();
+    await act(async () => stateChanged?.({ ...library }));
+    expect(firstRow).toHaveClass("active");
+    expect(checkedRow).toHaveTextContent("✓");
+    expect(api.selectForNextLaunch).not.toHaveBeenCalled();
+    expect(api.patchDraft).not.toHaveBeenCalled();
+  });
+
+  it("opens the first theme when no next-launch theme is checked", async () => {
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: {
+        ...snapshot,
+        selectedLibraryId: undefined,
+        themes: snapshot.themes.map((item) => ({
+          ...item,
+          selectedForNextLaunch: false,
+        })),
+      },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    expect(await screen.findByDisplayValue("Midnight Copper")).toBeVisible();
+    expect(api.getTheme).toHaveBeenCalledWith({
+      libraryId: snapshot.themes[0].libraryId,
+    });
+    expect(api.selectForNextLaunch).not.toHaveBeenCalled();
+  });
+
+  it("keeps an empty library empty without reading or selecting a theme", async () => {
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, selectedLibraryId: undefined, themes: [] },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    expect(
+      await screen.findByRole("heading", { name: "开始你的主题" }),
+    ).toBeVisible();
+    expect(
+      screen.getByLabelText("主题列表").querySelector(".theme-row"),
+    ).toBeNull();
+    expect(api.getTheme).not.toHaveBeenCalled();
+    expect(api.selectForNextLaunch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { state: "NO_SESSION", paused: false, canEnd: false },
+    { state: "INCOMPATIBLE", paused: true, canEnd: false },
+    { state: "INCOMPATIBLE", paused: false, canEnd: true },
+    { state: "THEMED_SESSION", paused: false, canEnd: true },
+  ] as const)(
+    "hides recheck for $state with paused=$paused and owned=$canEnd",
+    async ({ state, paused, canEnd }) => {
+      const api = makeApi();
+      api.getSnapshot.mockResolvedValue({
+        ok: true,
+        data: {
+          ...snapshot,
+          paused,
+          session: { ...snapshot.session, state, canEnd },
+        },
+      });
+      window.codexStyle = api;
+      render(<App />);
+      expect(await screen.findByDisplayValue("Midnight Copper")).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "重新检测" }),
+      ).not.toBeInTheDocument();
+      expect(api.recheckSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["INCOMPATIBLE", "EXTERNAL_BLOCKED", "ORPHANED"] as const)(
+    "offers read-only recheck beside launch after %s and prevents duplicates",
+    async (state) => {
+      const api = makeApi();
+      const failed: ThemeSnapshot = {
+        ...snapshot,
+        selectedLibraryId: theme.libraryId,
+        session: {
+          ...snapshot.session,
+          state,
+          messageKey: "session.storePackageNotFound",
+        },
+      };
+      api.getSnapshot.mockResolvedValue({ ok: true, data: failed });
+      let complete!: (result: Result<ThemeSnapshot>) => void;
+      api.recheckSession.mockReturnValue(
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+      );
+      window.codexStyle = api;
+      render(<App />);
+      const recheck = await screen.findByRole("button", { name: "重新检测" });
+      const launch = screen.getByRole("button", { name: "启动 Codex" });
+      expect(launch.nextElementSibling).toBe(recheck);
+      fireEvent.click(recheck);
+      const pending = await screen.findByRole("button", { name: "检测中…" });
+      expect(pending).toBeDisabled();
+      expect(launch).toBeDisabled();
+      fireEvent.click(pending);
+      expect(api.recheckSession).toHaveBeenCalledOnce();
+      const passed: ThemeSnapshot = {
+        ...failed,
+        session: { ...snapshot.session, messageKey: "session.preflightReady" },
+      };
+      api.getSnapshot.mockResolvedValue({ ok: true, data: passed });
+      await act(async () => complete({ ok: true, data: passed }));
+      expect(await screen.findByText(/基础检查已通过/u)).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "重新检测" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText("Store Codex 可启动").closest(".check-row"),
+      ).toHaveTextContent("通过");
+      expect(
+        screen.getByText("会话可安全管理").closest(".check-row"),
+      ).toHaveTextContent("等待");
+      expect(
+        screen.getByText("主题与当前版本兼容").closest(".check-row"),
+      ).toHaveTextContent("等待");
+      expect(api.launchSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refreshes a failed recheck reason and keeps retry available", async () => {
+    const api = makeApi();
+    const failed: ThemeSnapshot = {
+      ...snapshot,
+      session: {
+        ...snapshot.session,
+        state: "INCOMPATIBLE",
+        messageKey: "session.cdpUnavailable",
+      },
+    };
+    api.getSnapshot.mockResolvedValue({ ok: true, data: failed });
+    let stateChanged: ((value: ThemeSnapshot) => void) | undefined;
+    api.onStateChanged.mockImplementation(
+      (listener: (value: ThemeSnapshot) => void) => {
+        stateChanged = listener;
+        return () => undefined;
+      },
+    );
+    api.recheckSession.mockImplementation(async () => {
+      stateChanged?.({
+        ...failed,
+        session: {
+          ...failed.session,
+          messageKey: "session.storePackageNotFound",
+        },
+      });
+      return {
+        ok: false,
+        error: {
+          code: "STORE_PACKAGE_NOT_FOUND",
+          messageKey: "session.storePackageNotFound",
+        },
+      };
+    });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "重新检测" }));
+    expect(
+      await screen.findByText(/未找到可用的 Microsoft Store Codex/u),
+    ).toBeVisible();
+    const retry = await screen.findByRole("button", { name: "重新检测" });
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(retry);
+    await waitFor(() => expect(api.recheckSession).toHaveBeenCalledTimes(2));
+    expect(api.launchSession).not.toHaveBeenCalled();
   });
 
   it("loads a local theme and renders a safe preview", async () => {

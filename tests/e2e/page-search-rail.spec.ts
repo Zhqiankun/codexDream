@@ -6,7 +6,7 @@ import {
 } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { readThemeConfiguration } from "../../src/contracts";
 import { buildThemePayload } from "../../src/main/session/theme-payload";
 
@@ -196,6 +196,11 @@ for (const theme of themes) {
       // Close only the application handle created above, then remove its unique
       // disposable profile. No process-name matching or user profile is involved.
       await application?.close();
+      if (
+        dirname(resolve(profile)) !== resolve(tmpdir()) ||
+        !basename(profile).startsWith("codexstyle-search-rail-")
+      )
+        throw new Error("Unexpected disposable profile path");
       await rm(profile, { recursive: true, force: true });
     }
   });

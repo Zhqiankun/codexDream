@@ -1,7 +1,7 @@
 import { _electron as electron, expect, test } from "@playwright/test";
 import { mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
@@ -11,6 +11,8 @@ import {
 import { CODEX_SELECTOR_PROFILE } from "../../src/main/session/selector-profile";
 
 test("starts the real Electron shell with native storage and completes a local write", async () => {
+  // The read-only recheck includes fresh Windows package/process queries.
+  test.setTimeout(75_000);
   const projectRoot = resolve(process.cwd());
   const packageVersion = (
     JSON.parse(
@@ -212,6 +214,67 @@ test("starts the real Electron shell with native storage and completes a local w
     await expect(page.locator(".theme-swatch img")).toHaveCount(35);
     const themeList = page.getByLabel("主题列表");
     const themeSearch = page.getByRole("searchbox", { name: "搜索主题" });
+    const checkedTheme = await page.evaluate(async () => {
+      const library = await window.codexStyle.getSnapshot();
+      if (!library.ok) throw new Error("Theme library unavailable");
+      const last = library.data.themes.at(-1)!;
+      const result = await window.codexStyle.selectForNextLaunch({
+        libraryId: last.libraryId,
+        expectedRevision: last.revision,
+      });
+      if (!result.ok) throw new Error("Cannot select isolated test theme");
+      return last;
+    });
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: checkedTheme.name, exact: true }),
+    ).toBeVisible();
+    const selectedRow = themeList.locator(".theme-row.active");
+    await expect(selectedRow).toContainText(checkedTheme.name);
+    await expect(selectedRow.locator(".check-mark")).toHaveText("✓");
+    expect(
+      await themeList.evaluate((list) => {
+        const row = list.querySelector(".theme-row.active")!;
+        const bounds = row.getBoundingClientRect();
+        const viewport = list.getBoundingClientRect();
+        return (
+          list.scrollTop > 0 &&
+          bounds.top >= viewport.top - 1 &&
+          bounds.bottom <= viewport.bottom + 1
+        );
+      }),
+    ).toBe(true);
+
+    await mkdir(screenshotDirectory, { recursive: true });
+    await page.screenshot({
+      path: join(screenshotDirectory, "theme-initial-selection.png"),
+    });
+
+    // The real IPC recheck is read-only even when the CI machine has no Store
+    // package or a user's externally launched Codex is still running.
+    await page.getByRole("button", { name: "重新检测" }).click();
+    await expect
+      .poll(async () =>
+        page.evaluate(async () => {
+          const result = await window.codexStyle.getSnapshot();
+          if (!result.ok) return false;
+          const current = result.data.session;
+          return (
+            ["NO_SESSION", "INCOMPATIBLE", "EXTERNAL_BLOCKED"].includes(
+              current.state,
+            ) &&
+            !current.canEnd &&
+            !current.launchedByTool
+          );
+        }),
+      )
+      .toBe(true);
+
+    await expect(page.getByRole("button", { name: "检测中…" })).toHaveCount(0);
+    await page.screenshot({
+      path: join(screenshotDirectory, "session-recheck-result.png"),
+    });
+
     await themeSearch.fill("赤金信念");
     await expect(themeList.getByRole("button")).toHaveCount(1);
     await expect(
@@ -219,6 +282,12 @@ test("starts the real Electron shell with native storage and completes a local w
     ).toBeVisible();
     await page.getByRole("button", { name: "清空主题搜索" }).click();
     await expect(themeList.getByRole("button")).toHaveCount(37);
+    await expect(themeList.locator(".theme-row.active")).toContainText(
+      checkedTheme.name,
+    );
+    await expect(themeList.locator(".theme-row.active")).toBeInViewport({
+      ratio: 1,
+    });
     await expect(
       page.getByRole("button", { name: "导出旧版兼容 ZIP" }),
     ).toHaveCount(0);
@@ -373,6 +442,12 @@ test("starts the real Electron shell with native storage and completes a local w
   } finally {
     await mcpClient?.close();
     await application.close();
+    if (
+      dirname(resolve(localAppData)) !== resolve(tmpdir()) ||
+      !basename(localAppData).startsWith("codexstyle-e2e-")
+    ) {
+      throw new Error("Refusing to remove an unexpected test data path");
+    }
     await rm(localAppData, { recursive: true, force: true });
   }
 });

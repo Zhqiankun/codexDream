@@ -73,6 +73,147 @@ const selectedTheme: ThemeRecord = {
 };
 
 describe("CodexSessionService", () => {
+  it("rechecks failed prerequisites without activation, CDP or ownership writes", async () => {
+    const platform = {
+      findStorePackage: vi.fn().mockResolvedValue(undefined),
+      listCodexProcesses: vi.fn().mockResolvedValue([]),
+      launchStore: vi.fn(),
+      listeningPids: vi.fn(),
+    };
+    const ownership = { atomicReplace: vi.fn(), removeFile: vi.fn() };
+    const lastKnownGood = vi.fn();
+    const session = new CodexSessionService(
+      platform as unknown as WindowsPlatform,
+      async () => ({ record: selectedTheme, image: Buffer.alloc(1) }),
+      () => false,
+      ownership as unknown as SecureManagedStore,
+      lastKnownGood,
+    );
+    const network = vi.spyOn(globalThis, "fetch");
+    await expect(session.recheck()).rejects.toThrow("STORE_PACKAGE_NOT_FOUND");
+    expect(session.snapshot()).toMatchObject({
+      state: "INCOMPATIBLE",
+      messageKey: "session.storePackageNotFound",
+    });
+    platform.findStorePackage.mockResolvedValue(packageInfo);
+    await session.recheck();
+    expect(session.snapshot()).toEqual({
+      state: "NO_SESSION",
+      messageKey: "session.preflightReady",
+      canEnd: false,
+      launchedByTool: false,
+    });
+    expect(platform.listCodexProcesses).toHaveBeenCalledWith();
+    expect(platform.launchStore).not.toHaveBeenCalled();
+    expect(platform.listeningPids).not.toHaveBeenCalled();
+    expect(network).not.toHaveBeenCalled();
+    expect(ownership.atomicReplace).not.toHaveBeenCalled();
+    expect(ownership.removeFile).not.toHaveBeenCalled();
+    expect(lastKnownGood).not.toHaveBeenCalled();
+  });
+
+  it("never caches a successful recheck as launch permission", async () => {
+    const external = {
+      pid: 42,
+      executablePath: "C:/Previous Store Version/ChatGPT.exe",
+      startedAt: "2026-08-06T00:00:00.000Z",
+    };
+    const platform = {
+      findStorePackage: vi.fn().mockResolvedValue(packageInfo),
+      listCodexProcesses: vi.fn().mockResolvedValue([external]),
+      launchStore: vi.fn(),
+    };
+    const session = new CodexSessionService(
+      platform as unknown as WindowsPlatform,
+      async () => ({ record: selectedTheme, image: Buffer.alloc(1) }),
+      () => false,
+    );
+    await expect(session.recheck()).rejects.toThrow("EXTERNAL_SESSION_RUNNING");
+    expect(session.snapshot().state).toBe("EXTERNAL_BLOCKED");
+    platform.listCodexProcesses.mockResolvedValue([]);
+    await session.recheck();
+    platform.listCodexProcesses.mockResolvedValue([external]);
+    await expect(session.launch()).rejects.toThrow("EXTERNAL_SESSION_RUNNING");
+    expect(platform.listCodexProcesses).toHaveBeenCalledTimes(3);
+    expect(platform.launchStore).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      record: undefined,
+      code: "INCOMPLETE_THEME",
+      message: "session.themeNotReady",
+    },
+    {
+      record: { ...selectedTheme, status: "draft" as const },
+      code: "INCOMPLETE_THEME",
+      message: "session.themeNotReady",
+    },
+    {
+      record: {
+        ...selectedTheme,
+        css: '[data-ds-part="root"] { background-image: url(https://example.test/image); }',
+      },
+      code: "UNSAFE_CSS",
+      message: "session.themeUnsafe",
+    },
+  ])(
+    "keeps an invalid theme blocked during recheck: $code",
+    async ({ record, code, message }) => {
+      const platform = { findStorePackage: vi.fn(), launchStore: vi.fn() };
+      const session = new CodexSessionService(
+        platform as unknown as WindowsPlatform,
+        async () => (record ? { record, image: Buffer.alloc(1) } : undefined),
+        () => false,
+      );
+      await expect(session.recheck()).rejects.toThrow(code);
+      expect(session.snapshot()).toMatchObject({
+        state: "INCOMPATIBLE",
+        messageKey: message,
+      });
+      expect(platform.findStorePackage).not.toHaveBeenCalled();
+      expect(platform.launchStore).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps prerequisite reader errors retryable without claiming readiness", async () => {
+    const platform = { findStorePackage: vi.fn() };
+    const session = new CodexSessionService(
+      platform as unknown as WindowsPlatform,
+      async () => {
+        throw new Error("STORE_TAMPERED");
+      },
+      () => false,
+    );
+    await expect(session.recheck()).rejects.toThrow("STORE_TAMPERED");
+    expect(session.snapshot()).toMatchObject({
+      state: "INCOMPATIBLE",
+      messageKey: "session.recheckFailed",
+      canEnd: false,
+    });
+    expect(platform.findStorePackage).not.toHaveBeenCalled();
+  });
+
+  it("leaves a currently owned session untouched by recheck", async () => {
+    const platform = { findStorePackage: vi.fn() };
+    const loadTheme = vi.fn();
+    const session = new CodexSessionService(
+      platform as unknown as WindowsPlatform,
+      loadTheme,
+      () => false,
+    );
+    Object.assign(session, {
+      state: "THEMED_SESSION",
+      messageKey: "session.themed",
+      owned: { client: { close: vi.fn(), command: vi.fn() } },
+    });
+    const before = session.snapshot();
+    await session.recheck();
+    expect(session.snapshot()).toEqual(before);
+    expect(loadTheme).not.toHaveBeenCalled();
+    expect(platform.findStorePackage).not.toHaveBeenCalled();
+  });
+
   it("restores and clears a paused next-launch preference without an owned session", async () => {
     let paused = true;
     const session = new CodexSessionService(

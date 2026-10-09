@@ -14,6 +14,8 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 ## 用户流程
 
+技能与插件页头兼容补充（2026-10-09，已实现，隔离 Electron 已验证，正式 Codex 会话未验证）：Store Codex 26.1002.7124.0 的技能与插件页共用搜索 ID `plugins-page-search`，新版标题、搜索和操作区位于 inline page header 下的 CSS module shell，原生白底由其 `data-sticky` 状态的 `::before` 绘制。selector profile `/19` 在保留旧版搜索 rail 和已安排任务页的基础上，限定 inline page header、直接容器层级、shell/content/headerRow 类结构及已核对的搜索 ID，复用 `page-search-rail` 归属。仅透明化页头自身及 `::before`/`::after` 绘制层，使其透出既有页面主题；不修改主题数据、全局 surface 变量、搜索输入、操作按钮、图标与卡片表面。首次挂载与 SPA 切换须在 part 映射前即时生效，语义锚点或 sticky 属性移除后须撤销归属。验收覆盖技能/插件往返、原生白底复现、透明/半透明/不透明深浅背景、页头空白像素、滚动和输入/按钮交互、容器复用及范围外同类表面；正式 Codex 会话验证状态须单独报告。
+
 上下边缘兼容补充（2026-10-08，底部层级修正已实现并通过隔离 Electron 验证，正式 Codex 会话未验证）：全窗口图片主题需清除页头实际的 MainContentTopFade 子节点，以及新版对话底部独立渐变、thread-scroll-footer 自身背景与直接背板的原生 surface 色。Store 26.1002.7124.0 的普通/面板布局将底部 sticky 占位层嵌在滚动区的 transcript 容器内，footer 是该 transcript 容器在滚动区内的兄弟；紧凑布局的 footer 才是布局根的直接子节点，且没有独立渐变或背板。此前隔离样例误把 sticky 和普通 footer 放在外层，未覆盖用户反馈的底部白色残留；按真实结构改正样例后，旧代码在普通布局的两个 alpha 场景均复现白色底板与上沿渐变，修正后底部像素与未遮挡背景一致。页面容器本身不作为渐变节点；只清除已核对的结构，保留其定位、滚动遮罩与点击穿透，输入框、消息、图片/分享预览、菜单和详情面板的表面不受影响。动态插入须立即继承透明规则，无需等待 part 映射；内容区作用域及 taskMode off 的边缘保持既有行为。验收须按实际嵌套结构覆盖普通/紧凑布局、旧版合并底部、顶部父容器保留、动态挂载、0/半透明页面背景及无关渐变隔离，并比较底部渐变区、底板空白与未遮挡背景的像素。
 
 侧栏单层表面补充（2026-10-08，已实现、隔离 Electron 已验证，正式 Codex 会话未验证）：全窗口主题须同时支持固定侧栏和新版悬浮侧栏。侧栏内部 `data-slate-sidebar-content` 的原生不透明底色、固定页表面的额外染色和继承背景的伪元素不得叠加到 panel alpha 上；固定态只在外层绘制表面，悬浮态只在内容层绘制同一表面，保留原生悬浮圆角、布局、滚动和行交互。0% alpha 不得残留染色或磨砂；配置模式的磨砂只作用于绘制表面的那一层，高级 CSS 保留已有自定义磨砂行为，但同样遵守 0% alpha 时关闭磨砂的规则。当前用户主题的 9% 粉色 alpha 属于明确配置，修复不得擅自改为 0% 或改写已保存主题。Studio 预览继续使用同一 resolveSidebarSurface 结果；验收覆盖固定/悬浮及切换、0/9/100% alpha、深浅色、动态内容挂载、表面采样像素一致性和无关弹层不受影响。仅内容区模式保持既有原生侧栏规则。
@@ -50,6 +52,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 - `panelAlt` 的声明透明度是输入框、首页 composer 项目工具条与用户消息的最终透明度；配置模式、LIVE PREVIEW 和真实注入不得再通过额外 88%/92% 混合二次稀释。
 - 普通设计与 CSS 编辑只提供一个“保存主题”入口；该入口按 revision 先持久化变更再提交 ready，不再暴露容易混淆的“应用草稿”按钮。theme.json 仍保留独立的“校验并应用”，因为未验证源码不得进入普通保存流程。
 - 左侧主题列表单击只打开编辑，双击已保存主题将其选择为下次启动主题；草稿双击只提示先保存，不发生隐式提交。删除主题必须经明确确认，当前下次启动主题、last-known-good 主题或存在工具拥有会话时禁止删除；成功删除同时移除受管背景资产。
+- 初始主题展示补充（2026-10-09，已实现，renderer 与隔离 Electron 已验证）：工作台首次打开时，优先打开列表中已勾选的下次启动主题，并在主题列表自身的滚动区域内显示该行；没有勾选项时沿用第一项，空库显示空态。用户随后单击其他主题、编辑、搜索或接收状态更新时保留当前浏览项，清空搜索后可重新定位浏览项。此定位不改变排序、主题选择、草稿、revision 或会话，不触发双击启用。
 - 应用可携带经审核的图片主题包。包内 `catalog.json` 使用稳定 `packId` 和稳定主题 ID，声明每张图片的 SHA-256、完整二十九色、外观、焦点、画面、表面配置及背景范围；main 必须在写入该预设包前严格校验目录字段、图片格式、尺寸和哈希，renderer、preload 与 IPC 不接收资源路径或图片字节。
 - v2 主题索引允许持久化有界且唯一的 `installedPresetPacks`。未安装主题包应在一次 store-owned 事务内追加 ready 主题、复制图片并提交 pack 标记，不改变已有主题、revision、选择项、last-known-good、暂停状态或 checkpoint；失败必须恢复旧索引并清理已暂存图片。后继主题包可声明多个被替代 pack 与每个旧主题的有界精确 fingerprint 列表，只原位升级仍保持任一已声明旧指纹且没有 checkpoint 的内置主题；用户改过或删过的主题必须保持原样且不得复活。
 - 根目录 schema v4 / pack v7 `user-wallpapers-2026-08-30-v7` 及其 25 张图片是已发布、不可改写的历史基线。新增图片必须进入独立固定目录和独立 catalog；本轮增量包固定为 `resources/presets/user-wallpapers-2026-08-31-v8/`、`packId: user-wallpapers-2026-08-31-v8`，只首次引入 10 个全新稳定主题 ID，不替代、不迁移也不修改 v7。其图片再分发授权与原始文件映射记录在同目录 `SOURCES.md`，该记录必须随源码和安装包交付，但不得作为运行时可执行配置或放宽图片校验。
@@ -106,6 +109,7 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 ## 会话与退出行为
 
+- 失败后重新检测补充（2026-10-09，已实现，主进程/IPC/renderer 与隔离 Electron 已验证）：无当前可管理会话且未暂停时，`INCOMPATIBLE`、`EXTERNAL_BLOCKED` 或 `ORPHANED` 状态在“启动 Codex”旁提供“重新检测”。操作只重新读取所选 ready 主题、Safe CSS、Store 注册包与全部 Codex 进程基线，不启动、注入、连接、关闭或重新附着任何 Codex。检测通过后返回 `NO_SESSION / session.preflightReady`，提示用户显式启动；Store 基础检查显示通过，会话身份与页面兼容性仍待启动后验证。检测失败保留对应失败状态与原因，按钮允许再次尝试；进行中禁止重复操作。当前受管会话不被重检改变，暂停标记、选择、主题、last-known-good 与所有权记录不变。IPC v6 仅新增无参数白名单 `session.recheck`，复用 sender/frame/schema 校验与 operation gate，返回既有 `Result<ThemeSnapshot>`。正常启动继续独立重验所有基础与完整身份条件，不复用重检结果作为授权。
 - 只接受当前用户注册、`SignatureKind=Store`、非开发模式的 `OpenAI.Codex`。
 - 只经 AppX/AUMID 启动，参数包含随机 256-bit nonce、`--remote-debugging-address=127.0.0.1` 和随机可用端口。
 - 任一 PID、进程开始时间、SID、包身份、nonce、监听 PID、端口、Browser ID 或 selector profile 不匹配即终止 watcher，不重新附着。
@@ -116,13 +120,15 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 
 ## IPC 与错误
 
-preload 暴露版本化强类型方法：snapshot、固定助手插件安装、主题读取/草稿/编辑（含背景、外观、焦点、配色、四张首页卡片、样式配置和显式 theme.json 应用）、放弃本次修改、主背景与单张首页卡片图片选择/commit/导入冲突处理/导出/选择、会话启动/暂停/恢复/结束，以及检查并下载更新、取消下载、选择安装时机和打开已验证 Release 页面。main 只发送 `studio:state-changed` 公共 snapshot 事件。renderer 不接收本地路径、下载路径、PID、端口、nonce、插件命令或 CLI 输出，也不能提交任意插件 ID、marketplace、更新地址、版本或安装器参数。
+preload 暴露版本化强类型方法：snapshot、固定助手插件安装、主题读取/草稿/编辑（含背景、外观、焦点、配色、四张首页卡片、样式配置和显式 theme.json 应用）、放弃本次修改、主背景与单张首页卡片图片选择/commit/导入冲突处理/导出/选择、会话基础重检/启动/暂停/恢复/结束，以及检查并下载更新、取消下载、选择安装时机和打开已验证 Release 页面。main 只发送 `studio:state-changed` 公共 snapshot 事件。renderer 不接收本地路径、下载路径、PID、端口、nonce、插件命令或 CLI 输出，也不能提交任意插件 ID、marketplace、更新地址、版本或安装器参数。
 
 正式安装版启动完成后应在主进程静默检查一次更新，并在每次检查结束 20 分钟后再次检查；托盘驻留期间继续执行。后台检查只读取固定 Release 元数据，不自动下载，失败不弹窗且不覆盖稳定状态。发现新版时通过公共 snapshot 显示在顶部更新按钮旁，只有用户点击后才进入现有校验下载流程。
 
 错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`THEME_IN_USE`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_UNSUPPORTED`、`UPDATE_CHECK_FAILED`、`UPDATE_DOWNLOAD_FAILED`、`UPDATE_INSTALL_FAILED`、`UPDATE_OPEN_FAILED`。
 
 ## 可观察验收
+
+消息首次绘制补充（2026-10-09，已实现，隔离 Electron 已验证，正式 Codex 会话未验证）：已经注入主题的受管会话中，发送后新建或替换的用户消息气泡须在首次可见绘制前使用现有主题样式，不得先显示原生黑白表面再等待约 80 毫秒的全页面归属检查。新建助手消息同属既有 message part，沿用相同归属时序。配置模式继续保留 panelAlt 的最终 alpha 和既有消息配方；配方关闭时不强制覆盖气泡底色，高级模式仍消费原 Safe CSS，不新增颜色或修改保存内容。正文、链接与代码颜色边界保持。复用节点失去消息语义时须在绘制前撤销本工具的消息归属；其它 owner 的 part、未归属本工具的根和非消息节点不得被快速路径改写。验收覆盖新增节点及嵌套子树、消息替换、绘制前检查点及连续帧、深浅色、0/半透明 alpha、关闭配方、高级 CSS、语义属性变化与归属隔离。会话身份校验、发送行为、IPC 和持久化规则不变。
 
 开机自启动补充（2026-09-09）：左侧栏底部提供“开机自启动”开关，新安装默认关闭；仅用户明确开启后注册当前用户的 CodexStyle 登录项，登录后使用正常应用启动流程。该设置只启动 CodexStyle，不自动启动 Store Codex；不属于主题、不导出到 ZIP。读写均使用主进程确定的当前可执行文件及固定注册项名，IPC 仅接收布尔值。Windows 状态为唯一事实来源，任务管理器禁用后返回应用须显示关闭；保存失败须回读并提示。开发 Electron 与非 Windows 环境禁用该开关，禁止注册开发运行时。覆盖升级保留用户选择，真正卸载只清理指向本次安装的登录项。
 
@@ -170,6 +176,6 @@ preload 暴露版本化强类型方法：snapshot、固定助手插件安装、�
 33. Codex 插件首次启用后，CodexStyle 启动即创建自动发现端点，实际 MCP smoke 必须使用随包 Node.js runtime 按 `.mcp.json` 原样启动、列出七项固定工具并能读取状态和主题列表；错误 token 与浏览器 Origin 返回拒绝，应用退出后端点描述消失。一键安装只能调用固定随包 marketplace 和固定插件 ID，旧插件升级后必须核对安装版本及 enabled 状态；运行时、bundle、许可证与 marketplace 均须通过包内字节校验。派生操作保留源主题和背景，ready 主题更新被拒绝，过期 revision 被拒绝，失败的配色对比度不得写入。用户未明确颜色/视觉方向时使用锁定的现代奢华默认提示，明确颜色或风格时不得套用该默认。Studio 必须固定展示三步：首次只安装/启用一次，日常只启动 CodexStyle，随后在已加载插件的 Codex 任务中描述配色并回到 Studio 预览保存；`listening` 只能表述本机接口已自动就绪，不能推断插件未安装或暗示需要手动连接。
 34. 桌面端左侧主题库必须限制在当前可用视口内，标题、新建/导入、名称搜索和底部统计固定，仅主题列表纵向滚动；100 个及以上主题不得拉长整页。搜索即时、忽略大小写与全半角差异，显示“匹配数/总数”，提供清空和无结果反馈，且不得修改主题顺序、总数、ready 计数、当前编辑项或下次启动选择。单击、双击、图片缩略图、颜色回退和图片失败回退行为保持；760px 以下恢复自动高度与横向列表。
 35. v8 增量包必须与根 v7 并存加载；全新存储首次启动得到 2 个基础主题、25 个 v7 图片主题和 10 个 v8 图片主题，共 37 个 ready 主题。已有 v7 安装只追加尚未安装的 v8 包，旧 pack 标记、现有 revision、checkpoint、选择项与 last-known-good 保持；用户此前删除的 v7 主题不得因 v8 出现而复活，v8 安装并记录 pack 后用户删除的 v8 主题也不得在后续启动重新出现。验收必须证明根 `catalog.json` 与 25 张 v7 资产保持不变，v8 catalog 严格 schema、10 个新 ID/图片名/格式/尺寸/SHA-256、`introducedThemeIds`、20% 页面/panel/line、20% 侧栏遮罩、图片平均色合成后的正文/输入/操作/选区 WCAG 对比度、二次启动幂等、失败全回滚和安装包内 v7 + v8 两套目录均正确；`verify:package` 还必须核对 v8 的 10 张图片与 `SOURCES.md` 授权记录。
-36. selector profile `/14` 必须覆盖插件/技能与已安排任务页共用的 sticky 搜索 rail。只允许通过已核对的页面语义锚点 `input#plugins-page-search`、`input#scheduled-page-search` 与同时具备 `sticky`、`bg-surface` 的祖先容器进行版本化匹配。搜索横幅本体与 `::after` 底部渐变固定完全透明，不再额外叠加主题背景色；主题 `background` 仅由原页面背景绘制。SPA 后挂载须立即透明并自动映射，复用容器移除锚点后须撤销映射；滚动定位、搜索胶囊自身的底色/模糊及输入交互保持。禁止全局覆盖 Codex 的 `--color-surface`，不得借此影响文档白底、对话框、卡片或其它输入表面。
+36. selector profile `/19` 必须覆盖插件/技能与已安排任务页的搜索 rail，以及上述新版 inline page header。匹配仅使用已核对的页面语义锚点 `input#plugins-page-search`、`input#scheduled-page-search`，配合旧版同时具备 `sticky`、`bg-surface` 的祖先，或新版限定层级、CSS module 结构及 `data-sticky` 的页头。搜索横幅本体与 `::before`/`::after` 原生表面固定完全透明，不再额外叠加主题背景色；主题 `background` 仅由原页面背景绘制。SPA 后挂载须立即透明并自动映射，复用容器移除锚点后须撤销映射；滚动定位、搜索胶囊自身的底色/模糊及输入交互保持。禁止全局覆盖 Codex 的 `--color-surface`，不得借此影响文档白底、对话框、卡片或其它输入表面。
 37. selector profile `/13` 必须让助手标准 Markdown 在流式生成阶段和完成阶段使用同一 `assistantMessageText`。完成态继续覆盖 `h1..h6`、段落、列表、引用、强调与表格普通文字；流式态只补这些语义节点的直接 `_FadeIn_` 文本 span。任何包含链接、`code`、`pre` 或 `[data-markdown-copy="inline-code"]` 的流式包装节点必须排除，禁止设置可继承的 `-webkit-text-fill-color`，不得抹平链接、行内代码或代码块原生颜色。
 38. 打开的 Markdown 文档预览使用独立的不透明白色阅读背景，覆盖编辑器整个视口（含滚动区及短文档下方留白）；正文与标题使用深色，引用/辅助文字、蓝色链接、行内代码与分隔线保留可读的局部语义颜色。profile `/14` 仅匹配 `[data-editor-search-surface]` 内直接 CodeMirror 结构及 `.cm-content[data-language="markdown"]`；颜色变量不得泄漏到聊天、其它语言编辑器、源码模式或文件树。SPA 新建文档须即时绘制背景，容器复用切换语言/源码后须撤销局部主题；不新增持久化颜色字段或改变编辑内容、宽度及交互。聊天颜色的验证必须采用当前 Store 真实普通 Markdown/流式结构；仅有文档截图时不得声称聊天问题已复现或修复。

@@ -51,6 +51,7 @@ const api: CodexStyleApi = {
   selectForNextLaunch: (request) =>
     invoke("theme.selectForNextLaunch", { v: PROTOCOL_VERSION, ...request }),
   clearSelection: () => invoke("theme.clearSelection", { v: PROTOCOL_VERSION }),
+  recheckSession: () => invoke("session.recheck", { v: PROTOCOL_VERSION }),
   launchSession: () => invoke("session.launch", { v: PROTOCOL_VERSION }),
   pauseSession: () => invoke("session.pause", { v: PROTOCOL_VERSION }),
   resumeSession: () => invoke("session.resume", { v: PROTOCOL_VERSION }),

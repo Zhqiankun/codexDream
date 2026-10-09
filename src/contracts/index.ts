@@ -576,6 +576,7 @@ export interface CodexStyleApi {
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
   ): Promise<Result<ThemeSnapshot>>;
   clearSelection(): Promise<Result<ThemeSnapshot>>;
+  recheckSession(): Promise<Result<ThemeSnapshot>>;
   launchSession(): Promise<Result<ThemeSnapshot>>;
   pauseSession(): Promise<Result<ThemeSnapshot>>;
   resumeSession(): Promise<Result<ThemeSnapshot>>;

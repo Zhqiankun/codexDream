@@ -51,25 +51,25 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 - Validated background-image and custom-icon imports with clear size and format guidance.
 - Local theme library with lossless current-theme ZIP export. Historical ten-, twelve-, and eighteen-color ZIPs remain importable, while the lossy legacy export option has been removed.
 - Background-aware library thumbnails, with the next-launch theme control placed above the editor for quicker selection.
-- A viewport-bounded, independently scrolling theme library with instant name search, clear/no-result feedback, and off-screen rendering optimization for large collections.
+- A viewport-bounded, independently scrolling theme library with instant name search, clear/no-result feedback, and off-screen rendering optimization for large collections. Studio initially opens and reveals the checked next-launch theme.
 - Optional constrained Safe CSS for advanced styling.
 - A dedicated Windows app icon, tray icon, and packaged application identity.
-- Managed Codex launch on the theme-design page, with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks.
+- Managed Codex launch on the theme-design page, with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks. Failed checks offer a read-only **Recheck** beside **Launch Codex**.
 - Local-first storage with a native Windows x64 secure-store component.
 - User-initiated verified downloads for the installed Windows build, with progress, cancellation, restart-to-install, and install-on-exit choices. Background checks read only fixed release metadata; they never download or install silently.
 - Privacy-bounded daily diagnostic logs with a 7-day retention window and a one-click **Open logs** action for troubleshooting.
 
 ## Download
 
-Download `v1.3.21` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.22` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.21-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.21-x64.zip` — portable archive.
+- `CodexStyle-1.3.22-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.22-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.21` fixes the remaining white backplate and fade behind the conversation composer in newer Store Codex builds. Saved themes, configured transparency, and Windows startup preferences are preserved. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the corrected theme rules.
+`v1.3.22` fixes the initial black/white flash on newly sent messages and the white Skills/Plugins header, opens the checked theme by default, and adds a read-only recheck after launch-check failures. Saved themes, configured transparency, and Windows startup preferences are preserved. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules.
 
 ## Requirements
 

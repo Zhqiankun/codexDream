@@ -12,6 +12,7 @@ import {
   COLLAPSED_TURN_DISCLOSURE_SELECTOR,
   EDGE_SCROLL_THREAD_TITLE_SELECTOR,
   HOME_COMPOSER_RAIL_SELECTOR,
+  INLINE_PAGE_SEARCH_HEADER_SELECTOR,
   MAIN_TOP_FADE_SELECTOR,
   MARKDOWN_DOCUMENT_SELECTOR,
   PAGE_SEARCH_RAIL_SELECTOR,
@@ -39,6 +40,7 @@ interface PayloadConfig {
   edgeScrollThreadTitleSelector: string;
   homeComposerRailSelector: string;
   pageSearchRailSelector: string;
+  inlinePageSearchHeaderSelector: string;
   markdownDocumentSelector: string;
   userMessageEditorSelector: string;
   collapsedTurnDisclosureSelector: string;
@@ -90,6 +92,7 @@ export function buildThemePayload(
     edgeScrollThreadTitleSelector: EDGE_SCROLL_THREAD_TITLE_SELECTOR,
     homeComposerRailSelector: HOME_COMPOSER_RAIL_SELECTOR,
     pageSearchRailSelector: PAGE_SEARCH_RAIL_SELECTOR,
+    inlinePageSearchHeaderSelector: INLINE_PAGE_SEARCH_HEADER_SELECTOR,
     markdownDocumentSelector: MARKDOWN_DOCUMENT_SELECTOR,
     userMessageEditorSelector: USER_MESSAGE_EDITOR_SELECTOR,
     collapsedTurnDisclosureSelector: COLLAPSED_TURN_DISCLOSURE_SELECTOR,
@@ -123,6 +126,45 @@ export function buildThemePayload(
       assigned.add(node);
     };
 
+    const clearPart = (node) => {
+      if (node.getAttribute(ownerAttribute) !== config.marker) return;
+      node.removeAttribute(partAttribute);
+      node.removeAttribute(partMarkerAttribute);
+      node.removeAttribute(homeCardIndexAttribute);
+      node.removeAttribute(ownerAttribute);
+      assigned.delete(node);
+    };
+
+    const messageSelector = config.parts.filter(([part]) => part === "message").map(([, selector]) => selector).join(", ");
+    const messageCandidates = messageSelector + ', [' + partAttribute + '="message"][' + ownerAttribute + '="' + config.marker + '"]';
+    const syncMessagePart = (node) => {
+      if (node.nodeType !== 1 || !node.isConnected) return;
+      // Preserve the full mapper's precedence when a node has multiple roles.
+      if (node.matches(messageSelector) && config.parts.find(([, selector]) => node.matches(selector))?.[0] === "message") {
+        setPart(node, "message");
+      } else if (node.getAttribute(partAttribute) === "message") {
+        clearPart(node);
+      }
+    };
+
+    const syncChangedMessages = (records) => {
+      const root = document.documentElement;
+      if (location.protocol !== "app:" || root?.getAttribute(partAttribute) !== "root" || root.getAttribute(ownerAttribute) !== config.marker) return;
+      // Message styles require a part before rendering. Keep the 80 ms full-page
+      // batch, but map only changed subtrees at the observer's pre-paint checkpoint.
+      for (const record of records) {
+        if (record.type === "attributes") {
+          if (record.attributeName === "data-user-message-bubble" || record.attributeName === "data-markdown-text-style") syncMessagePart(record.target);
+          continue;
+        }
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1 || !node.isConnected) continue;
+          syncMessagePart(node);
+          for (const message of node.querySelectorAll(messageCandidates)) syncMessagePart(message);
+        }
+      }
+    };
+
     const ownedStyle = () => document.querySelector(styleSelector);
 
     const ensureStyle = (root) => {
@@ -151,13 +193,7 @@ export function buildThemePayload(
         } catch {}
       }
       for (const node of [...assigned]) {
-        if (!desired.has(node) && node.getAttribute(ownerAttribute) === config.marker) {
-          node.removeAttribute(partAttribute);
-          node.removeAttribute(partMarkerAttribute);
-          node.removeAttribute(homeCardIndexAttribute);
-          node.removeAttribute(ownerAttribute);
-          assigned.delete(node);
-        }
+        if (!desired.has(node)) clearPart(node);
       }
       for (const [node, part] of desired) setPart(node, part);
       const ownedHomeCards = Array.from(document.querySelectorAll('[data-ds-part="home-card"][data-codexstyle-owner="' + config.marker + '"]'));
@@ -201,13 +237,13 @@ export function buildThemePayload(
           '\\n' + rootSelector + ' .thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"], ' + rootSelector + ' ' + config.threadBottomFadeSelector + ', ' + rootSelector + ' ' + config.threadFooterBackdropSelector + ', ' + rootSelector + ' ' + config.threadFooterSelector + ' { background-color: transparent !important; background-image: none !important; }'
         : "";
       const pageSearchRailPartSelector = '[data-ds-part="page-search-rail"][data-codexstyle-owner="' + config.marker + '"]';
-      const instantPageSearchRailSelector = rootSelector + ' ' + config.pageSearchRailSelector;
+      const instantPageSearchRailSelectors = [config.pageSearchRailSelector, config.inlinePageSearchHeaderSelector].map(selector => rootSelector + ' ' + selector);
       // The direct rule covers SPA insertion before the observer assigns parts;
-      // clear both layers rather than compositing the page color a second time.
-      // Background shorthand also removes the native fade; input capsules keep
-      // their own readable surface, and the sticky layout remains unchanged.
-      const pageSearchRailBridge = '\\n' + pageSearchRailPartSelector + ', ' + instantPageSearchRailSelector + ' { background: transparent !important; }' +
-        '\\n' + pageSearchRailPartSelector + '::after, ' + instantPageSearchRailSelector + '::after { background: transparent !important; }';
+      // Clear the legacy fade and the newer inline header's ::before surface.
+      // Input capsules keep their own surface; sticky layout remains unchanged.
+      const pageSearchRailBridge = ['', '::before', '::after'].map(pseudo =>
+        '\\n' + [pageSearchRailPartSelector, ...instantPageSearchRailSelectors].map(selector => selector + pseudo).join(', ') + ' { background: transparent !important; }'
+      ).join('');
       const markdownDocumentPartSelector = '[data-ds-part="markdown-document"][data-codexstyle-owner="' + config.marker + '"]';
       const instantMarkdownDocumentSelector = rootSelector + ' ' + config.markdownDocumentSelector;
       // A document is a white reading surface even when the wallpaper/theme is
@@ -394,12 +430,15 @@ export function buildThemePayload(
       style?.getAttribute(observingAttribute) !== config.marker
     ) {
       style?.setAttribute(observingAttribute, config.marker);
-      const observer = new MutationObserver(schedule);
+      const observer = new MutationObserver((records) => {
+        syncChangedMessages(records);
+        schedule();
+      });
       observer.observe(document.documentElement, {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["aria-label", "aria-selected", "class", "data-language"],
+        attributeFilter: ["aria-label", "aria-selected", "class", "id", "data-sticky", "data-app-shell-inline-page-header", "data-language", "data-user-message-bubble", "data-markdown-text-style"],
       });
     }
     return true;

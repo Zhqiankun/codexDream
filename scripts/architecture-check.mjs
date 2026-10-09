@@ -295,8 +295,8 @@ requireMarkers(bundledPresets, "bundled-presets", [
 
 const rendererApp = source("src/renderer/app/App.tsx");
 requireMarkers(rendererApp, "theme-library-layout", [
-  "backgroundThumbnailUrl",
   "backgroundColor",
+  "<ThemeList",
   "top-apply-card",
   "HOME_COLOR_TARGETS",
   "mock-activity",
@@ -304,13 +304,18 @@ requireMarkers(rendererApp, "theme-library-layout", [
   "useDeferredValue",
   "normalizeThemeQuery",
   "theme-search-wrap",
-  "theme-list-empty",
   'aria-label="MCP 使用方法"',
   "首次一次",
   "以后每次",
   "开始设计",
   "installAssistantPlugin",
   "一键安装 / 更新",
+]);
+const themeList = source("src/renderer/features/library/ThemeList.tsx");
+requireMarkers(themeList, "theme-library-layout", [
+  "backgroundThumbnailUrl",
+  "backgroundColor",
+  "theme-list-empty",
 ]);
 if (rendererApp.includes("导出旧版兼容 ZIP"))
   failures.push("renderer-exposes-legacy-compatible-export");

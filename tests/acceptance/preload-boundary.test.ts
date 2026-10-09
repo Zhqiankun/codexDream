@@ -70,6 +70,7 @@ describe("preload public boundary", () => {
       "openUpdatePage",
       "patchDraft",
       "pauseSession",
+      "recheckSession",
       "rendererReady",
       "requestUpdate",
       "resolveImport",
@@ -78,6 +79,10 @@ describe("preload public boundary", () => {
       "setStartupSettings",
     ]);
     expect(api).not.toHaveProperty("invoke");
+    await api.recheckSession();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("session.recheck", {
+      v: 6,
+    });
     await api.getStartupSettings();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("startup.getSettings", {
       v: 6,

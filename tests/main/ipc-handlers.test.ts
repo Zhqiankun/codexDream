@@ -87,6 +87,32 @@ describe("IPC handler command boundary", () => {
     expect(controller.broadcast).not.toHaveBeenCalled();
   });
 
+  it("allows only an authenticated parameter-free session recheck", async () => {
+    const controller = controllerFixture();
+    controller.recheckSession.mockResolvedValue({
+      ok: true,
+      data: {
+        session: { state: "NO_SESSION", messageKey: "session.preflightReady" },
+      },
+    });
+    registerIpc(controller as never);
+    const handler = handlers.get("session.recheck")!;
+    expect(await handler(trustedEvent(), { v: 6 })).toMatchObject({ ok: true });
+    expect(
+      await handler(trustedEvent({ senderId: 99 }), { v: 6 }),
+    ).toMatchObject({ ok: false, error: { code: "UNAUTHORIZED_RENDERER" } });
+    expect(await handler(trustedEvent(), { v: 5 })).toMatchObject({
+      ok: false,
+      error: { code: "IPC_VERSION_MISMATCH" },
+    });
+    expect(await handler(trustedEvent(), { v: 6, port: 9222 })).toMatchObject({
+      ok: false,
+      error: { code: "IPC_INVALID" },
+    });
+    expect(controller.recheckSession).toHaveBeenCalledOnce();
+    expect(controller.launchSession).not.toHaveBeenCalled();
+  });
+
   it("rejects an untrusted sender before it reaches AppController", async () => {
     const controller = controllerFixture();
     registerIpc(controller as never);
@@ -444,6 +470,7 @@ function controllerFixture() {
     exportTheme: vi.fn(),
     selectThemeForNextLaunch: vi.fn(),
     clearThemeSelection: vi.fn(),
+    recheckSession: vi.fn(),
     launchSession: vi.fn(),
     pauseSession: vi.fn(),
     resumeSession: vi.fn(),

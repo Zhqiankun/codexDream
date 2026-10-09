@@ -157,6 +157,9 @@ export function registerIpc(
   handle("theme.clearSelection", EmptyRequestSchema, async () =>
     controller.clearThemeSelection(),
   );
+  handle("session.recheck", EmptyRequestSchema, () =>
+    controller.recheckSession(),
+  );
   handle("session.launch", EmptyRequestSchema, () =>
     controller.launchSession(),
   );

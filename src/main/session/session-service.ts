@@ -116,35 +116,24 @@ export class CodexSessionService {
     }
   }
 
+  async recheck(): Promise<void> {
+    if (this.owned) return;
+    // Reader failures must leave a retryable result rather than stale success.
+    this.state = "INCOMPATIBLE";
+    this.messageKey = "session.recheckFailed";
+    await this.checkLaunchPrerequisites();
+    this.state = "NO_SESSION";
+    this.messageKey = "session.preflightReady";
+  }
+
   async launch(): Promise<void> {
     if (this.owned) return;
     // An orphan warning never authorizes reattachment. A user-triggered launch
     // may proceed from this state, but it must still pass the fresh baseline
     // and full identity checks below.
-    if (this.paused()) this.fail("NO_SESSION", "session.paused", "PAUSED");
-    const selected = await this.selectedTheme();
-    const theme = selected?.record;
-    if (!theme || theme.status !== "ready" || !theme.fingerprint)
-      this.fail("INCOMPATIBLE", "session.themeNotReady", "INCOMPLETE_THEME");
-    if (!validateSafeCss(theme.css).valid)
-      this.fail("INCOMPATIBLE", "session.themeUnsafe", "UNSAFE_CSS");
-    const packageInfo = await this.platform.findStorePackage();
-    if (!packageInfo)
-      this.fail(
-        "INCOMPATIBLE",
-        "session.storePackageNotFound",
-        "STORE_PACKAGE_NOT_FOUND",
-      );
-    // Block on every existing ChatGPT.exe process. Restricting this baseline
-    // to the current Store version would miss an external session surviving a
-    // Store update; the later ownership checks remain path-exact.
-    const baseline = await this.platform.listCodexProcesses();
-    if (baseline.length)
-      this.fail(
-        "EXTERNAL_BLOCKED",
-        "session.externalRunning",
-        "EXTERNAL_SESSION_RUNNING",
-      );
+    const { selected, packageInfo, baseline } =
+      await this.checkLaunchPrerequisites();
+    const theme = selected.record;
     this.state = "LAUNCHING";
     this.messageKey = "session.launching";
     const nonce = randomBytes(32).toString("hex");
@@ -196,6 +185,36 @@ export class CodexSessionService {
         : "session.injectionFailed";
       throw error;
     }
+  }
+
+  private async checkLaunchPrerequisites() {
+    if (this.paused()) this.fail("NO_SESSION", "session.paused", "PAUSED");
+    const selected = await this.selectedTheme();
+    if (
+      !selected ||
+      selected.record.status !== "ready" ||
+      !selected.record.fingerprint
+    )
+      this.fail("INCOMPATIBLE", "session.themeNotReady", "INCOMPLETE_THEME");
+    if (!validateSafeCss(selected.record.css).valid)
+      this.fail("INCOMPATIBLE", "session.themeUnsafe", "UNSAFE_CSS");
+    const packageInfo = await this.platform.findStorePackage();
+    if (!packageInfo)
+      this.fail(
+        "INCOMPATIBLE",
+        "session.storePackageNotFound",
+        "STORE_PACKAGE_NOT_FOUND",
+      );
+    // A successful recheck is only a fresh baseline, never permission to attach.
+    // Include processes surviving Store upgrades; ownership remains path-exact.
+    const baseline = await this.platform.listCodexProcesses();
+    if (baseline.length)
+      this.fail(
+        "EXTERNAL_BLOCKED",
+        "session.externalRunning",
+        "EXTERNAL_SESSION_RUNNING",
+      );
+    return { selected, packageInfo, baseline };
   }
 
   async pause(): Promise<void> {

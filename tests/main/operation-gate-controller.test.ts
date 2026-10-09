@@ -66,6 +66,47 @@ describe("AppController operation gate", () => {
     expect(fixture.broadcast).toHaveBeenCalledOnce();
   });
 
+  it("blocks launch and other side effects during a read-only recheck, then broadcasts its result", async () => {
+    const fixture = controllerFixture();
+    let release!: () => void;
+    fixture.session.recheck.mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      fixture.state.state = "NO_SESSION";
+      fixture.state.messageKey = "session.preflightReady";
+    });
+    const recheck = fixture.controller.recheckSession();
+    await Promise.resolve();
+    expect(await fixture.controller.launchSession()).toMatchObject({
+      ok: false,
+      error: { code: "OPERATION_BUSY" },
+    });
+    expect(fixture.session.launch).not.toHaveBeenCalled();
+    release();
+    expect(await recheck).toMatchObject({
+      ok: true,
+      data: { session: { messageKey: "session.preflightReady" } },
+    });
+    expect(fixture.broadcast).toHaveBeenCalledOnce();
+    expect(fixture.platform.launchStore).not.toHaveBeenCalled();
+  });
+
+  it("broadcasts a failed recheck so the UI receives the current reason", async () => {
+    const fixture = controllerFixture();
+    fixture.session.recheck.mockImplementation(async () => {
+      fixture.state.state = "EXTERNAL_BLOCKED";
+      fixture.state.messageKey = "session.externalRunning";
+      throw new Error("EXTERNAL_SESSION_RUNNING");
+    });
+    expect(await fixture.controller.recheckSession()).toMatchObject({
+      ok: false,
+      error: { code: "EXTERNAL_SESSION_RUNNING" },
+    });
+    expect(fixture.broadcast).toHaveBeenCalledOnce();
+    expect(fixture.session.launch).not.toHaveBeenCalled();
+  });
+
   it("rejects tray pause, IPC end, and tray quit while an IPC launch is active", async () => {
     const fixture = controllerFixture();
     let releaseLaunch!: () => void;
@@ -267,6 +308,7 @@ function controllerFixture(
   const platform = { launchStore: vi.fn() };
   const session = {
     launch: vi.fn(),
+    recheck: vi.fn(),
     pause: vi.fn(),
     resume: vi.fn(),
     endOwned: vi.fn(),

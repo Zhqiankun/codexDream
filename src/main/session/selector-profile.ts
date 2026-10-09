@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/18" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/19" as const;
 
 // Store 26.924.2738.0 collapsed-turn-disclosure renders duration and previous
 // message count through the same button. Keep expanded state and locale agnostic.
@@ -25,11 +25,13 @@ export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
 export const HOME_COMPOSER_RAIL_SELECTOR =
   '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
 
-// Verified in Store 26.901.2854.0 and 26.901.6511.0: plugins and scheduled
-// tasks share this surface. Its input capsule is a separate descendant.
-// Keep the verified search IDs explicit so unrelated sticky surfaces stay native.
+// Legacy pages paint the sticky/bg-surface rail. Store 26.1002.7124.0 Skills
+// and Plugins share plugins-page-search in an inline header, whose module shell
+// paints ::before instead. Keep both verified structures and search IDs bounded.
 export const PAGE_SEARCH_RAIL_SELECTOR =
   'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)' as const;
+export const INLINE_PAGE_SEARCH_HEADER_SELECTOR =
+  '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] input#plugins-page-search, > div[class*="_content_"] > div[class*="_headerRow_"] input#scheduled-page-search)' as const;
 
 // The Markdown document viewer uses CodeMirror, not the chat MarkdownRoot.
 // Own the viewport (including empty space) and exclude source/other languages.
@@ -111,6 +113,7 @@ export const SELECTOR_PARTS = [
   ["composer-backdrop", THREAD_BOTTOM_FADE_SELECTOR],
   ["composer-backdrop", THREAD_FOOTER_BACKDROP_SELECTOR],
   ["page-search-rail", PAGE_SEARCH_RAIL_SELECTOR],
+  ["page-search-rail", INLINE_PAGE_SEARCH_HEADER_SELECTOR],
   ["markdown-document", MARKDOWN_DOCUMENT_SELECTOR],
   ["dialog", '[role="dialog"]'],
 ] as const;

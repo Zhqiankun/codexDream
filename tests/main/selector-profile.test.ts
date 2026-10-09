@@ -23,7 +23,7 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
-    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/18");
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/19");
     expect(SELECTOR_PARTS).toContainEqual([
       "titlebar",
       'div[class*="_ApplicationMenuTopBar_"]',
@@ -67,6 +67,10 @@ describe("versioned selector profile", () => {
     expect(SELECTOR_PARTS).toContainEqual([
       "page-search-rail",
       'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)',
+    ]);
+    expect(SELECTOR_PARTS).toContainEqual([
+      "page-search-rail",
+      '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] input#plugins-page-search, > div[class*="_content_"] > div[class*="_headerRow_"] input#scheduled-page-search)',
     ]);
   });
 

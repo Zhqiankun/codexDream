@@ -17,7 +17,6 @@ import {
   type CodexAssistantSnapshot,
   type ImportResult,
   type Result,
-  type SessionState,
   type StudioRuntimeInfo,
   type ThemeDetail,
   type ThemePatch,
@@ -25,6 +24,11 @@ import {
   type UpdateSnapshot,
 } from "../../contracts";
 import { bridge } from "../api/bridge";
+import { ThemeList } from "../features/library/ThemeList";
+import {
+  SessionLauncher,
+  SESSION_LABELS as sessionLabels,
+} from "../features/session/SessionLauncher";
 import { StartupSetting } from "../features/settings/StartupSetting";
 import {
   StudioControls,
@@ -270,18 +274,6 @@ function previewControlIdFromTarget(
     : undefined;
 }
 
-const sessionLabels: Record<SessionState, string> = {
-  NO_SESSION: "未启动",
-  EXTERNAL_BLOCKED: "外部会话阻断",
-  LAUNCHING: "启动中",
-  VERIFYING_CDP: "验证中",
-  INJECTING: "注入中",
-  THEMED_SESSION: "主题会话",
-  PAUSED_FUTURE: "已暂停后续注入",
-  INCOMPATIBLE: "不兼容",
-  ORPHANED: "上次会话待确认",
-};
-
 function unwrap<T>(
   result: Result<T>,
   onError: (message: string) => void,
@@ -516,7 +508,10 @@ export function App() {
     if (!next) return;
     setSnapshot(next);
     const id =
-      libraryId ?? selectedLibraryIdRef.current ?? next.themes[0]?.libraryId;
+      libraryId ??
+      selectedLibraryIdRef.current ??
+      next.themes.find((theme) => theme.selectedForNextLaunch)?.libraryId ??
+      next.themes[0]?.libraryId;
     if (id) {
       const detail = unwrap(await bridge.getTheme({ libraryId: id }), report);
       if (detail) adoptSelectedDetail(detail);
@@ -895,66 +890,15 @@ export function App() {
               ) : null}
             </div>
           </div>
-          <div
-            className={`theme-list ${themeSearchPending ? "is-filtering" : ""}`}
-            aria-label="主题列表"
-            aria-busy={themeSearchPending}
-          >
-            {visibleThemes.map((theme) => (
-              <button
-                key={theme.libraryId}
-                className={`theme-row ${selected?.libraryId === theme.libraryId ? "active" : ""}`}
-                title={
-                  theme.status === "ready"
-                    ? "单击编辑，双击启用"
-                    : "单击编辑；保存后可双击启用"
-                }
-                onClick={() => void refresh(theme.libraryId)}
-                onDoubleClick={() => activateTheme(theme)}
-              >
-                <span
-                  className={`theme-swatch ${theme.backgroundThumbnailUrl ? "with-thumbnail" : "color-only"}`}
-                  style={{ background: theme.backgroundColor }}
-                  aria-hidden="true"
-                >
-                  {theme.backgroundThumbnailUrl ? (
-                    <img
-                      src={theme.backgroundThumbnailUrl}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      draggable={false}
-                      onError={(event) => {
-                        event.currentTarget.hidden = true;
-                      }}
-                    />
-                  ) : null}
-                </span>
-                <span className="theme-row-copy">
-                  <strong>{theme.name}</strong>
-                  <small>
-                    {theme.status === "ready" ? "已保存" : "草稿"} ·{" "}
-                    {theme.packageFormat === "formal" ? "正式包" : "主题包"}
-                  </small>
-                </span>
-                {theme.selectedForNextLaunch && (
-                  <span className="check-mark">✓</span>
-                )}
-              </button>
-            ))}
-            {visibleThemes.length === 0 ? (
-              <div className="theme-list-empty" role="status">
-                <span className="theme-list-empty-mark" aria-hidden="true">
-                  ◌
-                </span>
-                <strong>没有匹配的主题</strong>
-                <small>换个名称，或清空搜索后查看全部主题。</small>
-                <button type="button" onClick={() => setThemeQuery("")}>
-                  清空搜索
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <ThemeList
+            themes={visibleThemes}
+            selectedLibraryId={selected?.libraryId}
+            filterKey={normalizedThemeQuery}
+            filtering={themeSearchPending}
+            onOpen={(libraryId) => void refresh(libraryId)}
+            onActivate={activateTheme}
+            onClearSearch={() => setThemeQuery("")}
+          />
           <div className="sidebar-footer">
             {!runtimeMismatch && runtimeInfo && <StartupSetting />}
             <div className="library-stat">
@@ -2761,215 +2705,6 @@ function ImportConflict({
   );
 }
 
-function SessionLauncher({
-  snapshot,
-  busy,
-  run,
-}: {
-  snapshot?: ThemeSnapshot;
-  busy: boolean;
-  run: StudioProps["run"];
-}) {
-  const state = snapshot?.session.state ?? "NO_SESSION";
-  const messageKey = snapshot?.session.messageKey;
-  const ownedVerified = Boolean(snapshot?.session.canEnd);
-  const checks = sessionCheckStates(state, messageKey, ownedVerified);
-  return (
-    <section
-      className={`panel-card session-launcher state-${state}`}
-      aria-label="Codex 会话启动"
-    >
-      <div className="session-launcher-main">
-        <div className="session-launcher-icon" aria-hidden="true">
-          C
-        </div>
-        <div className="session-launcher-copy">
-          <span>CODEX 会话</span>
-          <strong>
-            {snapshot?.session.messageKey === "session.externalRunning"
-              ? "检测到外部 Codex"
-              : sessionLabels[state]}
-          </strong>
-          <p>{messageForState(state, messageKey)}</p>
-        </div>
-      </div>
-      <div className="session-launcher-side">
-        <div className={`large-state state-${state}`}>
-          <span className="status-dot" /> {sessionLabels[state]}
-        </div>
-        <div className="session-actions">
-          {snapshot?.paused ? (
-            <button
-              className="primary-button"
-              disabled={busy}
-              onClick={() => void run(() => bridge.resumeSession())}
-            >
-              恢复后续注入
-            </button>
-          ) : state === "THEMED_SESSION" ? (
-            <button
-              className="secondary-button"
-              disabled={busy}
-              onClick={() => void run(() => bridge.pauseSession())}
-            >
-              暂停后续注入
-            </button>
-          ) : (
-            <button
-              className="primary-button"
-              disabled={busy || !snapshot?.selectedLibraryId}
-              onClick={() => void run(() => bridge.launchSession())}
-            >
-              启动 Codex
-            </button>
-          )}
-          {snapshot?.session.canEnd && (
-            <button
-              className="danger-button"
-              disabled={busy}
-              onClick={() => void run(() => bridge.endOwnedSession())}
-            >
-              结束受管会话
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="session-launcher-checks" aria-label="启动检查">
-        <span className="session-checks-label">启动检查</span>
-        <div>
-          <CheckRow label="Store Codex 可启动" state={checks.package} />
-          <CheckRow label="会话可安全管理" state={checks.ownership} />
-          <CheckRow label="主题与当前版本兼容" state={checks.compatibility} />
-        </div>
-      </div>
-      <p className="session-launcher-safety">
-        外部启动的 Codex 不受控制；身份或选择器不兼容时保持原样。
-      </p>
-    </section>
-  );
-}
-
-type CheckState = "pass" | "fail" | "pending";
-
-interface SessionCheckStates {
-  package: CheckState;
-  ownership: CheckState;
-  compatibility: CheckState;
-}
-
-function sessionCheckStates(
-  state: SessionState,
-  messageKey: string | undefined,
-  ownedVerified: boolean,
-): SessionCheckStates {
-  const checks: SessionCheckStates = {
-    package: "pending",
-    ownership: "pending",
-    compatibility: "pending",
-  };
-
-  if (ownedVerified || state === "THEMED_SESSION" || state === "INJECTING") {
-    return {
-      package: "pass",
-      ownership: "pass",
-      compatibility: "pass",
-    };
-  }
-
-  if (state === "EXTERNAL_BLOCKED") {
-    return { ...checks, package: "pass", ownership: "fail" };
-  }
-
-  if (state === "LAUNCHING" || state === "VERIFYING_CDP") {
-    return { ...checks, package: "pass", ownership: "pass" };
-  }
-
-  if (state !== "INCOMPATIBLE") return checks;
-
-  if (messageKey === "session.storePackageNotFound") {
-    return { ...checks, package: "fail" };
-  }
-
-  if (messageKey === "session.launchFailed") {
-    return { ...checks, package: "fail" };
-  }
-
-  if (
-    messageKey === "session.cdpUnavailable" ||
-    messageKey === "session.identityMismatch"
-  ) {
-    return {
-      ...checks,
-      package: "pass",
-      ownership: "fail",
-    };
-  }
-
-  if (messageKey === "session.targetIncompatible") {
-    return {
-      package: "pass",
-      ownership: "pass",
-      compatibility: "fail",
-    };
-  }
-
-  if (messageKey === "session.injectionFailed") {
-    return {
-      package: "pass",
-      ownership: "pass",
-      compatibility: "fail",
-    };
-  }
-
-  return checks;
-}
-
-function CheckRow({ label, state }: { label: string; state: CheckState }) {
-  const passed = state === "pass";
-  return (
-    <div className="check-row">
-      <span
-        className={`check-circle ${passed ? "ok" : state === "fail" ? "failed" : ""}`}
-      >
-        {passed ? "✓" : state === "fail" ? "!" : "·"}
-      </span>
-      <span>{label}</span>
-      <small>{passed ? "通过" : state === "fail" ? "未通过" : "等待"}</small>
-    </div>
-  );
-}
-function messageForState(
-  state: SessionState,
-  messageKey: string | undefined,
-): string {
-  if (state === "LAUNCHING")
-    return "正在通过 Microsoft Store 注册入口启动 Codex，尚未连接或注入主题。";
-  if (state === "VERIFYING_CDP")
-    return "Codex 已启动，正在等待它打开仅限本机的 127.0.0.1 调试端口并完成身份核验。";
-  if (state === "INJECTING")
-    return "会话身份与页面兼容性已通过，正在安全应用所选主题。";
-  if (state === "EXTERNAL_BLOCKED")
-    return "已有外部启动的 Codex。请在系统中自行关闭后再试，CodexStyle 不会触碰它。";
-  if (state === "INCOMPATIBLE" && messageKey === "session.launchFailed")
-    return "Windows 启动调用失败，未创建受管会话，也未注入任何主题。";
-  if (state === "INCOMPATIBLE" && messageKey === "session.cdpUnavailable")
-    return "Codex 已启动，但未在等待时间内打开可验证的 127.0.0.1 CDP 端口。请关闭刚打开的 Codex 后重试；若持续出现，可能是当前 Store 版本未透传调试参数。";
-  if (state === "INCOMPATIBLE" && messageKey === "session.identityMismatch")
-    return "检测到了端口或进程，但 PID、用户身份、启动参数或 Browser ID 不匹配。为安全起见未连接，请关闭刚打开的 Codex 后重试。";
-  if (state === "INCOMPATIBLE" && messageKey === "session.targetIncompatible")
-    return "本地 CDP 已验证，但当前 Codex 页面结构与主题选择器不兼容，需要更新 CodexStyle 的兼容配置。";
-  if (state === "INCOMPATIBLE" && messageKey === "session.injectionFailed")
-    return "会话身份与页面兼容性已通过，但主题注入没有完整成功，Codex 已保持原样。";
-  if (state === "INCOMPATIBLE")
-    return "当前 Store 版本未提供可验证的 CDP 或选择器，工具不会绕过安全边界。";
-  if (state === "ORPHANED")
-    return "检测到上次由 CodexStyle 启动的会话记录，但当前无法安全确认它仍受控。请先确认并关闭相关 Codex 窗口，再重新启动；CodexStyle 不会自动连接或关闭它。";
-  if (state === "THEMED_SESSION")
-    return "主题已经注入到本工具启动的 Codex 会话。";
-  if (state === "PAUSED_FUTURE")
-    return "已停止后续注入，当前页面不会被追溯修改。";
-  return "选择一个已保存主题后启动 CodexStyle 管理的会话。";
-}
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="empty-state">
