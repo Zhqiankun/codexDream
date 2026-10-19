@@ -206,7 +206,7 @@ describe("theme payload", () => {
       const pluginsSearchRailDomSelector =
         'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)';
       const inlineHeaderDomSelector =
-        '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] input#plugins-page-search, > div[class*="_content_"] > div[class*="_headerRow_"] input#scheduled-page-search)';
+        '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] > div[class*="_title_"] > div[class*="_titleContent_"])';
       for (const pseudo of ["", "::before", "::after"]) {
         expect(style?.textContent).toContain(
           `${pluginsSearchRailSelector}${pseudo}, ${rootSelector} ${pluginsSearchRailDomSelector}${pseudo}, ${rootSelector} ${inlineHeaderDomSelector}${pseudo} { background: transparent !important; }`,
@@ -290,18 +290,36 @@ describe("theme payload", () => {
     }
   });
 
-  it("owns only the verified inline header structure and search anchors", () => {
+  it("owns shared inline headers independently of optional page search", () => {
     resetDocument();
+    const title =
+      '<div class="_title_bomwa_2"><div class="_titleContent_bomwa_2"><h1>Page title</h1></div></div>';
+    const content = (searchId?: string) =>
+      `<div class="_content_bomwa_2"><div class="_headerRow_bomwa_2">${title}<div class="_actions_bomwa_2">${searchId ? `<input id="${searchId}">` : ""}</div></div></div>`;
+    const searches = [
+      "plugins-store-page-search",
+      "plugins-page-search",
+      "library-search-_r_23_",
+      "scheduled-page-search",
+      "projects-index-search",
+      "appgen-site-search",
+      "browser-skills-search",
+      "future-page-search",
+      undefined,
+    ];
     document.querySelector("main")?.insertAdjacentHTML(
       "beforeend",
       `
       <div data-app-shell-inline-page-header><div>
-        <div data-testid="inline-header" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div></div></div>
-        <div data-testid="inline-no-sticky" class="_shell_bomwa_2"><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div></div></div>
-        <div data-testid="inline-other-page" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="other-page-search"></div></div></div>
-        <div data-testid="inline-misplaced-search" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"></div><input id="plugins-page-search"></div></div>
+        ${searches.map((searchId, index) => `<div data-testid="inline-header-${index}" class="_shell_bomwa_2" data-sticky>${content(searchId)}</div>`).join("")}
+        <div data-testid="inline-no-sticky" class="_shell_bomwa_2">${content("plugins-page-search")}</div>
+        <div data-testid="inline-no-title" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div></div></div>
+        <div data-testid="inline-misplaced-title" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div>${title}</div></div>
+        <div><div data-testid="inline-nested-card" class="_shell_bomwa_2" data-sticky>${content("plugins-store-page-search")}</div></div>
+        <div data-testid="inline-wrong-shell" class="ordinary-card" data-sticky>${content("plugins-store-page-search")}</div>
       </div></div>
-      <div data-testid="inline-no-page-anchor" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><input id="plugins-page-search"></div></div></div>
+      <div data-testid="inline-no-page-anchor" class="_shell_bomwa_2" data-sticky>${content("plugins-store-page-search")}</div>
+      <div data-testid="legacy-library-rail" class="sticky bg-surface"><input id="library-search-_r_28_"></div>
     `,
     );
     window.eval(
@@ -311,16 +329,21 @@ describe("theme payload", () => {
         "",
       ),
     );
-    expect(
-      document
-        .querySelector('[data-testid="inline-header"]')
-        ?.getAttribute("data-ds-part"),
-    ).toBe("page-search-rail");
+    for (const index of searches.keys()) {
+      expect(
+        document
+          .querySelector(`[data-testid="inline-header-${index}"]`)
+          ?.getAttribute("data-ds-part"),
+      ).toBe("page-search-rail");
+    }
     for (const selector of [
       '[data-testid="inline-no-sticky"]',
-      '[data-testid="inline-other-page"]',
-      '[data-testid="inline-misplaced-search"]',
+      '[data-testid="inline-no-title"]',
+      '[data-testid="inline-misplaced-title"]',
+      '[data-testid="inline-nested-card"]',
+      '[data-testid="inline-wrong-shell"]',
       '[data-testid="inline-no-page-anchor"]',
+      '[data-testid="legacy-library-rail"]',
       "input",
     ]) {
       for (const node of document.querySelectorAll(selector)) {

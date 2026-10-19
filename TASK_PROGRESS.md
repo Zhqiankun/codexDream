@@ -1,6 +1,13 @@
 # CodexStyle 任务进度
 
-更新时间：2026-10-08
+更新时间：2026-10-19
+
+## 2026-10-19 v1.3.23 发布准备
+
+- 用户明确要求发布并确认 `v1.3.23`。基线为 `v1.3.22` / `a8e7b49`，纳入已完成的共用页头兼容与本轮固定侧栏底色、输入框上沿渐变修复，selector profile 为 `/22`。版本、锁文件、双语 README 和 CHANGELOG 同步；旧审计及本地用户数据目录不纳入提交。
+- 本轮功能阶段 76 项相关单元测试、11 项侧栏/边缘隔离 Electron 回归及类型、lint、格式、架构和生产构建检查通过；此前共用页头的功能证据见 PLAN。真实受管 Codex 窗口未热应用、未实测，用户已选择不再手动验证后发布。
+- 发布前完整回归：`vitest run tests/main tests/renderer tests/acceptance --maxWorkers=1` 共 37 文件、358 项通过；`playwright test` 全部 40 项通过。全体 Git 跟踪文件的格式/lint、类型、架构、版本一致性和 diff 检查通过。使用现有 Node.js 22.22.0、Python 3.12.10 与 MSVC 2019 顺序完成原构建流程中的图标、native secure-store、插件和 electron-vite main/preload/renderer 构建，未重装依赖或修改全局 PATH。相关生成资产无新增 Git 差异，本轮提交仅含 14 个相关源码、测试和发布文档文件。
+- 发布前核对本地/远端标签和 GitHub Release，正式五类 Windows x64 产物仅由现有标签工作流构建、校验和发布。当前执行状态以对应标签的 Actions 和最终 Release 产物核对为准，不上传本地产物、不修改现有安装或已保存主题。
 
 ## 2026-10-08 v1.3.20 发布准备
 

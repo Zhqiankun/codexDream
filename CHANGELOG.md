@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.23 — 2026-10-19
+
+### English
+
+- Fixed the native sidebar tint reappearing after the Store Codex 26.1013.4894.0 layout update. The new fixed navigation wrapper is cleared while fixed and floating sidebars continue painting the saved theme surface once, preserving configured opacity and interactions.
+- Fixed the white strip above the conversation composer. The bottom fade now supports the newer CSS module background inside the verified transcript slot, while retaining older layouts and the composer, message, card, and scrolling surfaces.
+- Updated shared sticky page headers for renamed, dynamic, or absent search controls. Verified title structure identifies the header independently of search IDs, including Skills, Plugins, Library, project/site lists, and initially empty search states. Unrelated cards and nested headers keep their native surfaces.
+- Advanced the selector profile to `/22` without changing theme data, application IPC v6, dependencies, or Windows startup preferences. Isolated Electron regressions cover native background pixels, transparent and tinted themes, dynamic reconstruction, inputs, legacy layouts, and ownership boundaries. A real managed Store Codex session has not been verified locally.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules. Saved themes and configured transparency are kept.
+
+### 简体中文
+
+- 修复 Store Codex 26.1013.4894.0 布局更新后左侧菜单再次叠加原生底色的问题。清除固定侧栏新增导航外层的染色，固定与悬浮侧栏继续只绘制一次已保存的主题表面，保留配置透明度与交互。
+- 修复对话输入框上方的白条。在已核对的对话内容层级内兼容新版 CSS module 底部渐变，同时保留旧版布局以及输入框、消息、卡片和滚动表面。
+- 适配搜索框改名、动态生成或未渲染时的共用吸顶页头。通过已核对的标题结构识别页头，覆盖技能、插件、空间、项目/站点列表与初始无搜索框状态，不依赖搜索 ID；无关卡片和嵌套标题栏保持原生表面。
+- 选择器 profile 升至 `/22`，不改变主题数据、应用 IPC v6、依赖或 Windows 自启动选择。隔离 Electron 回归覆盖原生背景像素、透明及有底色主题、动态重建、输入、旧版布局与归属边界；本地尚未验证真实受管 Store Codex 会话。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。已保存主题与配置透明度保留。
+
 ## v1.3.22 — 2026-10-09
 
 ### English

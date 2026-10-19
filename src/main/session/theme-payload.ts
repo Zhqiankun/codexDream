@@ -12,7 +12,7 @@ import {
   COLLAPSED_TURN_DISCLOSURE_SELECTOR,
   EDGE_SCROLL_THREAD_TITLE_SELECTOR,
   HOME_COMPOSER_RAIL_SELECTOR,
-  INLINE_PAGE_SEARCH_HEADER_SELECTOR,
+  INLINE_PAGE_HEADER_SELECTOR,
   MAIN_TOP_FADE_SELECTOR,
   MARKDOWN_DOCUMENT_SELECTOR,
   PAGE_SEARCH_RAIL_SELECTOR,
@@ -92,7 +92,7 @@ export function buildThemePayload(
     edgeScrollThreadTitleSelector: EDGE_SCROLL_THREAD_TITLE_SELECTOR,
     homeComposerRailSelector: HOME_COMPOSER_RAIL_SELECTOR,
     pageSearchRailSelector: PAGE_SEARCH_RAIL_SELECTOR,
-    inlinePageSearchHeaderSelector: INLINE_PAGE_SEARCH_HEADER_SELECTOR,
+    inlinePageSearchHeaderSelector: INLINE_PAGE_HEADER_SELECTOR,
     markdownDocumentSelector: MARKDOWN_DOCUMENT_SELECTOR,
     userMessageEditorSelector: USER_MESSAGE_EDITOR_SELECTOR,
     collapsedTurnDisclosureSelector: COLLAPSED_TURN_DISCLOSURE_SELECTOR,
@@ -251,10 +251,12 @@ export function buildThemePayload(
       // quotes and code remain distinct, without blanket descendant color rules.
       const markdownDocumentBridge = '\\n' + markdownDocumentPartSelector + ', ' + instantMarkdownDocumentSelector + ' { background: #ffffff !important; color: #1f2328 !important; color-scheme: light; --color-text: #1f2328 !important; --color-text-secondary: #4b5563 !important; --color-text-tertiary: #5b6470 !important; --color-text-info: #0969da !important; --color-codex-editor-inline-code-background: #f3f4f6 !important; --color-codex-editor-inline-code-foreground: #1f2328 !important; --color-codex-editor-cursor: #1f2328 !important; --color-border: #d1d5db !important; --color-border-subtle: #e5e7eb !important; --color-border-strong: #9ca3af !important; --color-surface-secondary: #f3f4f6 !important; --color-codex-description: #5b6470 !important; --color-background-info-soft: #dbeafe !important; --color-background-info-surface: #bfdbfe !important; }' +
         '\\n' + markdownDocumentPartSelector + ' .cm-markdown-code-line, ' + instantMarkdownDocumentSelector + ' .cm-markdown-code-line { background-color: #f3f4f6 !important; }';
-      // Store 26.1002.7124.0 paints an additional sidebar-navigation surface
-      // and an opaque peeking popover. Own one paint layer in either state.
+      // Store 26.1013.4894.0 adds a fixed navigation root outside the existing
+      // content layer. Clear its native tint while keeping one theme paint
+      // layer on the fixed sidebar or the peeking content, respectively.
       const sidebarSelector = '[data-ds-part="sidebar"][data-codexstyle-owner="' + config.marker + '"]';
       const sidebarContentSelector = sidebarSelector + ' [data-slate-sidebar-content].sidebar-navigation';
+      const sidebarNavigationRootSelector = sidebarSelector + ':not([data-slate-sidebar-peeking="true"]) [data-sidebar-navigation-root].sidebar-navigation';
       const sidebarPeekSelector = sidebarSelector + '[data-slate-sidebar-peeking="true"]:has([data-slate-sidebar-content].sidebar-navigation)';
       const sidebarPeekContentSelector = sidebarPeekSelector + ' [data-slate-sidebar-content].sidebar-navigation';
       const sidebarPeekBlur = config.configuredRecipes?.sidebar && !config.sidebarSurfaceTransparent
@@ -271,7 +273,7 @@ export function buildThemePayload(
         : '';
       const sidebarBridge = config.backgroundScope === "window"
         ? '\\n' + sidebarSelector + ' { background: ' + config.sidebarSurface + ' !important; }' +
-          '\\n' + sidebarSelector + '::after, ' + sidebarContentSelector + ' { background: transparent !important; }' +
+          '\\n' + sidebarSelector + '::after, ' + sidebarContentSelector + ', ' + sidebarNavigationRootSelector + ' { background: transparent !important; }' +
           '\\n' + sidebarPeekSelector + ' { background: transparent !important;' + sidebarPeekOuterBlur + ' }' +
           '\\n' + sidebarPeekContentSelector + ' { background: ' + config.sidebarSurface + ' !important;' + sidebarPeekInnerBlur + ' }' +
           (config.sidebarSurfaceTransparent

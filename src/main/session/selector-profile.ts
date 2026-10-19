@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/19" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/22" as const;
 
 // Store 26.924.2738.0 collapsed-turn-disclosure renders duration and previous
 // message count through the same button. Keep expanded state and locale agnostic.
@@ -11,9 +11,11 @@ export const MAIN_TOP_FADE_SELECTOR =
 
 // Store 26.1002.7124.0 nests the sticky fade inside the transcript wrapper.
 // Default/panel footers sit beside that wrapper in the scroll container; compact
-// footers sit directly in the layout root. Keep message-card gradients native.
+// footers sit directly in the layout root. Store 26.1013.4894.0 keeps this slot
+// but paints its fade with CSS modules instead of bg-gradient-to-t. Keep both
+// versions bounded to the same slot, leaving message-card gradients native.
 export const THREAD_BOTTOM_FADE_SELECTOR =
-  '[class~="group/thread-scroll-layout"] > .thread-scroll-container > [class~="[container-name:thread-content]"] > [aria-hidden="true"][class~="pointer-events-none"][class~="sticky"][class~="bottom-0"] > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="bg-gradient-to-t"][class~="from-surface"]' as const;
+  '[class~="group/thread-scroll-layout"] > .thread-scroll-container > [class~="[container-name:thread-content]"] > [aria-hidden="true"][class~="pointer-events-none"][class~="sticky"][class~="bottom-0"] > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="from-surface"]:is([class~="bg-gradient-to-t"], [class*="_background_"][class*="_fade_"])' as const;
 export const THREAD_FOOTER_SELECTOR =
   ':is([class~="group/thread-scroll-layout"], [class~="group/thread-scroll-layout"] > .thread-scroll-container) > [data-thread-scroll-footer="true"]' as const;
 export const THREAD_FOOTER_BACKDROP_SELECTOR =
@@ -25,13 +27,15 @@ export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
 export const HOME_COMPOSER_RAIL_SELECTOR =
   '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
 
-// Legacy pages paint the sticky/bg-surface rail. Store 26.1002.7124.0 Skills
-// and Plugins share plugins-page-search in an inline header, whose module shell
-// paints ::before instead. Keep both verified structures and search IDs bounded.
+// Legacy search rails still need their page-specific anchors. Store
+// 26.1007.2314.0 changes the Plugins search ID and omits search in some states;
+// its shared sticky header paints ::before independently of those controls.
+// Identify that component by its direct shell/content/row/title hierarchy so
+// optional search, card contents and nested headers cannot change its scope.
 export const PAGE_SEARCH_RAIL_SELECTOR =
   'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)' as const;
-export const INLINE_PAGE_SEARCH_HEADER_SELECTOR =
-  '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] input#plugins-page-search, > div[class*="_content_"] > div[class*="_headerRow_"] input#scheduled-page-search)' as const;
+export const INLINE_PAGE_HEADER_SELECTOR =
+  '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] > div[class*="_title_"] > div[class*="_titleContent_"])' as const;
 
 // The Markdown document viewer uses CodeMirror, not the chat MarkdownRoot.
 // Own the viewport (including empty space) and exclude source/other languages.
@@ -113,7 +117,7 @@ export const SELECTOR_PARTS = [
   ["composer-backdrop", THREAD_BOTTOM_FADE_SELECTOR],
   ["composer-backdrop", THREAD_FOOTER_BACKDROP_SELECTOR],
   ["page-search-rail", PAGE_SEARCH_RAIL_SELECTOR],
-  ["page-search-rail", INLINE_PAGE_SEARCH_HEADER_SELECTOR],
+  ["page-search-rail", INLINE_PAGE_HEADER_SELECTOR],
   ["markdown-document", MARKDOWN_DOCUMENT_SELECTOR],
   ["dialog", '[role="dialog"]'],
 ] as const;

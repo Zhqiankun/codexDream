@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   CODEX_SELECTOR_PROFILE,
   SELECTOR_PARTS,
+  THREAD_BOTTOM_FADE_SELECTOR,
   isCompatibleSelectorProbe,
   selectorProbeExpression,
 } from "../../src/main/session/selector-profile";
@@ -23,7 +24,7 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
-    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/19");
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/22");
     expect(SELECTOR_PARTS).toContainEqual([
       "titlebar",
       'div[class*="_ApplicationMenuTopBar_"]',
@@ -70,8 +71,31 @@ describe("versioned selector profile", () => {
     ]);
     expect(SELECTOR_PARTS).toContainEqual([
       "page-search-rail",
-      '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] input#plugins-page-search, > div[class*="_content_"] > div[class*="_headerRow_"] input#scheduled-page-search)',
+      '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] > div[class*="_title_"] > div[class*="_titleContent_"])',
     ]);
+  });
+
+  it("limits legacy and module fades to the transcript's direct sticky slot", () => {
+    const paintClasses = "pointer-events-none absolute inset-x-0 from-surface";
+    document.body.innerHTML = `
+      <div class="group/thread-scroll-layout"><div class="thread-scroll-container">
+        <div class="[container-name:thread-content]">
+          <div aria-hidden="true" class="pointer-events-none sticky bottom-0">
+            <div id="legacy" aria-hidden="true" class="${paintClasses} bg-gradient-to-t"></div>
+            <div id="module" aria-hidden="true" class="${paintClasses} _background_future_2 _fade_future_2"></div>
+            <div id="missing-background" aria-hidden="true" class="${paintClasses} _fade_future_2"></div>
+            <div id="surface" aria-hidden="true" class="${paintClasses} _background_future_2 _surface_future_2"></div>
+          </div>
+          <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="card-fade" aria-hidden="true" class="${paintClasses} _background_future_2 _fade_future_2"></div></div></section>
+        </div>
+      </div></div>
+      <div id="outside-fade" aria-hidden="true" class="${paintClasses} _background_future_2 _fade_future_2"></div>`;
+
+    expect(
+      [...document.querySelectorAll(THREAD_BOTTOM_FADE_SELECTOR)].map(
+        (node) => node.id,
+      ),
+    ).toEqual(["legacy", "module"]);
   });
 
   it("rejects a shell when either managed top bar anchor is missing", () => {

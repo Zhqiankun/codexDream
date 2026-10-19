@@ -52,21 +52,26 @@ const test = base.extend<{ shell: Page }>({
   },
 });
 
-// Paint layers and anchors verified in Store 26.1002.7124.0. Native colors
-// remain independent of theme tokens, so a missed layer stays visibly opaque.
+// Store 26.1013.4894.0 moves the fixed navigation surface to a new outer root
+// and paints the bottom fade with CSS module classes. Keep native colors
+// independent of theme tokens so either missed layer remains visibly opaque.
 const nativeCss = `
   html, body { margin: 0; min-height: 100%; }
   :root { --native-surface: #fff; }
   aside.app-shell-left-panel { position: fixed; left: 20px; top: 20px; width: 200px; height: 500px; background: var(--native-surface); }
   aside.app-shell-left-panel::after { content: ''; position: absolute; inset: 0; background: inherit; pointer-events: none; }
-  [data-slate-sidebar-content].sidebar-navigation { position: relative; z-index: 1; height: 100%; overflow-y: auto; background: color-mix(in oklab, var(--native-surface) 65%, transparent); }
+  .fixture-page-surface ._LeftPanel_test:not([data-slate-sidebar-peeking="true"]) .sidebar-navigation:not(.sidebar-navigation .sidebar-navigation) { background: color-mix(in oklab, var(--native-surface) 65%, transparent); }
+  [data-sidebar-navigation-root] { height: 100%; }
+  [data-slate-sidebar-content].sidebar-navigation { position: relative; z-index: 1; height: 100%; overflow-y: auto; }
   aside[data-slate-sidebar-peeking="true"] [data-slate-sidebar-content] { margin: 16px; height: calc(100% - 32px); border-radius: 18px; background: rgb(from var(--native-surface) r g b / 1); box-shadow: 0 8px 24px #0003; }
   #sidebar-row { display: block; border: 0; background: transparent; padding: 10px; }
   #sidebar-row:hover { background: rgba(60, 70, 80, .15); }
   #tooltip { position: fixed; left: 700px; background: #fff; }
+  #unowned-sidebar { position: fixed; left: 820px; top: 80px; width: 100px; height: 100px; }
   #top-parent { background: rgba(10, 20, 30, .2); }
   [class*="_MainContentTopFade_"] { position: absolute; top: 0; height: 28px; background: linear-gradient(var(--native-surface), transparent); pointer-events: none; }
   .bg-gradient-to-t { background-image: linear-gradient(to top, var(--native-surface), transparent); }
+  ._fade_106nk_2 { height: 32px; background-image: linear-gradient(to top, var(--native-surface), transparent); }
   .bg-surface, [data-thread-scroll-footer]:has([data-thread-focus-mode]) { background-color: var(--native-surface); }
   .pointer-events-none { pointer-events: none; }
   .absolute { position: absolute; }
@@ -89,13 +94,19 @@ const nativeCss = `
   #composer, #user-message { background: var(--native-surface); }
 `;
 
-const sidebarHtml = `
-  <aside id="sidebar" class="app-shell-left-panel _LeftPanel_test">
-    <div id="sidebar-content" class="sidebar-navigation" data-slate-sidebar-content>
+type SurfaceVersion = "current" | "legacy";
+
+function sidebarHtml(version: SurfaceVersion = "current"): string {
+  const content = `<div id="sidebar-content" class="sidebar-navigation" data-slate-sidebar-content>
       <button id="sidebar-row">Task</button>
-    </div>
-  </aside>
-  <div id="tooltip" role="tooltip">Native tooltip</div>`;
+    </div>`;
+  return `<div class="fixture-page-surface">
+    <aside id="sidebar" class="app-shell-left-panel _LeftPanel_test">
+      ${version === "current" ? `<div id="sidebar-navigation-root" data-sidebar-navigation-root class="sidebar-navigation">${content}</div>` : content}
+    </aside>
+    <section id="unowned-sidebar" class="_LeftPanel_test"><div id="unowned-sidebar-root" data-sidebar-navigation-root class="sidebar-navigation">Unowned navigation</div></section>
+  </div><div id="tooltip" role="tooltip">Native tooltip</div>`;
+}
 
 function settings(): ThemePayloadSettings {
   const configuration = readThemeConfiguration({});
@@ -151,10 +162,11 @@ for (const appearance of ["light", "dark"] as const) {
         :root { --native-surface: ${appearance === "light" ? "#fff" : "#171718"}; }
         .mock-codex { position: fixed; left: 280px; top: 20px; width: 200px; height: 500px; border: 0; border-radius: 0; --preview-sidebar-surface: ${surface.color}; --preview-blur: 9px; }
         .mock-codex .mock-sidebar { width: 100%; max-width: none; min-width: 0; height: 100%; padding: 0; border: 0; }
-      </style>${sidebarHtml}
+      </style>${sidebarHtml()}
       <section class="mock-codex" data-background-scope="window" data-task-mode="full" data-style-mode="configured" data-recipe-sidebar="${recipe}" data-sidebar-surface-transparent="${surface.transparent}">
         <img class="mock-background" src="${art}" /><aside id="preview" class="mock-sidebar"></aside>
       </section>`);
+      const outsideBefore = await paint(shell, "unowned-sidebar-root");
       expect(await shell.evaluate(payload(theme, art))).toBe(true);
       await shell
         .locator("img")
@@ -175,6 +187,13 @@ for (const appearance of ["light", "dark"] as const) {
         await expect(shell.locator("#sidebar-content")).toHaveCSS(
           "background-color",
           peeking ? expectedColor : "rgba(0, 0, 0, 0)",
+        );
+        await expect(shell.locator("#sidebar-navigation-root")).toHaveCSS(
+          "background-color",
+          "rgba(0, 0, 0, 0)",
+        );
+        expect(await paint(shell, "unowned-sidebar-root")).toEqual(
+          outsideBefore,
         );
         await expect(shell.locator("#sidebar")).toHaveCSS(
           "backdrop-filter",
@@ -218,13 +237,29 @@ for (const appearance of ["light", "dark"] as const) {
         expect(await pixel(120)).toEqual(await pixel(380));
       }
       const immediate = await shell
-        .locator("#sidebar-content")
+        .locator("#sidebar-navigation-root")
         .evaluate((node) => {
           const replacement = node.cloneNode(true) as HTMLElement;
           node.replaceWith(replacement);
           return getComputedStyle(replacement).backgroundColor;
         });
       expect(immediate).toBe("rgba(0, 0, 0, 0)");
+      await shell
+        .locator("#sidebar-navigation-root")
+        .evaluate((node) =>
+          node.removeAttribute("data-sidebar-navigation-root"),
+        );
+      expect((await paint(shell, "sidebar-navigation-root")).color).not.toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+      await shell
+        .locator("#sidebar-navigation-root")
+        .evaluate((node) =>
+          node.setAttribute("data-sidebar-navigation-root", ""),
+        );
+      expect((await paint(shell, "sidebar-navigation-root")).color).toBe(
+        "rgba(0, 0, 0, 0)",
+      );
       await shell.locator("#sidebar-row").hover();
       await expect(shell.locator("#sidebar-row")).toHaveCSS(
         "background-color",
@@ -238,18 +273,22 @@ for (const appearance of ["light", "dark"] as const) {
   });
 }
 
-const splitFade = `<div id="split-fade" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 h-8 bg-gradient-to-t from-surface to-transparent"></div>`;
+const splitFade = `<div id="split-fade" aria-hidden="true" class="_background_106nk_2 _fade_106nk_2 pointer-events-none absolute inset-x-0 z-0 from-surface"></div>`;
+const legacySplitFade = `<div id="split-fade" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 h-8 bg-gradient-to-t from-surface to-transparent"></div>`;
 const footerPlate = `<div id="footer-plate" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 bottom-0 mt-8 bg-surface"></div>`;
-type ThreadPresentation = "default" | "compact";
+type ThreadPresentation = "default" | "panel" | "compact";
 
 // Default/panel put the footer inside the scroll container beside the transcript.
 // Compact puts it outside the scroll container and omits both paint children.
-function edgeHtml(presentation: ThreadPresentation = "default"): string {
+function edgeHtml(
+  presentation: ThreadPresentation = "default",
+  version: SurfaceVersion = "current",
+): string {
   const compact = presentation === "compact";
   const footer = `<div id="footer" data-thread-scroll-footer="true" class="pointer-events-none absolute inset-x-0 z-20 bottom-0 has-[[data-thread-focus-mode]]:bg-surface">
-    ${compact ? "" : footerPlate}<div data-codex-composer-root data-thread-focus-mode><div id="composer" data-composer-surface-variant="default"><div data-composer-layout>Composer</div></div></div>
+    ${compact ? "" : footerPlate}<div data-codex-composer-root data-thread-focus-mode><div id="composer" data-composer-surface-variant="default"><div data-composer-layout><div data-codex-composer contenteditable="true" role="textbox" aria-label="Message">Composer</div></div></div></div>
   </div>`;
-  return `${sidebarHtml}<main id="edge-main" class="main-surface">
+  return `${sidebarHtml(version)}<main id="edge-main" class="main-surface">
   <div id="top-parent" data-app-shell-main-content-top-fade="true"><div id="top-fade" aria-hidden="true" class="_MainContentTopFade_test"></div></div>
   <div id="legacy-top" aria-hidden="true" data-app-shell-main-content-top-fade="true" class="bg-surface"></div>
   <div id="thread-layout" class="group/thread-scroll-layout" data-presentation="${presentation}">
@@ -258,10 +297,10 @@ function edgeHtml(presentation: ThreadPresentation = "default"): string {
         <div id="message-content" data-mcp-app-portal-target="true" data-thread-user-message-navigation-content="true">
           <div id="legacy-fade" aria-hidden="true" class="bg-gradient-to-t from-surface via-surface to-transparent"></div>
           <div id="user-message" data-user-message-bubble="true">Message</div>
-          <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="card-gradient" aria-hidden="true" class="pointer-events-none absolute inset-x-0 bg-gradient-to-t from-surface to-transparent"></div></div></section>
+          <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="card-gradient" aria-hidden="true" class="_background_106nk_2 _fade_106nk_2 pointer-events-none absolute inset-x-0 from-surface"></div></div></section>
           <section><div id="nested-footer" data-thread-scroll-footer="true" class="bg-surface"></div></section>
         </div>
-        <div id="sticky-plate" aria-hidden="true" class="pointer-events-none sticky bottom-0 z-10 mt-auto w-full shrink-0">${compact ? "" : splitFade}</div>
+        <div id="sticky-plate" aria-hidden="true" class="pointer-events-none sticky bottom-0 z-10 mt-auto w-full shrink-0">${compact ? "" : version === "current" ? splitFade : legacySplitFade}</div>
       </div>
       ${compact ? "" : footer}
     </div>
@@ -288,12 +327,12 @@ function edgeIds(presentation: ThreadPresentation): string[] {
     "top-fade",
     "legacy-top",
     "legacy-fade",
-    ...(presentation === "default" ? ["split-fade", "footer-plate"] : []),
+    ...(presentation !== "compact" ? ["split-fade", "footer-plate"] : []),
     "footer",
   ];
 }
 
-for (const presentation of ["default", "compact"] as const) {
+for (const presentation of ["default", "panel", "compact"] as const) {
   for (const alpha of [0, 0.2]) {
     test(`native edge layers clear in ${presentation} with ${alpha} alpha`, async ({
       shell,
@@ -316,7 +355,7 @@ for (const presentation of ["default", "compact"] as const) {
         ),
       );
       expect(before["top-fade"].image).toContain("linear-gradient");
-      if (presentation === "default") {
+      if (presentation !== "compact") {
         expect(before["split-fade"].image).toContain("linear-gradient");
         expect(before["footer-plate"].color).toBe("rgb(255, 255, 255)");
       }
@@ -384,6 +423,12 @@ for (const presentation of ["default", "compact"] as const) {
           "rgba(255, 66, 113, 0.24)",
         );
       }
+      await shell
+        .getByRole("textbox", { name: "Message" })
+        .fill("Typed message");
+      await expect(shell.getByRole("textbox", { name: "Message" })).toHaveText(
+        "Typed message",
+      );
       const composerRoot = shell.locator("[data-codex-composer-root]");
       for (const focused of [false, true]) {
         await composerRoot.evaluate((node, enabled) => {
@@ -419,7 +464,7 @@ for (const presentation of ["default", "compact"] as const) {
           .soft(immediate, `replaced ${id}`)
           .toEqual({ color: "rgba(0, 0, 0, 0)", image: "none" });
       }
-      if (presentation === "default") {
+      if (presentation !== "compact") {
         for (const id of ["split-fade", "footer-plate"]) {
           await expect(shell.locator(`#${id}`)).toHaveAttribute(
             "data-ds-part",
@@ -438,7 +483,10 @@ test("native edges and content sidebar retain their scoped fallbacks", async ({
     await shell.goto("app://test/");
     await shell.setContent(`<style>${nativeCss}</style>${edgeHtml()}`);
     const edges = edgeIds("default");
-    const ids = mode === "content" ? [...edges, "sidebar-content"] : edges;
+    const ids =
+      mode === "content"
+        ? [...edges, "sidebar-navigation-root", "sidebar-content"]
+        : edges;
     const before = await Promise.all(ids.map((id) => paint(shell, id)));
     const theme = settings();
     theme.styleConfig.recipes.sidebar = false;
@@ -456,7 +504,7 @@ test("advanced sidebar blur stays custom, with zero alpha still fully clear", as
 }) => {
   for (const alpha of [0.3, 0]) {
     await shell.goto("app://test/");
-    await shell.setContent(`<style>${nativeCss}</style>${sidebarHtml}`);
+    await shell.setContent(`<style>${nativeCss}</style>${sidebarHtml()}`);
     const theme = settings();
     theme.colors.panel = `rgba(255, 66, 113, ${alpha})`;
     theme.styleConfig.mode = "advanced";
@@ -486,5 +534,35 @@ test("advanced sidebar blur stays custom, with zero alpha still fully clear", as
         "none",
       );
     }
+  }
+});
+
+test("legacy navigation and utility fades keep their existing theme behavior", async ({
+  shell,
+}) => {
+  await shell.setContent(
+    `<style>${nativeCss}</style>${edgeHtml("default", "legacy")}`,
+  );
+  const theme = settings();
+  theme.colors.panel = "rgba(255, 66, 113, 0.09)";
+  expect(await shell.evaluate(payload(theme, await pinkArt()))).toBe(true);
+  await expect(shell.locator("#sidebar-navigation-root")).toHaveCount(0);
+  await expect(shell.locator("#sidebar")).toHaveCSS(
+    "background-color",
+    "rgba(255, 66, 113, 0.09)",
+  );
+  for (const peeking of [false, true, false]) {
+    await shell.locator("#sidebar").evaluate((node, peek) => {
+      node.setAttribute("data-slate-sidebar-peeking", String(peek));
+    }, peeking);
+    await expect(shell.locator("#sidebar-content")).toHaveCSS(
+      "background-color",
+      peeking ? "rgba(255, 66, 113, 0.09)" : "rgba(0, 0, 0, 0)",
+    );
+  }
+  for (const id of edgeIds("default")) {
+    const after = await paint(shell, id);
+    expect(after.image).toBe("none");
+    expect(after.color).toBe("rgba(0, 0, 0, 0)");
   }
 });

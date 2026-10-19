@@ -29,8 +29,10 @@ const themes = [
   { name: "opaque dark", background: "#182230", appearance: "dark" },
 ] as const;
 
-// Store 26.1002.7124.0 shares this header between Skills and Plugins. The
-// shell has no sticky/bg-surface utility classes: its white surface is ::before.
+// Store 26.1007.2314.0 uses plugins-store-page-search for Plugins; Skills keeps
+// plugins-page-search. Space, Projects and Sites have other IDs, and Scheduled
+// omits search while initially loading. All use this same sticky header shell,
+// whose white surface is ::before, independently of the optional search control.
 // Retain the actual CSS module hierarchy and semantic attributes, independently
 // of the payload's selectors, so a missed surface remains visibly white.
 const nativePage = `<!doctype html><html data-codex-window-type="electron">
@@ -59,24 +61,29 @@ const nativePage = `<!doctype html><html data-codex-window-type="electron">
   #content-card { margin: 140px 32px; width: 200px; height: 80px; }
   #unrelated-header { position: fixed; top: 720px; left: 20px; width: 300px; }
 </style></head><body>
-  <nav><button data-page="plugins">Plugins</button><button data-page="skills">Skills</button></nav>
+  <nav><button data-page="all">All</button><button data-page="pages">Pages</button><button data-page="plugins">Plugins</button><button data-page="skills">Skills</button><button data-page="scheduled">Scheduled</button><button data-page="loading">Loading</button><button data-page="projects">Projects</button><button data-page="sites">Sites</button><button data-page="browser-skills">Browser skills</button></nav>
   <main class="main-surface" role="main">
     <div id="page-scroll" data-app-shell-inline-page-header data-new-slate-layout>
       <div id="page-body" class="page-body"></div>
     </div>
   </main>
-  <div id="unrelated-header" class="_shell_bomwa_2" data-sticky><input id="plugins-page-search"></div>
+  <div id="unrelated-header" class="_shell_bomwa_2" data-sticky><div class="_content_bomwa_2"><div class="_headerRow_bomwa_2"><div class="_title_bomwa_2"><div class="_titleContent_bomwa_2">Outside the page</div></div><input id="plugins-store-page-search"></div></div></div>
   <script>
     const body = document.querySelector('#page-body');
+    let searchSequence = 0;
     const render = (page) => {
+      const isLibrary = page === 'all' || page === 'pages';
+      const searchIds = { plugins: 'plugins-store-page-search', skills: 'plugins-page-search', scheduled: 'scheduled-page-search', projects: 'projects-index-search', sites: 'appgen-site-search', 'browser-skills': 'browser-skills-search' };
+      const searchId = isLibrary ? 'library-search-_r_' + (++searchSequence) + '_' : searchIds[page];
+      const search = searchId ? '<div class="_search_bomwa_2"><div class="no-drag search-control"><input id="' + searchId + '"></div></div>' : '';
+      const action = isLibrary ? '' : '<div class="_pageActions_bomwa_2"><button id="header-action">Add</button></div>';
       body.innerHTML = '<div id="page-header" class="_shell_bomwa_2 border-transparent" data-sticky data-scroll-collapse data-expand-search data-wrap-actions>' +
         '<div class="_content_bomwa_2 mx-auto w-full"><div class="_headerRow_bomwa_2">' +
         '<div class="_title_bomwa_2"><div class="_titleContent_bomwa_2"><h1>' + page + '</h1></div></div>' +
-        '<div class="_actions_bomwa_2"><div class="_toolbar_bomwa_2"><div class="_search_bomwa_2">' +
-        '<div class="no-drag search-control"><input id="plugins-page-search"></div></div>' +
-        '<div class="_pageActions_bomwa_2"><button id="header-action">Add</button></div></div></div></div>' +
+        '<div class="_actions_bomwa_2"><div class="_toolbar_bomwa_2">' + search +
+        action + '</div></div></div>' +
         '<div class="_navigation_bomwa_2"></div></div></div><div id="content-card" class="bg-surface">Native card</div>';
-      document.querySelector('#header-action').addEventListener('click', (event) => { event.target.dataset.clicked = 'true'; });
+      document.querySelector('#header-action')?.addEventListener('click', (event) => { event.target.dataset.clicked = 'true'; });
     };
     render('plugins');
     document.querySelectorAll('button[data-page]').forEach((button) => {
@@ -112,7 +119,7 @@ async function headerAndContentPixels(page: Page, screenshotPath?: string) {
 }
 
 for (const theme of themes) {
-  test(`themes Skills and Plugins headers immediately with ${theme.name}`, async ({
+  test(`themes shared inline page headers immediately with ${theme.name}`, async ({
     browserName,
   }, testInfo) => {
     const profile = await mkdtemp(
@@ -179,7 +186,20 @@ for (const theme of themes) {
 
       expect(await surface()).toBe(transparent);
       await expect(header).toHaveAttribute("data-ds-part", "page-search-rail");
-      for (const destination of ["Skills", "Plugins"]) {
+      let previousLibrarySearchId: string | null = null;
+      for (const destination of [
+        "Skills",
+        "Plugins",
+        "All",
+        "Pages",
+        "Scheduled",
+        "Loading",
+        "Projects",
+        "Sites",
+        "Browser skills",
+        "Plugins",
+        "All",
+      ]) {
         const button = page.getByRole("button", {
           name: destination,
           exact: true,
@@ -198,21 +218,39 @@ for (const theme of themes) {
         );
         expect(pixels.header).toEqual(pixels.content);
         await expect(header).toHaveCSS("background-color", transparent);
-        await expect(header.locator(".search-control")).toHaveCSS(
-          "background-color",
-          transparent,
-        );
-        await header.locator("input").fill("Codex");
-        await expect(header.locator("input")).toHaveValue("Codex");
-        await header.getByRole("button", { name: "Add" }).click();
-        await expect(header.locator("#header-action")).toHaveAttribute(
-          "data-clicked",
-          "true",
-        );
-        await expect(header.locator("#header-action")).toHaveCSS(
-          "background-color",
-          "rgb(25, 27, 29)",
-        );
+        if (destination === "Loading") {
+          await expect(header.locator("input")).toHaveCount(0);
+        } else {
+          await expect(header.locator(".search-control")).toHaveCSS(
+            "background-color",
+            transparent,
+          );
+          await header.locator("input").fill("Codex");
+          await expect(header.locator("input")).toHaveValue("Codex");
+        }
+        if (destination === "Plugins") {
+          await expect(header.locator("input")).toHaveAttribute(
+            "id",
+            "plugins-store-page-search",
+          );
+        }
+        if (destination === "All" || destination === "Pages") {
+          const searchId = await header.locator("input").getAttribute("id");
+          expect(searchId).toMatch(/^library-search-/);
+          expect(searchId).not.toBe(previousLibrarySearchId);
+          previousLibrarySearchId = searchId;
+        }
+        if (destination === "Skills" || destination === "Plugins") {
+          await header.getByRole("button", { name: "Add" }).click();
+          await expect(header.locator("#header-action")).toHaveAttribute(
+            "data-clicked",
+            "true",
+          );
+          await expect(header.locator("#header-action")).toHaveCSS(
+            "background-color",
+            "rgb(25, 27, 29)",
+          );
+        }
         await page.locator("#page-scroll").evaluate((node) => {
           node.scrollTop = 200;
         });
@@ -223,15 +261,29 @@ for (const theme of themes) {
         });
       }
 
-      // Removing only an attribute must also release stale ownership; a
-      // subsequent reuse regains immediate CSS without waiting for the mapper.
+      // The shared header still owns its paint layer when search is renamed,
+      // removed or recreated. Only losing its header structure releases it.
       await header.locator("input").evaluate((node) => {
         node.id = "other-page-search";
       });
+      await page.waitForTimeout(120);
+      await expect(header).toHaveAttribute("data-ds-part", "page-search-rail");
+      expect(await surface()).toBe(transparent);
+      await header.locator(".search-control").evaluate((node) => node.remove());
+      await page.waitForTimeout(120);
+      await expect(header).toHaveAttribute("data-ds-part", "page-search-rail");
+      expect(await surface()).toBe(transparent);
+      await header.locator("._search_bomwa_2").evaluate((node) => {
+        node.innerHTML =
+          '<div class="search-control"><input id="library-search-_r_reused_"></div>';
+      });
+      await header.locator("._titleContent_bomwa_2").evaluate((node) => {
+        node.setAttribute("class", "non-header-title");
+      });
       await expect(header).not.toHaveAttribute("data-ds-part");
       expect(await surface()).toBe("rgb(255, 255, 255)");
-      await header.locator("input").evaluate((node) => {
-        node.id = "plugins-page-search";
+      await header.locator(".non-header-title").evaluate((node) => {
+        node.setAttribute("class", "_titleContent_bomwa_2");
       });
       expect(await surface()).toBe(transparent);
       await expect(header).toHaveAttribute("data-ds-part", "page-search-rail");
@@ -248,6 +300,26 @@ for (const theme of themes) {
       await expect(page.locator("#content-card")).not.toHaveAttribute(
         "data-ds-part",
       );
+      await page.locator("#content-card").evaluate((node) => {
+        const nested = document
+          .querySelector("#page-header")!
+          .cloneNode(true) as HTMLElement;
+        nested.id = "nested-card-header";
+        nested.removeAttribute("data-ds-part");
+        nested.removeAttribute("data-codexstyle-owner");
+        node.append(nested);
+      });
+      await page.waitForTimeout(120);
+      await expect(page.locator("#nested-card-header")).not.toHaveAttribute(
+        "data-ds-part",
+      );
+      expect(
+        await page
+          .locator("#nested-card-header")
+          .evaluate(
+            (node) => getComputedStyle(node, "::before").backgroundColor,
+          ),
+      ).toBe("rgb(255, 255, 255)");
       await expect(page.locator("#unrelated-header")).not.toHaveAttribute(
         "data-ds-part",
       );
