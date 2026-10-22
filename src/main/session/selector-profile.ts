@@ -1,9 +1,19 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/22" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/23" as const;
 
-// Store 26.924.2738.0 collapsed-turn-disclosure renders duration and previous
-// message count through the same button. Keep expanded state and locale agnostic.
+// 回合提示在 26.1016.6573.0 移除了箭头的淡色类；保留按钮结构约束，
+// 用两版共有的图标尺寸标记识别，避免颜色类变化使整段用时失配。
 export const COLLAPSED_TURN_DISCLOSURE_SELECTOR =
-  '.thread-scroll-container div[class~="text-size-chat"][class~="text-secondary"] > button[aria-expanded][class~="inline-flex"][class~="flex-wrap"][class~="text-size-chat"]:has(> svg[class~="text-text/40"])' as const;
+  '.thread-scroll-container div[class~="text-size-chat"][class~="text-secondary"] > button[aria-expanded][class~="inline-flex"][class~="flex-wrap"][class~="text-size-chat"]:has(> svg[class~="icon-2xs"])' as const;
+
+// 思考标签包含带图标的行和独立占位两种形态；限于对话中的已核对结构，
+// 不依赖闪光是否开启，也不命中侧栏、引导页或普通加载文字。
+export const THINKING_LABEL_SELECTOR =
+  ':is(.thread-scroll-container div[class~="inline-flex"][class~="text-text/60"][class~="[&_*:not(button)]:!text-text/60"] > span[aria-hidden][class~="min-w-0"][class~="flex-1"][class~="truncate"][class~="select-none"], .thread-scroll-container span[class~="text-size-chat"][class~="select-none"][class~="truncate"][class~="leading-[calc(var(--codex-chat-font-size)_+_8px)]"])' as const;
+const workDividerSelector =
+  '.thread-scroll-container div[class~="min-h-0"][class~="flex-col"][class~="items-start"][class~="gap-2"][class~="text-size-chat"][class~="text-secondary"]:has(> div[class~="w-full"][class~="border-t"][class~="border-default"])';
+// 实时、完成与中止用时复用同一标签；可选前导图标不能扩大到整行染色。
+export const WORK_DURATION_SELECTOR =
+  `:is(${workDividerSelector} > span[class~="tabular-nums"], ${workDividerSelector} > div[class~="flex"][class~="items-start"][class~="gap-2"] > span[class~="tabular-nums"])` as const;
 
 // Store 26.1002.7124.0 keeps fade state on a container, but paints its child.
 export const MAIN_TOP_FADE_SELECTOR =

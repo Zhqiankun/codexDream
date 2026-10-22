@@ -46,14 +46,14 @@ CodexStyle 是仅支持 Windows x64 的 Electron 桌面工具，提供本地主�
 - 旧的内部主题或 ZIP 缺少上述字段时按 `backgroundScope: "window"`、`sidebarOverlayOpacity: 75` 读取；新建、编辑和简化导出必须显式写入这两个字段。
 - 修改任一展示配置都按普通主题编辑处理：递增 revision、退回 draft、使正式导入项变为已编辑并只能导出简化 ZIP。
 - `appearance` 只能为 `auto | light | dark`。`art` 包含 `focusX/focusY`（`0..1`）、`safeArea`（`none | left | right`）和 `taskMode`（`ambient | full | off`）。背景焦点必须立即改变预览与真实注入的图片定位。
-- `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前可选扩展为 `sidebarText/assistantPanel/assistantMessageText/userMessageText/composerText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted/accentText/selectionText`。main 读取旧主题时必须补全缺失扩展：消息、输入与首页主要文字继承正文色，文件变更与首页卡片背景继承次级面板色，顶部栏及命令/思考次要文字继承说明文字，会话标题优先继承顶部栏颜色，发送图标与选区文字兼容旧页面背景前景；再将规范化后的二十九色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
+- `colors` 的兼容基线仍为 `background/panel/panelAlt/accent/accentAlt/secondary/highlight/text/muted/line` 十个安全颜色值；当前可选扩展为 `sidebarText/assistantPanel/assistantMessageText/userMessageText/composerText/changeCardBackground/changeCardText/topBarBackground/topBarText/threadTabBackground/threadTabText/homeTitleText/homeCardBackground/homeCardText/activityBackground/activityText/activityMuted/accentText/selectionText`。main 读取旧主题时必须补全缺失扩展：消息、输入与首页主要文字继承正文色，文件变更与首页卡片背景继承次级面板色，顶部栏及命令/活动次要文字继承说明文字，会话标题优先继承顶部栏颜色，发送图标与选区文字兼容旧页面背景前景；再将规范化后的二十九色转换为登记的 `--ds-theme-color-*` 变量，供受控注入或高级 Safe CSS 使用。
 - `userMessageText` 必须覆盖已归属用户气泡内的 `data-markdown-text-tone="user-message"` 根及标题、段落、有序/无序列表、引用、强调与表格等普通 Markdown 节点，使列表裸文本和标记不回退到宿主前景色。链接、`span[data-markdown-copy="inline-code"]`、`pre/code` 与代码块继续使用 Store 原生颜色；禁止用 `a/code/span` 泛选择器抹平交互色或语法高亮。助手消息沿用同一普通 Markdown 元素清单和独立 `assistantMessageText`，流式 `_FadeIn_` 规则仍只补普通文字。
 - 文件变更卡只允许外层卡片绘制一次 `changeCardBackground`；宿主的列表 surface、文件行、展开/收起操作及内嵌 diff surface 必须透明继承，避免半透明颜色重复合成。`changeCardText` 覆盖标题、普通操作和文件路径，新增/删除数量继续保留宿主的绿/红状态色。
 - `homeCards` 固定为四项，每项包含安全 `color` 与 `mode: color | image`；图片模式还必须包含主进程生成、单项不超过 48 KiB 的 WebP Data URL。四张卡片可独立配置，旧主题缺少该字段时按既有 `colors.homeCardBackground` 生成四张纯色卡片。renderer 不接收源图片路径或原始字节；选择图片只能经版本化 IPC 由 main 有界读取、解码、裁切并压缩，之后按普通主题编辑递增 revision。
 - `style` 包含 `mode`、四个配方开关和受限表面参数。`mode: "configured"` 时，sidebar、composer、message、dialog 配方以及 blur、radius、borderWidth、shadow 由结构化配置确定，并通过唯一共享生成器产生非空 `theme.css`；用户无需手改 CSS。`mode: "advanced"` 时保留既有 Safe CSS 源码编辑和验证能力。
 - 新主题默认使用配置模式；旧内部主题和未声明 `style` 的导入包按高级模式读取，禁止迁移时覆盖原 CSS。两种模式都必须在 commit、导出、选择和注入前通过相同 Safe CSS 校验。
 - Studio 提供“设计 / CSS / theme.json”三个面板。theme.json 源码只能在显式“校验并应用”后进入主题记录；其字段、大小、图片引用和配置范围由 main 复验，未应用的文本不得进入预览、ZIP 或注入。
-- Studio 的颜色面板默认按“页面与窗口 / 对话与输入 / 标题与首页 / 命令与思考 / 操作与状态 / 文字与边界”展示用户可理解的作用位置，不把 `accentAlt` 等内部字段名作为主标签；显式切换到高级显示后才展示原始字段名。鼠标悬停或键盘聚焦任一颜色项时，LIVE PREVIEW 必须自动切到存在该目标的首页或对话页并标出实际影响区域，且预览映射必须与真实注入消费者一致。
+- Studio 的颜色面板默认按“页面与窗口 / 对话与输入 / 标题与首页 / 命令与活动 / 操作与状态 / 文字与边界”展示用户可理解的作用位置，不把 `accentAlt` 等内部字段名作为主标签；显式切换到高级显示后才展示原始字段名。鼠标悬停或键盘聚焦任一颜色项时，LIVE PREVIEW 必须自动切到存在该目标的首页或对话页并标出实际影响区域，且预览映射必须与真实注入消费者一致。
 - LIVE PREVIEW 的可配置区域必须支持反向定位：鼠标悬停或键盘聚焦时只高亮最具体的区域并显示中文提示；点击或键盘激活后切到“设计 → 颜色”、滚动并聚焦对应控件。定位是一次性请求，完成后不得锁住设计子页或阻止切换组件样式与高级配置。该交互仅为 renderer 本地状态，不进入主题、IPC 或持久化。
 - `panelAlt` 的声明透明度是输入框、首页 composer 项目工具条与用户消息的最终透明度；配置模式、LIVE PREVIEW 和真实注入不得再通过额外 88%/92% 混合二次稀释。
 - 普通设计与 CSS 编辑只提供一个“保存主题”入口；该入口按 revision 先持久化变更再提交 ready，不再暴露容易混淆的“应用草稿”按钮。theme.json 仍保留独立的“校验并应用”，因为未验证源码不得进入普通保存流程。
@@ -133,6 +133,8 @@ preload 暴露版本化强类型方法：snapshot、固定助手插件安装、�
 错误码至少包含：`IPC_INVALID`、`UNAUTHORIZED_RENDERER`、`OPERATION_BUSY`、`STALE_REVISION`、`UNSAFE_ARCHIVE`、`UNSAFE_CSS`、`UNSAFE_IMAGE`、`DUPLICATE_CONTENT`、`THEME_ID_CONFLICT`、`THEME_IN_USE`、`STORE_TAMPERED`、`STORE_PACKAGE_NOT_FOUND`、`EXTERNAL_SESSION_RUNNING`、`CDP_UNAVAILABLE`、`TARGET_INCOMPATIBLE`、`TARGET_IDENTITY_MISMATCH`、`INJECTION_FAILED`、`CLEANUP_FAILED`、`UPDATE_UNSUPPORTED`、`UPDATE_CHECK_FAILED`、`UPDATE_DOWNLOAD_FAILED`、`UPDATE_INSTALL_FAILED`、`UPDATE_OPEN_FAILED`。
 
 ## 可观察验收
+
+思考与用时文字补充（2026-10-22，已实现，隔离 Electron 已验证，正式 Codex 会话未验证）：对本工具验证并拥有的会话，对话中的“正在思考”、中英文动态思考文字、进行中的工作用时、完成/中止用时及折叠回合提示须跟随现有 `assistantMessageText`，与助手回答正文使用同一颜色；此项替代下方 2026-09-26 将回合提示绑定到 `activityMuted` 的约定。按 Store Codex 26.1016.6573.0 已核对的思考标签、用时分隔行和新旧折叠按钮结构限定范围，不依赖翻译后的文字或固定用时。保留计时更新、展开/收起、箭头旋转、焦点、禁用、原生闪光及减少动效行为；英文提示在闪光结束或减少动效时也必须持续可读，不依赖扫光提供文字对比度。提示图标和非目标命令/警告保留原有语义。Studio 预览的思考与用时也使用助手回复文字，点击定位到同一已有颜色控件；命令标题、文件名与命令详情仍使用原活动文字设置，原“命令与思考”分组更名为“命令与活动”，字段键不变。不新增颜色字段、IPC、依赖或存储迁移，不改写已保存主题，不全局覆盖 secondary/tertiary 文字。验收覆盖深浅背景、与正文色明显不同的活动色、当前和旧版结构、实时/完成/停止状态、动态插入与新会话主题变化、键盘/展开交互、原生闪光/减少动效及范围外控件隔离；隔离 Electron 与真实受管 Codex 验证状态分别报告。
 
 消息首次绘制补充（2026-10-09，已实现，隔离 Electron 已验证，正式 Codex 会话未验证）：已经注入主题的受管会话中，发送后新建或替换的用户消息气泡须在首次可见绘制前使用现有主题样式，不得先显示原生黑白表面再等待约 80 毫秒的全页面归属检查。新建助手消息同属既有 message part，沿用相同归属时序。配置模式继续保留 panelAlt 的最终 alpha 和既有消息配方；配方关闭时不强制覆盖气泡底色，高级模式仍消费原 Safe CSS，不新增颜色或修改保存内容。正文、链接与代码颜色边界保持。复用节点失去消息语义时须在绘制前撤销本工具的消息归属；其它 owner 的 part、未归属本工具的根和非消息节点不得被快速路径改写。验收覆盖新增节点及嵌套子树、消息替换、绘制前检查点及连续帧、深浅色、0/半透明 alpha、关闭配方、高级 CSS、语义属性变化与归属隔离。会话身份校验、发送行为、IPC 和持久化规则不变。
 

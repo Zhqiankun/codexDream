@@ -109,7 +109,7 @@ const colorGroups: ReadonlyArray<{
       {
         key: "assistantMessageText",
         label: "助手回复文字",
-        hint: "助手消息正文",
+        hint: "助手正文、思考状态与用时",
       },
       {
         key: "changeCardBackground",
@@ -155,22 +155,22 @@ const colorGroups: ReadonlyArray<{
     ],
   },
   {
-    title: "命令与思考",
-    hint: "编辑文件、运行命令与思考状态",
+    title: "命令与活动",
+    hint: "编辑文件、读取与运行命令",
     fields: [
       {
         key: "activityBackground",
-        label: "命令与思考背景",
+        label: "命令与活动背景",
         hint: "活动摘要与折叠状态背景",
       },
       {
         key: "activityText",
-        label: "命令与思考文字",
-        hint: "编辑、读取、运行与思考动作",
+        label: "命令与活动文字",
+        hint: "编辑、读取与运行命令的动作文字",
       },
       {
         key: "activityMuted",
-        label: "命令与思考次要文字",
+        label: "命令与活动次要文字",
         hint: "文件名、命令详情与辅助状态",
       },
     ],

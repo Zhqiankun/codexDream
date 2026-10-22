@@ -350,6 +350,42 @@ test("starts the real Electron shell with native storage and completes a local w
       backgroundImage: "none",
       backdropFilter: "none",
     });
+    await page.getByRole("button", { name: "对话", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "助手回复文字颜色", exact: true })
+      .fill("#65398a");
+    await page
+      .getByRole("textbox", { name: "命令与活动文字颜色", exact: true })
+      .fill("#518032");
+    await page
+      .getByRole("textbox", { name: "命令与活动次要文字颜色", exact: true })
+      .fill("#b080c0");
+    const previewColors = await page.locator(".mock-codex").evaluate((root) => {
+      const color = (selector: string) =>
+        getComputedStyle(root.querySelector(selector)!).color;
+      return {
+        answer: color(".mock-message"),
+        thinking: color(".mock-thinking strong"),
+        reasoning: color(".mock-thinking small"),
+        duration: color(".mock-turn-meta"),
+        command: color(".mock-activity strong"),
+        detail: color(".mock-activity small"),
+      };
+    });
+    expect(previewColors).toEqual({
+      answer: "rgb(101, 57, 138)",
+      thinking: "rgb(101, 57, 138)",
+      reasoning: "rgb(101, 57, 138)",
+      duration: "rgb(101, 57, 138)",
+      command: "rgb(81, 128, 50)",
+      detail: "rgb(176, 128, 192)",
+    });
+    await page
+      .getByRole("textbox", { name: "命令与活动次要文字颜色", exact: true })
+      .blur();
+    await page.screenshot({
+      path: join(screenshotDirectory, "thinking-status-preview.png"),
+    });
     await page.getByRole("button", { name: "放弃本次修改" }).click();
     const discardDialog = page.getByRole("dialog", {
       name: "放弃“赤金信念”的本次修改？",

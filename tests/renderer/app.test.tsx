@@ -496,7 +496,7 @@ describe("Studio renderer", () => {
     expect(document.querySelector(".mock-code")).not.toHaveAttribute(
       "data-ds-part",
     );
-    expect(screen.getByLabelText("命令与思考预览")).toHaveAttribute(
+    expect(screen.getByLabelText("命令与活动预览")).toHaveAttribute(
       "data-ds-part",
       "activity",
     );
@@ -1335,9 +1335,9 @@ describe("Studio renderer", () => {
       首页标题文字颜色: "#aabbcc",
       首页快捷卡片背景颜色: "rgba(51, 68, 85, 0.66)",
       首页快捷卡片文字颜色: "#ddeeff",
-      命令与思考背景颜色: "rgba(17, 34, 51, 0.44)",
-      命令与思考文字颜色: "#bbddff",
-      命令与思考次要文字颜色: "#789abc",
+      命令与活动背景颜色: "rgba(17, 34, 51, 0.44)",
+      命令与活动文字颜色: "#bbddff",
+      命令与活动次要文字颜色: "#789abc",
     } as const;
     for (const [name, value] of Object.entries(extendedColors))
       fireEvent.change(screen.getByRole("textbox", { name }), {
@@ -1505,7 +1505,8 @@ describe("Studio renderer", () => {
     expect(screen.getByText("页面与窗口")).toBeInTheDocument();
     expect(screen.getByText("对话与输入")).toBeInTheDocument();
     expect(screen.getByText("标题与首页")).toBeInTheDocument();
-    expect(screen.getByText("命令与思考")).toBeInTheDocument();
+    expect(screen.getByText("命令与活动")).toBeInTheDocument();
+    expect(screen.getByText("助手正文、思考状态与用时")).toBeInTheDocument();
     expect(screen.getByText("操作与状态")).toBeInTheDocument();
     expect(screen.getByText("文字与边界")).toBeInTheDocument();
     expect(screen.getByText("29 项 · 均支持透明度")).toBeInTheDocument();
@@ -1556,7 +1557,7 @@ describe("Studio renderer", () => {
       name: "首页标题文字颜色",
     });
     const activityText = screen.getByRole("textbox", {
-      name: "命令与思考文字颜色",
+      name: "命令与活动文字颜色",
     });
     fireEvent.change(muted, { target: { value: "#4a90e2" } });
     expect(preview.style.getPropertyValue("--preview-muted")).toBe("#4a90e2");
@@ -1721,6 +1722,22 @@ describe("Studio renderer", () => {
       "data-preview-color-target",
       "composerText",
     );
+
+    for (const selector of [".mock-thinking", ".mock-turn-meta"]) {
+      const status = preview.querySelector<HTMLElement>(selector);
+      expect(status).not.toBeNull();
+      fireEvent.pointerMove(status!);
+      expect(screen.getByText(/点击定位 · 助手回复文字/u)).toBeInTheDocument();
+      fireEvent.click(status!);
+      const assistantText = await screen.findByRole("textbox", {
+        name: "助手回复文字颜色",
+      });
+      await waitFor(() => expect(assistantText).toHaveFocus());
+      expect(preview).toHaveAttribute(
+        "data-preview-color-target",
+        "assistantMessageText",
+      );
+    }
 
     fireEvent.click(screen.getByRole("tab", { name: "组件样式" }));
     expect(screen.getByRole("tab", { name: "组件样式" })).toHaveAttribute(

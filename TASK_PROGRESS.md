@@ -1,6 +1,24 @@
 # CodexStyle 任务进度
 
-更新时间：2026-10-19
+更新时间：2026-10-22
+
+## 2026-10-22 v1.3.24 发布准备
+
+- 用户明确要求将本次思考文字与用时修复发布为 `v1.3.24`，已同时确认发布和版本。基线为 `main` / `643f716c2a4fe0b62469339dc1fc83af43ffa564`（v1.3.23），本次只纳入下方已验证的思考/用时修复、工作台预览及对应回归；版本、锁文件、双语 README 和 CHANGELOG 同步。
+- 发布前已核对：本地与远端均无 `v1.3.24` 标签，GitHub 返回同名 Release 不存在；远端 main 与本地基线一致。4 个既有未跟踪审计/用户数据目录不纳入提交。正式产物继续仅由现有 Release 标签工作流构建、校验和上传，不上传本地产物，不修改当前安装或外部会话。
+- 功能阶段 146 项相关单元测试、22 项相关隔离 Electron 用例及类型、lint、格式、架构和生产构建已通过；正式受管 Codex 视觉效果未验证。发布检查与 Actions 结果将在实际完成后记录。
+- 发布前 `vitest run tests/main tests/renderer tests/acceptance --maxWorkers=1`：37 文件、359 项中 357 项通过，2 项预置主题用例在清理临时 JPEG 时遇到 `EBUSY`。没有改动产品或测试逻辑；重新构建原生模块后，`bundled-presets.test.ts` 与 `secure-store.test.ts` 共 26 项复测通过。此结果不改写首轮整套失败；最终完整验证继续由标签 Actions 独立执行。
+- 使用现有 Node.js 22.22.0、Python 3.11.15 与 MSVC 2019 完成图标、native secure-store、插件和 electron-vite main/preload/renderer 构建。版本与下载元数据一致，类型、架构、全部跟踪文件及新增回归的格式检查、104 个代码文件 lint（0 错误/警告）通过；未重装依赖或修改全局 PATH。`playwright test` 完整隔离 Electron 回归 44 项全部通过。
+
+## 2026-10-22 思考状态与用时文字
+
+- 用户要求“正在思考”、思考文字和执行时间跟随助手回答正文色，并补充英文提示几乎不可见、只有闪光扫过才显现的截图。复用 `assistantMessageText`，覆盖中英文动态提示及实时/完成/停止用时；命令标题、详情仍分别消费 `activityText/activityMuted`。Studio 预览、颜色说明、分组名和点击定位同步，不新增颜色、IPC、依赖或迁移。
+- 只读查询确认 Store 26.1016.6573.0；从原 `app.asar` 核对 Lpd/a5l/r5l/i5l 思考组件、uG/ltt 用时分隔行和新旧折叠按钮。当前箭头已移除 `text-text/40`，原选择器失配；思考独立闪光层和非按钮用时也未被原活动规则覆盖。profile `/23` 限定 owner root 与已核对结构，保留原生高光、动画、减少动效、可见性、展开、警告及前导图标，不全局覆盖次要文字。
+- 静态审计原始模块和格式化副本只在忽略的 `test-results/thinking-status-audit-26.1016.6573.0/`。主 UI bundle SHA-256 分别为 `9e5403aee57a681b5ae48a2d381761b796f596312107968294b53384102217f5`（primary）和 `6cb0ab2a8d03a47f95c4df668aa8e5a3004e42614a7d596cb239442344f1a497`（initial）；REA 对最初 7 个相关原始模块的静态分析 Evidence 为 `ev_0699e1582aae0f2bbe2b8023d7bcdc681ec2992e4f2b56229f0cbfb630e9a208`。后续定向核对导出别名及思考消费者均为只读源码追踪；这些证据不代表运行时组件已在正式会话实测。
+- 新增独立原生样例先复现旧代码未着色。修复后 `thinking-status.spec.ts` 4 项与 `turn-disclosure.spec.ts` 2 项通过；英文样例原基础字色为 `rgb(5, 5, 5)`，覆盖配置/高级模式、黑白背景、闪光结束与减少动效；文字在同一帧和助手正文色比较，活动色故意设为不同颜色，并验证范围外计时/闪光、警告徽标及图标颜色保持。主题变化按既有仅下次启动契约在新文档验证。
+- `vitest run tests/main/selector-profile.test.ts tests/main/theme-payload.test.ts tests/main/session-service.test.ts tests/main/session-startup-readiness.test.ts tests/renderer/app.test.tsx --maxWorkers=1`：5 文件、146 项通过。相邻 `markdown-chat-colors.spec.ts` 和 `message-first-paint.spec.ts` 15 项通过；最终 `app.spec.ts` 加上述思考/用时用例 7 项通过，共 22 项相关 Electron 用例。构建后的真实工作台验证预览思考、说明和用时与回答同色、命令主次色独立；renderer 验证两处预览均能点击定位到已有助手文字控件。已查看工作台截图。
+- 中间失败单独保留：首轮修复后的 6 项 Electron 检查中 4 项失败，原因是测试在同一文档重注入不同主题，旧观察器重放旧设置；按项目不支持热应用的既有契约改为新文档后通过，未扩展产品观察器生命周期。工作台新增检查首轮匹配到颜色选择器与文字框两个元素，增加准确名称匹配后该用例复测通过；该轮相邻 15 项消息检查已通过，不改写为首轮全绿。
+- 生产 electron-vite main/preload/renderer 构建、类型检查、修改文件 lint/格式、架构和 diff 检查通过。既有 4 个未跟踪审计/用户数据目录保留；未修改已保存主题、WindowsApps 或 app.asar，未附着、热应用、关闭或重启正式 Codex。修复阶段未提交、推送、打包或发布；后续用户已授权 v1.3.24，发布状态见上方记录。正式受管 Codex 视觉效果仍未验证。
 
 ## 2026-10-19 v1.3.23 发布准备
 

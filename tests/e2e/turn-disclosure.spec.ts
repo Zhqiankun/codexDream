@@ -31,7 +31,7 @@ for (const appearance of ["dark", "light"] as const) {
     });
     try {
       const page = await application.firstWindow();
-      await page.setContent(`<style>
+      const fixture = `<style>
         body { margin: 40px; font: 16px sans-serif; }
         button { color: #333; background: transparent; border: 0; }
         button:hover { color: #222; }
@@ -48,7 +48,8 @@ for (const appearance of ["dark", "light"] as const) {
         <p id="body-text">Ordinary content</p>
         <div class="text-size-chat text-secondary"><button id="unrelated" aria-expanded="false">Other disclosure</button></div>
         <section id="late"></section>
-      </div><section id="outside">${disclosure("Outside conversation")}</section></main>`);
+      </div><section id="outside">${disclosure("Outside conversation")}</section></main>`;
+      await page.setContent(fixture);
       const configuration = readThemeConfiguration({});
       const color = appearance === "dark" ? "#eeeeee" : "#333333";
       const expected =
@@ -62,7 +63,8 @@ for (const appearance of ["dark", "light"] as const) {
         colors: {
           ...configuration.colors,
           background: appearance === "dark" ? "#000000" : "#ffffff",
-          activityMuted: color,
+          assistantMessageText: color,
+          activityMuted: "#806040",
         },
       };
       const payload = () =>
@@ -115,9 +117,12 @@ for (const appearance of ["dark", "light"] as const) {
         return getComputedStyle(node.querySelector("svg")!).color;
       }, disclosure("Previous 2 messages"));
       expect(immediate).toBe(expected);
-      settings.colors.activityMuted = "#b080c0";
+      settings.colors.assistantMessageText = "#b080c0";
+      // 更换主题通过新会话生效；不能让旧文档的观察器继续重放旧设置。
+      await page.reload();
+      await page.setContent(fixture);
       await page.evaluate(payload());
-      await expect(page.locator("#late svg")).toHaveCSS(
+      await expect(page.locator("#duration svg")).toHaveCSS(
         "color",
         "rgb(176, 128, 192)",
       );

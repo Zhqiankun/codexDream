@@ -17,10 +17,12 @@ import {
   MARKDOWN_DOCUMENT_SELECTOR,
   PAGE_SEARCH_RAIL_SELECTOR,
   SELECTOR_PARTS,
+  THINKING_LABEL_SELECTOR,
   THREAD_BOTTOM_FADE_SELECTOR,
   THREAD_FOOTER_BACKDROP_SELECTOR,
   THREAD_FOOTER_SELECTOR,
   USER_MESSAGE_EDITOR_SELECTOR,
+  WORK_DURATION_SELECTOR,
 } from "./selector-profile";
 
 interface PayloadConfig {
@@ -44,6 +46,8 @@ interface PayloadConfig {
   markdownDocumentSelector: string;
   userMessageEditorSelector: string;
   collapsedTurnDisclosureSelector: string;
+  thinkingLabelSelector: string;
+  workDurationSelector: string;
   mainTopFadeSelector: string;
   threadBottomFadeSelector: string;
   threadFooterBackdropSelector: string;
@@ -96,6 +100,8 @@ export function buildThemePayload(
     markdownDocumentSelector: MARKDOWN_DOCUMENT_SELECTOR,
     userMessageEditorSelector: USER_MESSAGE_EDITOR_SELECTOR,
     collapsedTurnDisclosureSelector: COLLAPSED_TURN_DISCLOSURE_SELECTOR,
+    thinkingLabelSelector: THINKING_LABEL_SELECTOR,
+    workDurationSelector: WORK_DURATION_SELECTOR,
     mainTopFadeSelector: MAIN_TOP_FADE_SELECTOR,
     threadBottomFadeSelector: THREAD_BOTTOM_FADE_SELECTOR,
     threadFooterBackdropSelector: THREAD_FOOTER_BACKDROP_SELECTOR,
@@ -349,10 +355,17 @@ export function buildThemePayload(
       const activityBridge = '\\n' + activityOwnedSelector + ' { background-color: var(--ds-theme-color-activity-background) !important; border-radius: var(--ds-theme-surface-radius); box-shadow: inset 0 0 0 1px var(--ds-theme-color-line); color: var(--ds-theme-color-activity-text) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-text) !important; }' +
         '\\n' + activityOwnedSelector + ' :where(a, button, code, em, p, span, strong, svg) { color: var(--ds-theme-color-activity-text) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-text) !important; }' +
         '\\n' + activityOwnedSelector + ' :where(small, [class*="text-secondary"], [class*="text-tertiary"], [class*="text-text/40"], [class*="text-codex-description"]) { color: var(--ds-theme-color-activity-muted) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-muted) !important; }';
-      // Match directly under the owned root so SPA insertion is styled before
-      // the observer runs. Preserve the native disclosure layout and behavior.
+      // 状态文字与助手正文共用前景；只调整基础闪光色，保留原生高光层、
+      // 动画、减少动效与可见性。即时规则也覆盖观察器运行前的 SPA 新节点。
+      const thinkingLabelSelector = rootSelector + ' ' + config.thinkingLabelSelector;
+      const thinkingOrdinaryTextSelector = thinkingLabelSelector + ' :where(span, em, strong):not([class*="_cadencedShimmerHighlight_"]):not([class*="_cadencedShimmerHighlight_"] *):not(button *)';
+      const thinkingBridge = '\\n' + thinkingLabelSelector + ' { --shimmer-text-secondary: var(--ds-theme-color-assistant-message-text) !important; color: var(--ds-theme-color-assistant-message-text) !important; -webkit-text-fill-color: currentColor !important; }' +
+        '\\n' + thinkingOrdinaryTextSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; -webkit-text-fill-color: currentColor !important; }';
+      const workDurationBridge = '\\n' + rootSelector + ' ' + config.workDurationSelector + ' { color: var(--ds-theme-color-assistant-message-text) !important; -webkit-text-fill-color: currentColor !important; }';
       const turnDisclosureSelector = rootSelector + ' ' + config.collapsedTurnDisclosureSelector;
-      const turnDisclosureBridge = '\\n' + turnDisclosureSelector + ', ' + turnDisclosureSelector + ' :where(span, svg) { color: var(--ds-theme-color-activity-muted) !important; -webkit-text-fill-color: var(--ds-theme-color-activity-muted) !important; }';
+      const turnDisclosureLabelSelector = turnDisclosureSelector + ' > span:not([data-denied-action-count]):not(:has([data-denied-action-count]))';
+      // 拒绝历史徽标有独立语义色；仅覆盖提示文字与直接箭头，不覆盖该徽标。
+      const turnDisclosureBridge = '\\n' + turnDisclosureSelector + ', ' + turnDisclosureLabelSelector + ', ' + turnDisclosureLabelSelector + ' :where(span), ' + turnDisclosureSelector + ' > svg { color: var(--ds-theme-color-assistant-message-text) !important; -webkit-text-fill-color: currentColor !important; }';
       const composerSelector = '[data-ds-part="composer"][data-codexstyle-owner="' + config.marker + '"]';
       const composerToolbarSelector = '[data-ds-part="composer-toolbar"][data-codexstyle-owner="' + config.marker + '"]';
       const instantHomeComposerRailSelector = rootSelector + ' ' + config.homeComposerRailSelector;
@@ -415,7 +428,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

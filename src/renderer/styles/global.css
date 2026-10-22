@@ -2280,7 +2280,7 @@ input.opacity-range {
   padding: 6px 0 4px;
   border-bottom: 1px solid
     color-mix(in srgb, var(--preview-line) 66%, transparent);
-  color: var(--preview-muted, #8592ab);
+  color: var(--preview-assistant-message-text, var(--preview-text, #dce6f6));
   font-size: 6.5px;
 }
 .mock-code {
@@ -2322,6 +2322,29 @@ input.opacity-range {
 .mock-activity small {
   overflow: hidden;
   color: var(--preview-activity-muted, var(--preview-muted, #91a9ce));
+  font-size: 5.7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mock-thinking {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  padding: 4px 0;
+  color: var(--preview-assistant-message-text, var(--preview-text, #dce6f6));
+  font-size: 6.5px;
+}
+.mock-thinking strong {
+  overflow: hidden;
+  font-size: inherit;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mock-thinking small {
+  overflow: hidden;
   font-size: 5.7px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2701,7 +2724,8 @@ input.opacity-range {
 .mock-codex[data-style-mode="configured"][data-recipe-message="true"][data-preview-color-target="panelAlt"]
   .mock-user-message,
 .mock-codex[data-preview-color-target="assistantPanel"] .mock-message,
-.mock-codex[data-preview-color-target="assistantMessageText"] .mock-message,
+.mock-codex[data-preview-color-target="assistantMessageText"]
+  :is(.mock-message, .mock-thinking, .mock-turn-meta),
 .mock-codex[data-preview-color-target="userMessageText"] .mock-user-message,
 .mock-codex[data-preview-color-target="changeCardBackground"] .mock-change-card,
 .mock-codex[data-preview-color-target="changeCardText"] .mock-change-card,
@@ -2731,7 +2755,7 @@ input.opacity-range {
 .mock-codex[data-preview-color-target="text"]
   :is(.mock-message, .mock-home h3, .mock-dialog),
 .mock-codex[data-preview-color-target="muted"]
-  :is(.mock-turn-meta, .mock-composer-placeholder, .mock-code),
+  :is(.mock-composer-placeholder, .mock-code),
 .mock-codex[data-preview-color-target="line"]
   :is(.mock-sidebar, .mock-main, .mock-composer, .mock-dialog) {
   outline: 2px solid #f5b94c;

@@ -145,17 +145,17 @@ const PREVIEW_CONTROL_DEFINITIONS = {
   },
   activitySurface: {
     controlId: "color-activityBackground",
-    label: "命令与思考背景",
+    label: "命令与活动背景",
     colorTarget: "activityBackground",
   },
   activityText: {
     controlId: "color-activityText",
-    label: "命令与思考文字",
+    label: "命令与活动文字",
     colorTarget: "activityText",
   },
   activityMuted: {
     controlId: "color-activityMuted",
-    label: "命令与思考次要文字",
+    label: "命令与活动次要文字",
     colorTarget: "activityMuted",
   },
   assistantSurface: {
@@ -2215,11 +2215,16 @@ function StudioView({
                             先看看主题预览吧
                           </span>
                         </div>
-                        <div className="mock-turn-meta">用时 5 秒　›</div>
+                        <div
+                          className="mock-turn-meta"
+                          {...previewControlAttributes("assistantText")}
+                        >
+                          用时 5 秒　›
+                        </div>
                         <div
                           className="mock-activity"
                           data-ds-part="activity"
-                          aria-label="命令与思考预览"
+                          aria-label="命令与活动预览"
                           {...previewControlAttributes(
                             "activitySurface",
                             false,
@@ -2249,18 +2254,13 @@ function StudioView({
                               npm test
                             </small>
                           </span>
-                          <span>
-                            <strong
-                              {...previewControlAttributes("activityText")}
-                            >
-                              … 思考中
-                            </strong>
-                            <small
-                              {...previewControlAttributes("activityMuted")}
-                            >
-                              分析主题注入目标
-                            </small>
-                          </span>
+                        </div>
+                        <div
+                          className="mock-thinking"
+                          {...previewControlAttributes("assistantText")}
+                        >
+                          <strong>… 正在思考</strong>
+                          <small>分析主题注入目标</small>
                         </div>
                         <div
                           className="mock-message"

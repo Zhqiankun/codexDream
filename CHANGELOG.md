@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.24 — 2026-10-22
+
+### English
+
+- Fixed thinking text and elapsed-time labels being unreadable after Store Codex layout updates. Thinking placeholders, dynamic English and Chinese status text, running/completed/stopped durations, and collapsed turn labels now use **Assistant reply text**.
+- Kept thinking text readable between native shimmer sweeps and with reduced motion enabled. Native highlights, visibility, disclosure arrows, keyboard interactions, warning badges, and unrelated command colors retain their behavior.
+- Updated Studio previews and click-to-locate shortcuts to use the same assistant text setting. Renamed the command color group to **Commands and activities** without changing stored color keys or saved themes.
+- Advanced the selector profile to `/23`, covering the verified Store Codex 26.1016.6573.0 structures and legacy disclosure arrows. Isolated Electron regressions passed; a real managed Store Codex session has not been verified locally. Application IPC v6, dependencies, transparency, and Windows startup preferences are unchanged.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules. Saved themes and configured transparency are kept.
+
+### 简体中文
+
+- 修复 Store Codex 布局更新后思考文字和用时提示看不清的问题。“正在思考”、中英文动态思考文字、进行中/完成/停止用时及折叠回合提示统一使用“助手回复文字”颜色。
+- 英文思考文字在原生闪光结束、开启减少动效后仍保持可读。原生高光、可见性、展开箭头、键盘交互、警告徽标及非目标命令颜色保持原有行为。
+- Studio 预览和点击定位同步使用同一助手文字设置。“命令与思考”分组更名为“命令与活动”，已有颜色字段键和已保存主题保留。
+- 选择器 profile 升至 `/23`，覆盖已核对的 Store Codex 26.1016.6573.0 结构并兼容旧版折叠箭头。隔离 Electron 回归通过；本地尚未验证真实受管 Store Codex 会话。应用 IPC v6、依赖、透明度及 Windows 自启动选择保持不变。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。已保存主题与配置透明度保留。
+
 ## v1.3.23 — 2026-10-19
 
 ### English
