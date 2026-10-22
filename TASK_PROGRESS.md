@@ -2,13 +2,18 @@
 
 更新时间：2026-10-22
 
-## 2026-10-22 v1.3.25 发布准备
+## 2026-10-22 v1.3.25 发布完成
 
 - 用户明确要求将本次弹窗文字颜色修复发布为 `v1.3.25`，已确认发布与准确版本。基线为 `main` / `77838c2d0b1171a69b0cfc33d5c2955e039e87cd`（v1.3.24 发布记录）；仅纳入下方弹窗普通前景修复、Studio 同步、相关回归与发布文档，selector profile 为 `/24`。package/lock、双语 README 和 CHANGELOG 已同步。
 - 发布前核对本地和远端均无 `v1.3.25` 标签，远端 main 与本地基线一致。命令行 GitHub 查询两次遇到 EOF，改由已连接的 GitHub 只读 API 确认同名 Release 返回 404，最新稳定版为 v1.3.24；未把网络错误视为版本不存在。
 - 功能阶段 147 项相关单元测试、16 项隔离 Electron 用例及类型、修改文件 lint/格式、架构、diff 和生产构建检查通过；本次发布复用这些同环境证据，并核对版本与发布元数据。6 个既有未跟踪审计/用户数据目录不纳入提交。正式五类 Windows x64 产物仍只由现有标签 Actions 构建、校验和发布，不上传本地产物或修改当前安装。
-- 正式受管 Codex 视觉效果和真实客户端升级流程未在本地验证；更新文案仅在共用弹窗原语中验证。发布执行及远端产物结果继续追加到本节。
+- 正式受管 Codex 视觉效果和真实客户端升级流程未在本地验证；更新文案仅在共用弹窗原语中验证。发布执行及远端产物的最终结果如下。
 - 发布元数据、SemVer、锁文件根版本、双语说明与下载文件名一致。185 个 Git 跟踪/明确新增文件的格式检查、105 个代码文件 lint、生产 electron-vite 构建与 v1.3.25 隔离工作台用例通过。沙箱内三个只读 Git 差异命令持续无输出后已中止；受许可环境中的同目标差异和格式检查正常通过，未改变 Git 配置或工作区内容。
+- 发布源码提交 `57d72a7ae2f5d092992843ad3635304b8da6b771` 已推送 main，注释标签 `v1.3.25` 的对象为 `5aeaa39b7a146c0068e4f16fa1c411094d6eaf57`，远端 GitHub API 已核对标签及其提交一致。标签 push 触发 [Release Actions 39714701550](https://github.com/Zhqiankun/codexDream/actions/runs/39714701550)，最终状态为 `completed / success`；未移动既有标签或手动创建 Release。
+- 同次 Actions 的锁定依赖安装、格式、lint、类型、架构、主进程、renderer、验收、Electron 端到端、正式包构建、包校验、产物留存及 Release 发布全部通过。CI 日志确认 37 个单元/验收文件共 360 项通过（main 277、renderer 76、acceptance 7），完整 Electron 回归 48 项通过；安装依赖耗时较长但正常完成，无代码或流水线修正。
+- [GitHub Release v1.3.25](https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.25) 于北京时间 `2026-10-22 11:19:05` 公开，`draft=false`、`prerelease=false`，最新稳定版入口已切到 v1.3.25。五类正式文件均由同次 Actions 上传并显示 uploaded：`CodexStyle-1.3.25-x64.exe`、对应 `.exe.blockmap`、`CodexStyle-1.3.25-x64.zip`、`latest.yml` 和 `SHA256SUMS.txt`；已核对公开 API 的文件名、大小、SHA-256 digest、Release ID 与 latest 指向一致。
+- 本机补充下载检查存在明确限制：GitHub CLI 元数据查询曾返回 EOF，连接器可正常只读核对；直接下载清单遇到 Schannel TLS 握手失败，按固定 asset ID 读取同一文件两次仍遇到重定向 EOF，未取得文本字节。因此没有宣称在本机完成发布后清单/校验和文本的字节复核；`latest.yml` 与安装包的 SHA-512/URL/大小一致性及四份产物 SHA-256 由上述同次成功的 CI `Verify release packages` 验证。未为下载错误关闭证书校验或改动全局网络配置。完整 CI 日志、公开元数据和分层验证结果仅保存在忽略的 `test-results/release-v1.3.25-audit/`。
+- 未上传本地产物、改写当前安装、附着或重启正式 Codex 会话。升级后仍需通过 CodexStyle 启动新会话加载本次弹窗规则；已保存主题和透明度无需迁移，正式会话视觉效果仍未在本地验证。
 
 ## 2026-10-22 弹窗普通文字跟随侧栏
 
