@@ -2371,9 +2371,14 @@ function StudioView({
                           {...previewControlAttributes("dialogSurface")}
                         >
                           <span>
-                            <b>◉</b> 主题预览
+                            <b>◉</b>{" "}
+                            <span {...previewControlAttributes("sidebarText")}>
+                              主题预览
+                            </span>
                           </span>
-                          <small>结构化配置已同步到画面</small>
+                          <small {...previewControlAttributes("sidebarText")}>
+                            结构化配置已同步到画面
+                          </small>
                         </div>
                       </div>
                       <div className="mock-conversation-composer-wrap">

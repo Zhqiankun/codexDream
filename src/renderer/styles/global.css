@@ -2633,14 +2633,14 @@ input.opacity-range {
   border: 1px solid var(--preview-line, #354363);
   border-radius: 6px;
   background: var(--preview-panel, #18233c);
-  color: var(--preview-text, #eef3fc);
+  color: var(--preview-sidebar-text, #eef3fc);
   font-size: 7px;
 }
 .mock-dialog b {
   color: var(--preview-accent, #f5b94c);
 }
 .mock-dialog small {
-  color: var(--preview-muted, #7f8ca5);
+  color: inherit;
   font-size: 6px;
 }
 .mock-codex[data-style-mode="configured"][data-recipe-sidebar="true"]
@@ -2708,7 +2708,8 @@ input.opacity-range {
 }
 .mock-codex[data-preview-color-target="background"] .mock-main,
 .mock-codex[data-preview-color-target="panel"] :is(.mock-sidebar, .mock-dialog),
-.mock-codex[data-preview-color-target="sidebarText"] .mock-sidebar,
+.mock-codex[data-preview-color-target="sidebarText"]
+  :is(.mock-sidebar, .mock-dialog),
 .mock-codex[data-preview-color-target="threadTabBackground"]
   .mock-toolbar-title,
 .mock-codex[data-preview-color-target="threadTabText"] .mock-toolbar-title,
@@ -2752,8 +2753,7 @@ input.opacity-range {
   :is(.mock-composer-toolbar, .mock-workspace-pill),
 .mock-codex[data-preview-color-target="highlight"] .mock-selection-sample,
 .mock-codex[data-preview-color-target="selectionText"] .mock-selection-text,
-.mock-codex[data-preview-color-target="text"]
-  :is(.mock-message, .mock-home h3, .mock-dialog),
+.mock-codex[data-preview-color-target="text"] :is(.mock-message, .mock-home h3),
 .mock-codex[data-preview-color-target="muted"]
   :is(.mock-composer-placeholder, .mock-code),
 .mock-codex[data-preview-color-target="line"]

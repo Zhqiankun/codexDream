@@ -2,6 +2,24 @@
 
 更新时间：2026-10-22
 
+## 2026-10-22 v1.3.25 发布准备
+
+- 用户明确要求将本次弹窗文字颜色修复发布为 `v1.3.25`，已确认发布与准确版本。基线为 `main` / `77838c2d0b1171a69b0cfc33d5c2955e039e87cd`（v1.3.24 发布记录）；仅纳入下方弹窗普通前景修复、Studio 同步、相关回归与发布文档，selector profile 为 `/24`。package/lock、双语 README 和 CHANGELOG 已同步。
+- 发布前核对本地和远端均无 `v1.3.25` 标签，远端 main 与本地基线一致。命令行 GitHub 查询两次遇到 EOF，改由已连接的 GitHub 只读 API 确认同名 Release 返回 404，最新稳定版为 v1.3.24；未把网络错误视为版本不存在。
+- 功能阶段 147 项相关单元测试、16 项隔离 Electron 用例及类型、修改文件 lint/格式、架构、diff 和生产构建检查通过；本次发布复用这些同环境证据，并核对版本与发布元数据。6 个既有未跟踪审计/用户数据目录不纳入提交。正式五类 Windows x64 产物仍只由现有标签 Actions 构建、校验和发布，不上传本地产物或修改当前安装。
+- 正式受管 Codex 视觉效果和真实客户端升级流程未在本地验证；更新文案仅在共用弹窗原语中验证。发布执行及远端产物结果继续追加到本节。
+- 发布元数据、SemVer、锁文件根版本、双语说明与下载文件名一致。185 个 Git 跟踪/明确新增文件的格式检查、105 个代码文件 lint、生产 electron-vite 构建与 v1.3.25 隔离工作台用例通过。沙箱内三个只读 Git 差异命令持续无输出后已中止；受许可环境中的同目标差异和格式检查正常通过，未改变 Git 配置或工作区内容。
+
+## 2026-10-22 弹窗普通文字跟随侧栏
+
+- 用户提供“创建项目”截图，要求创建、更新时看不见的普通文字与侧栏文字一致。沿用 `sidebarText`，将已有 owner/dialog 范围中的标题、说明、标签、ghost/secondary 按钮和透明关闭图标接入同一前景。独立浅色输入/文件夹表面使用宿主 `--color-text`，保留占位、主要按钮、独立表面按钮、链接、代码及错误/警告色。Studio 预览、提示和点击定位同步，无新增主题字段、IPC、依赖、存储迁移或保存数据变更。
+- 只读核对当前 Store 包 `OpenAI.Codex_26.1016.6573.0_x64__2p2nqsd0c76g0` 的创建项目、项目名称输入及共用 Dialog/Header/Body/Button，确认原桥仅修改弹窗底色。创建项目模块 `create-project-dialog-46ef2d66ef68.js` 的 SHA-256 为 `c343e58fd68323339fef64aba855314284a7cceb6c0988b1b7911df123641b2c`，共用模块 `app-shared-9cc135f1bdc1.js` 为 `a530ffa50442439640d6d25227c10babc23e757812e827d0ca2e3ba0c613f7cb`；原始/格式化片段和审计脚本仅保存在忽略的 `test-results/dialog-text-audit-26.1016.6573.0/`。未改写 WindowsApps 或 app.asar。
+- profile 升至 `/24`，复用既有归属观察器并补充 role 变更复核；前景规则限定已拥有的 role=dialog，原生表面和语义节点及其后代作为边界。关闭/取消按已核对的类组合匹配，不依赖中文或英文标签；未扩展到未经核对的 alertdialog 或所有按钮。
+- 新增 `dialog-text.spec.ts` 的独立原生样例先复现旧代码：黑底标题仍为 `rgb(17, 17, 17)`、说明仍为 `rgb(102, 102, 102)`，与侧栏亮色不一致。修复后的 4 种深浅主题及配置/高级模式用例通过，覆盖输入、键盘焦点/Enter、禁用、动态插入、role 撤销、整窗及嵌套 foreign owner、原生语义色、浅色输入/选择区与独立关闭表面。更新/更新项目文案只是共用原语的受控样例，没有执行或验证真实客户端升级流程。
+- `vitest run tests/main/selector-profile.test.ts tests/main/theme-payload.test.ts tests/main/session-service.test.ts tests/main/session-startup-readiness.test.ts tests/renderer/app.test.tsx --maxWorkers=1`：5 文件、147 项通过。`playwright test tests/e2e/dialog-text.spec.ts tests/e2e/shell-surfaces.spec.ts`：15 项通过；构建后的 `app.spec.ts` 另 1 项通过，实际 computed style 确认预览标题/说明与侧栏同色，回答/思考/用时及命令主次色仍各自独立。已查看深浅弹窗截图及工作台截图；renderer 覆盖两处弹窗文字定位到已有侧栏文字控件。
+- 开发中失败单独记录：输入表面断言最初要求无原生前景的选择区完全保留继承色，修正为检查原生字段 token 及背景/控件后复测通过；类型检查发现测试缺少 payload 的背景作用域/透明度参数，补齐既有默认值后通过。两项配置用例曾在隐藏窗口截图时超时，使用已有仅测试 `CODEXSTYLE_TEST_OFFSCREEN` 开关后，上述 15 项完整复测通过；没有改变产品窗口策略。
+- 类型检查、修改文件 lint/格式、架构、diff 检查与生产 electron-vite main/preload/renderer 构建通过。6 个既有未跟踪审计/用户数据目录保持原样。本补丁基于已发布 v1.3.24，版本保持 1.3.24，未提交、推送、打包或发布；未附着、热应用、关闭或重启当前正式 Codex，正式受管会话视觉效果仍未验证。
+
 ## 2026-10-22 v1.3.24 发布完成
 
 - 用户明确要求将本次思考文字与用时修复发布为 `v1.3.24`，已同时确认发布和版本。基线为 `main` / `643f716c2a4fe0b62469339dc1fc83af43ffa564`（v1.3.23），本次只纳入下方已验证的思考/用时修复、工作台预览及对应回归；版本、锁文件、双语 README 和 CHANGELOG 同步。

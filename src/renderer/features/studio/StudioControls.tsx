@@ -69,7 +69,11 @@ const colorGroups: ReadonlyArray<{
     fields: [
       { key: "background", label: "页面背景", hint: "主内容区底色" },
       { key: "panel", label: "左侧面板与弹窗", hint: "导航区和确认浮层" },
-      { key: "sidebarText", label: "左侧面板文字", hint: "导航与项目名称" },
+      {
+        key: "sidebarText",
+        label: "左侧面板文字",
+        hint: "导航、项目名称与弹窗普通文字",
+      },
       {
         key: "topBarBackground",
         label: "顶部栏背景",

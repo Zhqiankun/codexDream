@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/23" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/24" as const;
 
 // 回合提示在 26.1016.6573.0 移除了箭头的淡色类；保留按钮结构约束，
 // 用两版共有的图标尺寸标记识别，避免颜色类变化使整段用时失配。

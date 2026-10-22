@@ -352,6 +352,9 @@ test("starts the real Electron shell with native storage and completes a local w
     });
     await page.getByRole("button", { name: "对话", exact: true }).click();
     await page
+      .getByRole("textbox", { name: "左侧面板文字颜色", exact: true })
+      .fill("#287358");
+    await page
       .getByRole("textbox", { name: "助手回复文字颜色", exact: true })
       .fill("#65398a");
     await page
@@ -364,6 +367,11 @@ test("starts the real Electron shell with native storage and completes a local w
       const color = (selector: string) =>
         getComputedStyle(root.querySelector(selector)!).color;
       return {
+        sidebar: color(".mock-sidebar"),
+        dialogTitle: color(
+          '.mock-dialog [data-preview-control-id="sidebarText"]',
+        ),
+        dialogDescription: color(".mock-dialog small"),
         answer: color(".mock-message"),
         thinking: color(".mock-thinking strong"),
         reasoning: color(".mock-thinking small"),
@@ -373,6 +381,9 @@ test("starts the real Electron shell with native storage and completes a local w
       };
     });
     expect(previewColors).toEqual({
+      sidebar: "rgb(40, 115, 88)",
+      dialogTitle: "rgb(40, 115, 88)",
+      dialogDescription: "rgb(40, 115, 88)",
       answer: "rgb(101, 57, 138)",
       thinking: "rgb(101, 57, 138)",
       reasoning: "rgb(101, 57, 138)",

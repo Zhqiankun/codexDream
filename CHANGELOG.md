@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.25 — 2026-10-22
+
+### English
+
+- Fixed dark native text becoming unreadable on themed dialog backgrounds. Dialog titles, descriptions, ordinary labels, cancel/secondary actions, and transparent close icons now follow **Sidebar text**, including dialogs mounted after navigation.
+- Preserved native contrast on independent input and folder-picker surfaces, solid primary buttons, links, code, and error/warning text. Keyboard focus, input, disabled states, and ownership boundaries retain their behavior.
+- Updated Studio dialog previews and click-to-locate shortcuts to use the existing sidebar text control. Saved themes and color keys require no migration; the selector profile advances to `/24`.
+- Verified the Store Codex 26.1016.6573.0 dialog structures in isolated Electron tests across light/dark themes and configured/advanced modes. Update wording was tested with shared dialog primitives; a real client upgrade flow and a managed Store Codex session have not been verified locally.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules. Saved themes and configured transparency are kept.
+
+### 简体中文
+
+- 修复主题弹窗背景上原生深色文字看不清的问题。弹窗标题、说明、普通标签、取消/次要操作及透明关闭图标统一跟随“左侧面板文字”，动态打开的弹窗同样适用。
+- 独立输入框、文件夹选择区、主要按钮、链接、代码和错误/警告文字保留原生对比度。键盘焦点、输入、禁用状态与归属边界保持原有行为。
+- Studio 弹窗预览和点击定位同步使用现有侧栏文字控件。已有主题和颜色字段无需迁移，选择器 profile 升至 `/24`。
+- 根据 Store Codex 26.1016.6573.0 的弹窗结构，完成深浅主题及配置/高级模式的隔离 Electron 验证。更新文案使用共用弹窗原语验证；本地尚未验证真实客户端升级流程或受管 Store Codex 会话。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。已保存主题与配置透明度保留。
+
 ## v1.3.24 — 2026-10-22
 
 ### English

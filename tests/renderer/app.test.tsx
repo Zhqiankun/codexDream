@@ -1739,6 +1739,25 @@ describe("Studio renderer", () => {
       );
     }
 
+    for (const selector of [
+      '.mock-dialog span[data-preview-control-id="sidebarText"]',
+      ".mock-dialog small",
+    ]) {
+      const dialogText = preview.querySelector<HTMLElement>(selector);
+      expect(dialogText).not.toBeNull();
+      fireEvent.pointerMove(dialogText!);
+      expect(screen.getByText(/点击定位 · 左侧面板文字/u)).toBeInTheDocument();
+      fireEvent.click(dialogText!);
+      const sidebarText = await screen.findByRole("textbox", {
+        name: "左侧面板文字颜色",
+      });
+      await waitFor(() => expect(sidebarText).toHaveFocus());
+      expect(preview).toHaveAttribute(
+        "data-preview-color-target",
+        "sidebarText",
+      );
+    }
+
     fireEvent.click(screen.getByRole("tab", { name: "组件样式" }));
     expect(screen.getByRole("tab", { name: "组件样式" })).toHaveAttribute(
       "aria-selected",

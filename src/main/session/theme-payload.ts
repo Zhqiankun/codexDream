@@ -289,6 +289,19 @@ export function buildThemePayload(
       const sidebarTextSelector = sidebarSelector;
       const sidebarTextBridge = '\\n' + sidebarTextSelector + ' { color: var(--ds-theme-color-sidebar-text) !important; }' +
         '\\n' + sidebarTextSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [role="treeitem"], [class*="text-"]) { color: var(--ds-theme-color-sidebar-text) !important; }';
+      // Store 26.1016.6573.0 dialogs retain native foregrounds on theme panels.
+      // Ordinary copy and ghost controls share sidebar text; independent fields,
+      // solid buttons and semantic content keep their native contrast and states.
+      const dialogSelector = '[data-ds-part="dialog"][data-codexstyle-owner="' + config.marker + '"][role="dialog"]';
+      const dialogFieldSelector = ':is([class~="bg-primary-soft"], [class~="bg-surface"]):not([role="dialog"])';
+      const dialogSemanticSelector = ':is(a, input, textarea, select, [contenteditable], code, pre, [role="alert"], [class*="text-danger"], [class*="text-warning"], [class*="text-success"], [class*="text-info"], [class*="text-codex-git-"], [data-codexstyle-owner]:not([data-codexstyle-owner="' + config.marker + '"]))';
+      const dialogPreservedSelector = ':is(button, ' + dialogSemanticSelector + ', ' + dialogFieldSelector + ')';
+      const dialogOrdinarySelector = dialogSelector + ' :where(h1, h2, h3, h4, h5, h6, p, label, small, strong, em, span, div):not(' + dialogPreservedSelector + '):not(' + dialogPreservedSelector + ' *)';
+      const dialogControlBoundary = ':is(' + dialogSemanticSelector + ', ' + dialogFieldSelector + ')';
+      const dialogGhostSelector = dialogSelector + ' button[class~="no-drag"][class~="cursor-interaction"]:is([class~="text-tertiary"][class~="border-transparent"], [class~="text-default"][class~="bg-text/5"], [class~="leading-none"][class~="hover:bg-primary-ghost-hover"]):not(' + dialogControlBoundary + '):not(' + dialogControlBoundary + ' *)';
+      const dialogForeground = ' { color: var(--ds-theme-color-sidebar-text) !important; -webkit-text-fill-color: currentColor !important; }';
+      const dialogTextBridge = '\\n' + dialogSelector + ', ' + dialogOrdinarySelector + ', ' + dialogGhostSelector + ', ' + dialogGhostSelector + ' :where(span, small, strong, em, svg):not(' + dialogControlBoundary + '):not(' + dialogControlBoundary + ' *)' + dialogForeground +
+        '\\n' + dialogSelector + ' ' + dialogFieldSelector + ':not(button):not(' + dialogSemanticSelector + '):not(' + dialogSemanticSelector + ' *) { color: var(--color-text, CanvasText) !important; -webkit-text-fill-color: currentColor !important; }';
       const topBarSelector = ':is([data-ds-part="titlebar"], [data-ds-part="header"])[data-codexstyle-owner="' + config.marker + '"]';
       const topBarBridge = '\\n' + topBarSelector + ' { background-color: var(--ds-theme-color-top-bar-background) !important; color: var(--ds-theme-color-top-bar-text) !important; }' +
         '\\n' + topBarSelector + ' :where(a, button, label, p, small, strong, span, [role="button"], [class*="text-"]) { color: var(--ds-theme-color-top-bar-text) !important; }';
@@ -428,7 +441,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + dialogTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };
@@ -453,7 +466,7 @@ export function buildThemePayload(
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["aria-label", "aria-selected", "class", "id", "data-sticky", "data-app-shell-inline-page-header", "data-language", "data-user-message-bubble", "data-markdown-text-style"],
+        attributeFilter: ["aria-label", "aria-selected", "class", "id", "role", "data-sticky", "data-app-shell-inline-page-header", "data-language", "data-user-message-bubble", "data-markdown-text-style"],
       });
     }
     return true;
