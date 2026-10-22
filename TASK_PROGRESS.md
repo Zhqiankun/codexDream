@@ -2,13 +2,16 @@
 
 更新时间：2026-10-22
 
-## 2026-10-22 v1.3.24 发布准备
+## 2026-10-22 v1.3.24 发布完成
 
 - 用户明确要求将本次思考文字与用时修复发布为 `v1.3.24`，已同时确认发布和版本。基线为 `main` / `643f716c2a4fe0b62469339dc1fc83af43ffa564`（v1.3.23），本次只纳入下方已验证的思考/用时修复、工作台预览及对应回归；版本、锁文件、双语 README 和 CHANGELOG 同步。
 - 发布前已核对：本地与远端均无 `v1.3.24` 标签，GitHub 返回同名 Release 不存在；远端 main 与本地基线一致。4 个既有未跟踪审计/用户数据目录不纳入提交。正式产物继续仅由现有 Release 标签工作流构建、校验和上传，不上传本地产物，不修改当前安装或外部会话。
-- 功能阶段 146 项相关单元测试、22 项相关隔离 Electron 用例及类型、lint、格式、架构和生产构建已通过；正式受管 Codex 视觉效果未验证。发布检查与 Actions 结果将在实际完成后记录。
+- 功能阶段 146 项相关单元测试、22 项相关隔离 Electron 用例及类型、lint、格式、架构和生产构建已通过；正式受管 Codex 视觉效果未验证。完整发布检查、远端版本和产物结果记录如下。
 - 发布前 `vitest run tests/main tests/renderer tests/acceptance --maxWorkers=1`：37 文件、359 项中 357 项通过，2 项预置主题用例在清理临时 JPEG 时遇到 `EBUSY`。没有改动产品或测试逻辑；重新构建原生模块后，`bundled-presets.test.ts` 与 `secure-store.test.ts` 共 26 项复测通过。此结果不改写首轮整套失败；最终完整验证继续由标签 Actions 独立执行。
 - 使用现有 Node.js 22.22.0、Python 3.11.15 与 MSVC 2019 完成图标、native secure-store、插件和 electron-vite main/preload/renderer 构建。版本与下载元数据一致，类型、架构、全部跟踪文件及新增回归的格式检查、104 个代码文件 lint（0 错误/警告）通过；未重装依赖或修改全局 PATH。`playwright test` 完整隔离 Electron 回归 44 项全部通过。
+- 发布源码提交 `9468a0d1a97d699601c7f4721ba87cd72075f15d` 已推送 main；注释标签 `v1.3.24` 的对象 `c0208124dd0b60ac43989447fcaa77d562b4f7e3` 已通过 GitHub API 与本地核对一致，最终代码提交相同。标签 push 触发 [Release Actions 39709026899](https://github.com/Zhqiankun/codexDream/actions/runs/39709026899)，最终状态为 `completed / success`：锁定依赖安装、版本/格式/lint/类型/架构、主进程/renderer/acceptance、Electron 端到端、正式包构建与包校验、构建产物留存、发布说明提取及 Release 发布全部通过。期间远端状态查询有临时 EOF/TLS 连接错误，仅重读同一次运行，未重复触发或移动标签。
+- [GitHub Release v1.3.24](https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.24) 于北京时间 `2026-10-22 10:10:01` 公开，`draft=false`、`prerelease=false`，最新稳定版本入口已切到 v1.3.24。五类正式文件均由同次 Actions 上传：`CodexStyle-1.3.24-x64.exe`、对应 `.exe.blockmap`、`CodexStyle-1.3.24-x64.zip`、`latest.yml` 与 `SHA256SUMS.txt`。
+- 发布后下载更新清单与校验和文本，核对四个产物的 SHA-256 均与 GitHub asset digest 一致，并验证下载文本自身摘要、更新版本、安装包完整 URL、大小和 SHA-512 元数据；安装包字节与更新清单的 SHA-512 一致性由上述同次 CI `Verify release packages` 验证。实际校验记录只在忽略的 `test-results/release-v1.3.24-audit/`。未上传本地产物、改写当前安装或操作现有官方 Codex 会话；升级后仍需通过 CodexStyle 启动新会话加载本次规则，真实受管会话视觉效果保持未验证。
 
 ## 2026-10-22 思考状态与用时文字
 
