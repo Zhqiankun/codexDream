@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.27 — 2026-10-28
+
+### English
+
+- Fixed low-contrast composer icons when native Store Codex colors differ from the selected theme. Add-files, model-picker, and microphone icons now inherit their control's foreground color.
+- Preserved permission colors, solid voice/send button contrast, disabled opacity, semantic icons, and multicolor paths. The scoped rule supports configured and advanced styles, stops matching when composer anchors disappear, and is omitted when the composer recipe is disabled.
+- Advanced the selector profile to `/27`. Five isolated Electron icon scenarios, three incremental-mapping regressions, and 29 related unit tests passed. Saved themes and color keys require no migration; a real managed Store Codex session has not been verified locally.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules. Saved themes and configured transparency are kept.
+
+### 简体中文
+
+- 修复原生 Store Codex 配色与所选主题明暗不一致时，输入栏图标看不清的问题。添加文件加号、模型选择图标和麦克风现在继承所在控件的前景色。
+- 保留权限提示颜色、实心语音/发送按钮的对比度、禁用透明度、语义图标和多色图形。局部规则同时支持配置与高级样式，输入框标记失配时立即退出，关闭输入框配方时保留原生图标颜色。
+- 选择器 profile 升至 `/27`。5 项隔离 Electron 图标场景、3 项增量映射回归和 29 项相关单测通过。已有主题与颜色字段无需迁移；本地尚未验证正式受管 Store Codex 会话。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。已保存主题与配置透明度保留。
+
 ## v1.3.26 — 2026-10-28
 
 ### English

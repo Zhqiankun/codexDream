@@ -61,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.26`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.27`：
 
-- `CodexStyle-1.3.26-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.26-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.27-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.27-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.26` 修复新版 Store 布局中历史消息定位短线看不见、输入框背后出现白条的问题，并让页头、首页列表建议和回答操作栏使用已有主题配色。后台身份检查改为逐轮执行，主题首次完整映射后按受影响子树更新。已保存的主题、配置透明度和 Windows 自启动选择保留。升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具；覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。
+`v1.3.27` 修复输入栏加号、模型选择图标和麦克风看不清的问题，让它们跟随所在控件的主题色，同时保留权限提示颜色、实心语音/发送按钮对比度和禁用状态。已保存的主题、配置透明度和 Windows 自启动选择保留。升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具；覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。
 
 ## 运行要求
 
