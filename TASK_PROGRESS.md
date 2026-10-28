@@ -2,12 +2,18 @@
 
 更新时间：2026-10-28
 
-## 2026-10-28 v1.3.27 发布
+## 2026-10-28 v1.3.27 发布完成
 
 - 用户明确要求“把这次图标修复发布成 v1.3.27”。基线为 `main / f502ed7b57b191922f9f7187ff307d39f1779298`，本次发布仅新增下方输入栏图标兼容修复，profile `/27`。package/lock、双语 README 和 CHANGELOG 统一为 `1.3.27`，沿用既有固定更新源和标签 Actions。
 - 发布前已确认本地 `v1.3.27` 标签不存在，GitHub 只读 API 的同名 tag ref 与 Release 均为 404；远端 main 与本地基线相同，最新稳定版为 `v1.3.26`。已有六个未跟踪审计/测试数据目录未纳入提交。功能切片已显式暂存并提交为 `7326239c006c2c1481e1cda55d0ea205613f7e5b`，staged diff 检查通过。
-- 复用本轮已完成的 5 项图标场景、3 项增量映射回归、29 项单测和类型/lint/架构结果。版本/发布说明一致性、十个相关文件格式、diff 检查及更新版本后的生产 electron-vite 构建通过。完整发布检查、正式 Windows x64 打包和产物校验由标签 Actions 执行；不上传本地产物，不操作当前正式 Codex 会话。流水线及发布结果待下方追加。
+- 复用本轮已完成的 5 项图标场景、3 项增量映射回归、29 项单测和类型/lint/架构结果。版本/发布说明一致性、十个相关文件格式、diff 检查及更新版本后的生产 electron-vite 构建通过。完整发布检查、正式 Windows x64 打包和产物校验由标签 Actions 执行，流水线及发布结果见下方。
 - 构建后的工作台用例 1 项通过，确认 `v1.3.27` 版本显示、独立临时存储写入和本地 MCP 使用流程正常；该用例不启动正式 Codex。
+- 版本发布提交为 `aea6eeaf4c37e9beb1b676562d730d60bfb61b7f`。main 已成功推送并经独立 GitHub API 核对，本地与 origin/main 为 `0/0`。注释标签 `v1.3.27` 的对象为 `23173af0686e7c116febcce4d047da73ddf91ac0`，指向该版本提交；首次标签推送遇到 TLS 连接中断，确认远端标签仍为 404 后保持证书验证重试，同一标签推送成功。没有移动既有标签或修改全局 Git 配置。
+- 已确认 [Release Actions 40653943022](https://github.com/Zhqiankun/codexDream/actions/runs/40653943022) 由 `push / v1.3.27` 触发，源码 SHA 与上述发布提交一致。首次读取工作流专属集合被连接器 URL 白名单拒绝，改用其支持的仓库运行列表确认同次运行；后续一次连接器查询遇到网络错误，用 GitHub CLI 只读查询同次运行后继续核对，没有重新触发构建。
+- 该次 Actions 最终为 `completed / success`，格式、lint、类型、架构、main、renderer、验收、Electron 回归、正式包构建、包校验、产物留存和 Release 发布全部通过。完整日志确认 38 个单元/验收文件共 368 项通过（main 285、renderer 76、acceptance 7），完整 Electron 回归 71 项通过，包括本次 5 项图标场景；未修改发布标签或重跑流水线。
+- [GitHub Release v1.3.27](https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.27) 于北京时间 `2026-10-28 16:12:53` 公开，Release ID `426402347`，`draft=false`、`prerelease=false`，最新稳定版 API 返回同一 Release。安装包、安装包 blockmap、ZIP、`latest.yml` 和 `SHA256SUMS.txt` 五类正式文件均由同次 Actions 上传，名称、大小、uploaded 状态和 SHA-256 digest 已核对。
+- 已实际下载 `latest.yml` 和 `SHA256SUMS.txt`：两个文本自身的长度与 SHA-256 均匹配公开资产，清单列出的四个产物 SHA-256 全部匹配资产摘要，更新版本、安装包 URL、大小和 SHA-512 元数据一致。安装包本体未在本机下载，其字节与清单的 SHA-512 一致性由同次成功的 CI `Verify release packages` 验证。CI 日志、运行/发布元数据、下载清单和验证结果保存在忽略的 `test-results/release-v1.3.27-audit/`。
+- 正式产物全部来自 GitHub Actions；未上传本地产物或改变本机安装、已保存主题、当前正式 Codex 会话。升级后需通过 CodexStyle 启动新 Codex 会话加载图标规则，正式受管窗口视觉效果仍未在本地实测。
 
 ## 2026-10-28 输入栏图标前景修复
 
