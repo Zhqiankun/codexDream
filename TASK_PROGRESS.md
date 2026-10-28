@@ -1,6 +1,45 @@
 # CodexStyle 任务进度
 
-更新时间：2026-10-22
+更新时间：2026-10-28
+
+## 2026-10-28 v1.3.26 发布准备
+
+- 用户明确要求“把这次和前面的修复一起发布成 v1.3.26”。基线为 `main / 170128b68bfd4e2d96f1bbd601bb94a964f93f44`，纳入下方三处前景修复、历史消息定位条与底部白条修复，以及此前尚未发布的 watcher/增量映射优化。selector profile `/26`；package/lock、双语 README 和 CHANGELOG 同步至 `1.3.26`。
+- 发布前通过已连接的 GitHub 只读 API 确认远端 main 与本地基线相同，`v1.3.26` 的 tag ref 和 Release 均为 404；本地同名标签不存在。最新稳定版仍为 `v1.3.25`，可用旧版产物保持原样。6 个既有未跟踪审计/用户数据目录不纳入提交。
+- 复用下方同一改动的功能验证证据，发布阶段补充版本/说明一致性、格式和构建后工作台检查；完整发布门禁继续由既有标签 Actions 执行。五类正式 Windows x64 文件只由该流水线构建、校验和上传，不上传本地产物，不修改安装或操作当前正式 Codex 会话。
+- 当前为发布准备，最终提交、标签、Actions 和 Release 结果在本节补记。正式受管窗口效果与真实客户端升级流程仍未在本地验证。
+- 发布元数据和 17 个相关文件格式检查、diff 检查、生产 electron-vite main/preload/renderer 构建通过。版本更新后的隔离工作台用例通过（1 项）；首轮沙箱在原生存储打开临时目录时返回 `STORE_TAMPERED:directory-open`，通过平台审批在同一测试独立临时目录重跑后通过，没有修改存储策略或正式用户数据。首次元数据脚本因 PowerShell 对锁文件空键需要 `ConvertFrom-Json -AsHashtable` 而退出，修正检查命令后版本一致性确认通过，锁文件内容未因此改变。
+
+## 2026-10-28 页头、首页列表与回答操作前景
+
+- 用户明确要求修复补充排查中确认的三处。复用当前 Store `26.1023.6123.0` 的源码审计及六项修复前样例；保留已有 watcher/增量映射、历史定位条与底板改动。仅修改现有 selector-profile、theme-payload 和 Studio 颜色提示；profile `/26`，产品版本仍为 `1.3.25`，不新增主题字段、part、依赖、IPC 或扫描任务。
+- 共用页头标题映射到 `text`，内部或紧邻下方的说明映射到 `muted`；首页普通列表文字、交互标签的独立文字层和分组说明使用 `muted`，原生主要文字/悬停态用 `text`；回答下方透明次要按钮用 `secondary`，`text-default` 状态用 `text`。规则限定当前 owner 和已核对的结构，直接 CSS 即时覆盖 SPA 新节点。保留独立首页卡片配色、输入表面、主要按钮、嵌套操作及语义色；未扩展到尚未确认的 Page 目录 rail 或已读提示。
+- 新增 `native-foregrounds.spec.ts` 的 12 项独立 Electron 用例，覆盖深浅主题、配置/高级模式、标题及说明、列表普通/主要/悬停/复杂标签、复制图标及状态、鼠标与键盘显示、禁用、点击/Enter 命中、动态重建即时着色、结构失配退出及范围/foreign owner 隔离。首轮可执行结果为 10 通过、2 个深色页头用例失败：模拟 input 没有原生 `bg-transparent`，根 color-scheme 切换时 UA 默认底色改变；按当前 `PageSearchInput` 的透明背景补齐夹具后，4 项页头用例完整复测通过。此复测不改写首轮结果；首页/操作栏的 8 项检查不受该输入样例修正影响。
+- 使用当前包的完整实际 CSS 另跑 6 项修复样例，全部通过；三个目标均实际消费指定主题色。所用两套明确配色的对比度为 `5.90–19.04:1`，不是任意自定义主题的保证。已查看深色页头、深色首页以及深浅操作栏四张修复后截图。原始 CSS、基线、修复后观测 JSON 和截图保存在忽略的 `test-results/compatibility-audit-26.1023.6123.0/fixed-run/`，未改写原始排查数据或官方包。
+- `theme-payload`、`selector-profile`、`session-service`、`session-startup-readiness` 四文件共 80 项单元测试通过。`customize-page-header`、`page-search-rail`、`thread-navigation-rail`、`shell-surfaces`、`payload-incremental` 五文件共 25 项相邻 Electron 回归通过，覆盖此前定位条和底部修复、独立表面及增量归属；没有新增全页扫描。
+- 初次沙箱内 Electron 无法启动，Vitest 转换缓存 rename 返回 EPERM、0 项执行；经平台审批后使用独立临时测试目录得到上述结果，没有修改产品启动策略。Prettier 曾无法写入单个 selector-profile 文件，按其格式输出完成小范围排版，最终修改文件格式检查通过。类型检查、修改文件 ESLint、架构检查、diff 检查与生产 electron-vite main/preload/renderer 构建通过。
+- 所有点击与复制状态来自测试夹具事件，用于证明样式未阻断命中、焦点和原生可见性，不代表官方复制业务或真实账户功能已端到端验证。未提交、推送、打包、发布、热应用或重启正式 Codex；当前安装版不会自动加载这些本地改动，正式受管窗口效果仍未验证。
+
+## 2026-10-28 历史消息定位条与底部白条兼容
+
+- 用户反馈启用皮肤后，对话左侧可查看记录的短线看不见，输入框背后的白条再次出现。保留上次尚未提交的 watcher/增量映射优化和既有审计目录，仅修补现有 selector-profile 与 theme-payload；版本保持 1.3.25。
+- 只读核对当前 Store Codex `26.1023.6123.0`。历史定位条的原生 marker 使用 `--color-codex-description` / `--color-text`，皮肤没有局部映射这两个前景变量；深色背景下仍使用原生浅色界面的灰色。新版 footer surface 将水平 inset 移入 `_background_` / `_surface_` CSS module，移除了旧规则必需的 `inset-x-0`。原始资源、格式化副本、摘要与匹配位置保存在忽略的 `test-results/navigation-footer-audit-26.1023.6123.0/`；未改写官方安装包。REA 对两个原始定位条模块的静态分析 parent Evidence 为 `ev_7889fe9dd3ed10b0b106c5eb2021f5b34640feca63a274ff4efe1c8cb5e576e3`，不作为正式客户端运行证据。
+- profile 升至 `/25`。在当前 owner root 的 `[data-thread-user-message-navigation-rail-list]` 内，将普通短线和激活短线分别接入已有 `secondary` / `text` 颜色，保留原生透明度、书签、悬停、当前项、拖动定位、音频伸缩和键盘焦点规则；无需新增 DOM part、主题字段或配置项。底板继续限定直接 footer 子节点的 aria-hidden、pointer-events-none、absolute、bg-surface，在旧 inset utility 之外兼容已核对的 background/surface 模块组合；只修改绘制颜色，不调整定位或点击穿透。
+- 修复前，三项隔离 Electron 用例实际复现：底部空白采样为 `[255,255,255]` 而非背景 `[248,185,206]`，底板首次挂载和动态重建均漏映射；两种主题的定位短线仍为 `rgb(93,93,93)`。沙箱首次无法启动 Electron；Vitest 首轮则在临时转换缓存 rename 时遇到 EPERM，未执行任何用例。通过平台审批在独立临时测试目录重跑，未修改产品策略或附着正式会话。
+- 修复后 `theme-payload`、`selector-profile`、`session-service`、`session-startup-readiness` 四个 Vitest 文件共 79 项通过；`thread-navigation-rail`、`shell-surfaces`、`payload-incremental` 三个 Electron 文件共 17 项通过。覆盖深浅主题、配置/高级模式、短线/当前项/书签/悬停/焦点颜色、预览、点击及键盘跳转、scrub 状态、同步重建与标记撤销、普通/面板/紧凑布局、0/20% 页面 alpha、新旧底板、范围外嵌套表面、内容区/off 回退及已有增量归属行为。点击与预览来自最小夹具事件，验证主题样式未阻断这些交互，不等于官方客户端端到端验证。已实际查看修复前后的定位条及底部截图。
+- 类型检查、修改文件 ESLint/Prettier、架构边界、diff 检查与生产 electron-vite main/preload/renderer 构建通过。未提交、推送、打包或发布；未更新当前安装、热应用、关闭或重启正式 Codex，正式受管窗口效果仍待后续版本验证。
+
+## 2026-10-22 后台检查与主题归属扫描优化
+
+- 用户明确要求“先处理后台检查重叠和整页扫描”。基于 `main / 170128b`、版本 `1.3.25` 完成两处实现；不包含系统查询合并、背景图片处理、CSS 缓存、外观调整或发布。6 个既有未跟踪审计/用户数据目录保持原样。
+- `session-service.ts` 将 1.5 秒 interval 改为完整校验/通知完成后再等待 1.5 秒，epoch 与 owned 对象共同约束旧回调。结束或孤立化后，尚未完成的检查不能重启定时器或通知旧状态；通知失败被后台循环接住，下一轮继续检查。WindowsPlatform 五项查询、AppX/PID/SID/nonce/监听者/Browser ID/target 验证和操作前即时校验不变。
+- `theme-payload.ts` 首次保留完整映射，后续合并局部新增/属性变化子树，移除节点仅撤销本实例归属；纯文字与相同属性赋值不排程。缓存全部关系选择器匹配，祖先 `:has` 匹配变化时复核其子树，保留 main/home 等优先级重叠下的后代更新；卡片顺序、样式节点恢复、body 重建、foreign owner 与消息首次绘制前处理保持。用 WeakMap/WeakSet 记录匹配/本实例归属，避免强引用离开页面的节点；跳过不变的 part/卡片索引/根属性写入。
+- 新增 `session-watcher.test.ts`（5 项）与 `payload-incremental.spec.ts`（3 项）：覆盖慢检查不重入、结束后无复活/旧通知、失败校验、慢失败通知及恢复；1000 组消息局部变化无全页/无关大子树扫描，按完整 selector profile 独立核对 home/tab/search/document/diff/dialog、优先级、移动卡片、清理、样式恢复和所有权隔离。产品未新增模块、共享抽象、依赖、主题字段或 IPC。
+- 修改前的新 watcher 回归先复现两项失败：慢检查 10 秒内启动 6 轮，旧检查失败在孤立化后仍通知。修复后的 5 项通过。初次 mapper 单测因 JSDOM 不支持部分 `:has` 字符及手工预标记 fixture 被清理而失败；保留逐选择器异常隔离并用 WeakSet 限定本实例撤销后，原有 payload 单测通过。新测试的两个 Set 字面量类型错误修正为 `Set<string>`，类型检查通过。
+- `vitest run tests/main/session-watcher.test.ts tests/main/session-service.test.ts tests/main/session-startup-readiness.test.ts tests/main/theme-payload.test.ts tests/main/selector-profile.test.ts --maxWorkers=1`：5 文件、83 项通过。11 个主题相关 Electron 文件共 50 项通过，包含新用例及思考/用时、弹窗、页头、Markdown、侧栏、消息编辑与首次绘制；未运行无 renderer 改动的工作台应用用例。补充“节点移入 Shadow DOM 仍 isConnected”测试先复现残留归属，修正为文档选择器范围判断后，16 项消息首帧/增量用例及上述 83 项单测完整复测通过。测试失败与后续通过按上述阶段记录，不把局部通过替代失败结果。
+- 性能对比复用先前的同一隔离 Electron 样例，原版与新版串行测量，修正后另复测新版；200/1000 组消息、200 个导航按钮，背景/磨砂/阴影关闭。1000 组消息的 12 次虚拟列表式移除/新增，32 组选择器的 document 级映射查询 `384 → 0`，批处理总耗时 `103.9 → 7.6 ms`，最高单轮 `11.3 → 1.1 ms`，part 标记写入 `24120 → 24`（新版 24 次均对应新消息）。12 次普通标题更新的排程、映射查询和 part 写入均降为 0。纯滚动前后均不触发映射。初次完整映射仍保留；计时为当前隔离样本，不等于正式窗口 FPS、GPU 或总体启动时间。
+- 最终类型检查、修改文件 lint/Prettier、架构边界、diff 检查及生产 electron-vite main/preload/renderer 构建通过。只修改两个现有 session 产品文件、两个新增测试文件与三份需求/架构/进度文档，没有新增产品模块或依赖。
+- 原始诊断、基线复测与新版结果保存在忽略的 `test-results/performance-audit-v1.3.25/`，其中 `results.json` 保留初次基线，`results-baseline-repeat.json` 与 `results-after.json` 为本轮对比；未记录正式对话、SID、nonce 或进程命令行。版本保持 1.3.25，未提交、推送、打包或发布，未附着、热应用、关闭或重启正式 Codex。
 
 ## 2026-10-22 v1.3.25 发布完成
 

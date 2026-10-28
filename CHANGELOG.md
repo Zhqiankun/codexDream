@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.3.26 — 2026-10-28
+
+### English
+
+- Restored theme colors on history-navigation ticks, including the active message, while preserving native hover, bookmarks, scrubbing, and keyboard focus.
+- Removed the input-area white strip introduced by Store Codex's updated footer surface. Both the verified CSS-module layout and the older inset layout retain their positioning and click-through behavior.
+- Made shared page titles and descriptions, home suggestion lists, and transparent assistant reply actions follow existing text, muted, and secondary colors. Independent cards and inputs, semantic colors, and native action visibility remain intact; Studio color hints describe the added uses.
+- Serialized background identity checks so the next round starts 1.5 seconds after the previous check and notification settle. Stopped sessions cannot restart the loop or emit stale notifications; complete identity validation is retained.
+- Replaced repeated full-page theme mapping with updates to affected subtrees after the initial pass. Text-only changes no longer trigger mapping, while dynamic structure, ownership cleanup, message first paint, and Shadow DOM boundaries remain covered. In the isolated 1000-message sample, 12 local updates reduced full-document mapping queries from 384 to 0; this is not a real-client frame-rate measurement.
+- Advanced the selector profile to `/26` and verified the Store Codex 26.1023.6123.0 structures with isolated Electron regressions. Saved themes and color keys require no migration. A real managed Store Codex session has not been verified locally.
+
+> Before upgrading, use CodexStyle to end its current Codex session and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules. Saved themes and configured transparency are kept.
+
+### 简体中文
+
+- 修复历史消息定位短线看不见的问题，普通及激活短线使用已有主题色，保留原生悬停、书签、拖动定位和键盘焦点行为。
+- 修复新版 Store Codex 输入框背后的白条，兼容已核对的 CSS module 底板及旧版 inset 布局，保留定位与点击穿透行为。
+- 页头标题及说明、首页列表式建议和回答下方透明操作按钮接入已有正文、说明和次要操作色。独立卡片、输入表面、语义色和操作栏显示条件保持原样，Studio 颜色提示同步说明新增用途。
+- 后台身份检查改为上一轮校验和通知结束后再等待 1.5 秒，避免检查重叠；已结束会话不会重新排程或发出过期通知，完整身份验证保留。
+- 主题首次完整映射后按受影响子树更新，纯文字变化不再触发映射，同时保留动态结构、归属清理、消息首帧与 Shadow DOM 边界。1000 组消息的隔离样例中，12 次局部更新的整页映射查询从 384 次降为 0 次；这不代表真实客户端帧率。
+- 选择器 profile 升至 `/26`，已按 Store Codex 26.1023.6123.0 结构完成隔离 Electron 回归。已有主题和颜色字段无需迁移；本地尚未验证正式受管 Store Codex 会话。
+
+> 升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具。覆盖安装后重新打开 CodexStyle，并通过它启动新的 Codex 会话，以加载更新后的主题规则。已保存主题与配置透明度保留。
+
 ## v1.3.25 — 2026-10-22
 
 ### English

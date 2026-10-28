@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.25` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.26` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.25-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.25-x64.zip` — portable archive.
+- `CodexStyle-1.3.26-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.26-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.25` makes dialog titles, descriptions, labels, cancel actions, and transparent close icons follow **Sidebar text**, with matching Studio previews and color-control shortcuts. Independent input surfaces, primary buttons, and semantic status colors retain their contrast. Saved themes, configured transparency, and Windows startup preferences are preserved. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules.
+`v1.3.26` restores themed history-navigation ticks and removes the input-area white strip in the updated Store layout. Page headings, home suggestion lists, and assistant reply actions now follow existing theme colors. Background identity checks run sequentially, and theme mapping updates affected subtrees after the initial full pass. Saved themes, configured transparency, and Windows startup preferences are preserved. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules.
 
 ## Requirements
 
