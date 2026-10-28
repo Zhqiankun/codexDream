@@ -2,6 +2,15 @@
 
 更新时间：2026-10-28
 
+## 2026-10-28 输入栏图标前景修复
+
+- 用户反馈加号、模型旁图标与听写/语音区域在深色主题下不清晰。只读核对当前 Store `26.1023.6123.0`：加号和听写 SVG 自带 `text-default`，实时麦克风有 `text-codex-icon`，模型按钮的中性图标使用原生 utility 或 `ModelPickerTriggerInlineModeIcon` / `Foreground` / `MutedForeground` CSS module 前景；这些直接颜色覆盖了已设置在父按钮上的主题颜色。源码片段和原始 CSS 保存在忽略的 `test-results/composer-icon-audit-26.1023.6123.0/`，没有修改官方包。
+- 在既有 `theme-payload` 增加局部中性 SVG 继承规则，限定当前 owner 的输入栏、原生输入框根和 footer 标记。图标继承所在控件的前景，权限提示和实心语音/发送按钮保留各自配色；不覆盖语义色、固定多色路径、菜单或其他 owner。高级 CSS 的按钮颜色同样可继承，关闭 composer 配方时不添加该规则。profile 升至 `/27`，不新增 DOM part、扫描、配置字段、模块、共享抽象或依赖；版本仍为 `1.3.26`。
+- 新增 `composer-icons.spec.ts`，最终 5 项隔离 Electron 检查通过：深浅主题 × 配置/高级模式，以及关闭 composer 配方。覆盖已核对的中性类、权限/实心按钮、语义色、多色图形、禁用透明度、键盘命中/焦点、悬停、状态变更即时着色、节点重建/移动、根标记失配即时退出与范围隔离。已查看深浅两张渲染截图；图形轮廓和点击事件为测试夹具，不代表官方文件添加、语音服务或真实账户操作完成。
+- 首次沙箱内 4 项 Electron 用例均未能启动，Vitest 两个文件因缓存 rename `EPERM` 未执行；平台审批后测试可运行。第一轮可执行的 4 项用例均在末尾“仅删除根属性应撤销 part”断言失败，此前颜色和交互断言通过；该属性不在既有 mapper 监听列表中。保留此结果，未扩大修改 mapper，改以节点移动验证原有归属清理，并在新图标 CSS 上额外验证原生锚点即时失配退出。最后 5 项完整复测通过；属性单独变化的旧 part 清理限制仍存在，本轮只确保新增图标规则立即失效。
+- `theme-payload` / `selector-profile` 共 29 项单测最终复测通过，3 项既有增量映射 Electron 回归通过。类型检查、修改文件 ESLint/Prettier、架构检查、diff 检查和生产 electron-vite main/preload/renderer 构建通过。截图和运行结果位于忽略的 `test-results/composer-icons-fix/`；最终图标用例位于 `final/`。
+- 本轮未提交、推送、打包、发布、热应用或重启正式 Codex。此补丁不在已发布的 v1.3.26 内，当前安装版和正在运行的窗口不会自动加载；正式受管窗口效果仍未实测。
+
 ## 2026-10-28 v1.3.26 发布完成
 
 - 用户明确要求“把这次和前面的修复一起发布成 v1.3.26”。基线为 `main / 170128b68bfd4e2d96f1bbd601bb94a964f93f44`，纳入下方三处前景修复、历史消息定位条与底部白条修复，以及此前尚未发布的 watcher/增量映射优化。selector profile `/26`；package/lock、双语 README 和 CHANGELOG 同步至 `1.3.26`。

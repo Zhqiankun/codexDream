@@ -530,6 +530,13 @@ export function buildThemePayload(
         '\\n' + composerSelector + ' :where(input, textarea)::placeholder { color: var(--ds-theme-color-muted) !important; opacity: 1 !important; }';
       const composerTextBridge = '\\n' + composerInputSelector + ' { color: var(--ds-theme-color-composer-text) !important; caret-color: var(--ds-theme-color-composer-text) !important; }';
       const composerPermissionSelector = composerToolbarSelector + ' [data-permission-mode]';
+      // Native neutral SVG colors override the toolbar's inherited foreground.
+      // Inherit the nearest control color so permission/solid buttons keep their
+      // contrast pair; leave semantic icons, multicolor paths and popovers alone.
+      const composerNeutralIconSelector = '[data-codex-composer-root] ' + composerToolbarSelector + '[data-composer-footer-responsive] :where(button) svg:is([class~="text-default"], [class~="text-secondary"], [class~="text-tertiary"], [class~="text-codex-icon"], [class*="_ModelPickerTriggerInlineModeIcon_"], [class*="_Foreground_"], [class*="_MutedForeground_"]):not(' + foregroundBoundary + '):not(' + foregroundBoundary + ' *)';
+      const composerIconBridge = config.configuredRecipes?.composer === false
+        ? ''
+        : '\\n' + composerNeutralIconSelector + ' { color: inherit !important; }';
       // The inline editor is an optional user-message form, with no primary
       // composer marker. Cover insertion immediately and paint alpha only once.
       // Its text submit button must never receive the composer icon replacement.
@@ -580,7 +587,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + threadNavigationRailBridge + pageSearchRailBridge + nativeForegroundBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + dialogTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + threadNavigationRailBridge + pageSearchRailBridge + nativeForegroundBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + dialogTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + composerIconBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };
