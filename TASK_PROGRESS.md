@@ -2,13 +2,19 @@
 
 更新时间：2026-10-28
 
-## 2026-10-28 v1.3.26 发布准备
+## 2026-10-28 v1.3.26 发布完成
 
 - 用户明确要求“把这次和前面的修复一起发布成 v1.3.26”。基线为 `main / 170128b68bfd4e2d96f1bbd601bb94a964f93f44`，纳入下方三处前景修复、历史消息定位条与底部白条修复，以及此前尚未发布的 watcher/增量映射优化。selector profile `/26`；package/lock、双语 README 和 CHANGELOG 同步至 `1.3.26`。
 - 发布前通过已连接的 GitHub 只读 API 确认远端 main 与本地基线相同，`v1.3.26` 的 tag ref 和 Release 均为 404；本地同名标签不存在。最新稳定版仍为 `v1.3.25`，可用旧版产物保持原样。6 个既有未跟踪审计/用户数据目录不纳入提交。
 - 复用下方同一改动的功能验证证据，发布阶段补充版本/说明一致性、格式和构建后工作台检查；完整发布门禁继续由既有标签 Actions 执行。五类正式 Windows x64 文件只由该流水线构建、校验和上传，不上传本地产物，不修改安装或操作当前正式 Codex 会话。
-- 当前为发布准备，最终提交、标签、Actions 和 Release 结果在本节补记。正式受管窗口效果与真实客户端升级流程仍未在本地验证。
+- 准备、提交、标签、Actions 和 Release 的实际结果记录如下。正式受管窗口效果与真实客户端升级流程仍未在本地验证。
 - 发布元数据和 17 个相关文件格式检查、diff 检查、生产 electron-vite main/preload/renderer 构建通过。版本更新后的隔离工作台用例通过（1 项）；首轮沙箱在原生存储打开临时目录时返回 `STORE_TAMPERED:directory-open`，通过平台审批在同一测试独立临时目录重跑后通过，没有修改存储策略或正式用户数据。首次元数据脚本因 PowerShell 对锁文件空键需要 `ConvertFrom-Json -AsHashtable` 而退出，修正检查命令后版本一致性确认通过，锁文件内容未因此改变。
+- 已按性能、界面兼容、版本发布拆为 `8145b37`、`c8d9f98`、`694bcece07a3e217618f4a1a1031d38a909ec749` 三次提交，分别显式暂存范围内文件并通过 staged diff 检查。注释标签 `v1.3.26` 的对象为 `f682ae14face0349265ab9916b7d7628fb840d17`，指向最终版本提交。第一次原子推送遇到 TLS 连接失败；只读复核确认远端未变化后，第二次同目标推送成功。GitHub API 已独立核对 main、标签对象和目标提交一致，本地与 origin/main 为 `0/0`。
+- 标签 push 已触发 [Release Actions 40623677469](https://github.com/Zhqiankun/codexDream/actions/runs/40623677469)，以该次运行和最终产物核对为发布结果。未移动既有标签、手动上传本地产物或另建 Release。
+- 该次 Actions 最终为 `completed / success`，依赖、格式、lint、类型、架构、主进程、renderer、验收、Electron 回归、正式包构建、包校验、产物留存和 Release 发布全部通过。完整 CI 日志确认 38 个单元/验收文件共 367 项通过（main 284、renderer 76、acceptance 7），完整 Electron 回归 66 项通过；没有修改代码或重跑流水线。
+- [GitHub Release v1.3.26](https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.26) 于北京时间 `2026-10-28 11:04:06` 公开，Release ID `426217766`，`draft=false`、`prerelease=false`；最新稳定版 API 返回同一 Release。`CodexStyle-1.3.26-x64.exe`、对应 `.exe.blockmap`、`CodexStyle-1.3.26-x64.zip`、`latest.yml` 和 `SHA256SUMS.txt` 五类正式文件均由同次 Actions 上传并显示 uploaded，文件名、大小和 SHA-256 digest 已核对。
+- 发布后实际下载 `latest.yml` 与 `SHA256SUMS.txt`：两个文本自身的长度和 SHA-256 与 GitHub digest 一致，清单中的四个产物 SHA-256 全部与公开资产 digest 一致，更新版本、安装包完整下载 URL、大小及 SHA-512 元数据一致。安装包本体未在本机下载，其字节与清单的 SHA-512 一致性由同次成功的 CI `Verify release packages` 验证。原始 CI 日志、公开元数据、下载文本和本地验证结果均保存在忽略的 `test-results/release-v1.3.26-audit/`。中途连接器状态读取两次遇到网络错误，使用 GitHub CLI 只读查询同次运行后恢复核对，没有将查询失败当作发布失败。
+- 未改写当前安装、已保存主题或正式 Codex 会话。升级后需通过 CodexStyle 启动新会话加载这些主题规则；正式受管窗口的视觉与性能效果仍未在本地实测，隔离验证不替代该结果。
 
 ## 2026-10-28 页头、首页列表与回答操作前景
 
