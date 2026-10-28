@@ -118,7 +118,14 @@ export function buildThemePayload(
     const homeCardIndexAttribute = "data-codexstyle-home-card-index";
     const observingAttribute = "data-codexstyle-observing";
     const styleSelector = 'style[' + styleMarkerAttribute + '="1"][' + ownerAttribute + '="' + config.marker + '"]';
-    const assigned = new Set();
+    const ownedPartSelector = '[' + partAttribute + '][' + ownerAttribute + '="' + config.marker + '"]';
+    const relationalSelectors = config.parts.map(([, selector]) => selector).filter(selector => selector.includes(":has("));
+    const relationIndexes = new Map(relationalSelectors.map((selector, index) => [selector, index]));
+    const relationSignatures = new WeakMap();
+    const assigned = new WeakSet();
+    const dirtyRoots = new Set();
+    const ancestors = new Set();
+    const removedRoots = new Set();
     let timer;
 
     const setPart = (node, part) => {
@@ -128,7 +135,7 @@ export function buildThemePayload(
         node.setAttribute(ownerAttribute, config.marker);
       }
       if (node.getAttribute(partAttribute) !== part) node.setAttribute(partAttribute, part);
-      node.setAttribute(partMarkerAttribute, "1");
+      if (node.getAttribute(partMarkerAttribute) !== "1") node.setAttribute(partMarkerAttribute, "1");
       assigned.add(node);
     };
 
@@ -138,6 +145,7 @@ export function buildThemePayload(
       node.removeAttribute(partMarkerAttribute);
       node.removeAttribute(homeCardIndexAttribute);
       node.removeAttribute(ownerAttribute);
+      relationSignatures.delete(node);
       assigned.delete(node);
     };
 
@@ -156,8 +164,8 @@ export function buildThemePayload(
     const syncChangedMessages = (records) => {
       const root = document.documentElement;
       if (location.protocol !== "app:" || root?.getAttribute(partAttribute) !== "root" || root.getAttribute(ownerAttribute) !== config.marker) return;
-      // Message styles require a part before rendering. Keep the 80 ms full-page
-      // batch, but map only changed subtrees at the observer's pre-paint checkpoint.
+      // Message styles require a part before rendering. Keep this pre-paint
+      // path independent of the later structural reconciliation batch.
       for (const record of records) {
         if (record.type === "attributes") {
           if (record.attributeName === "data-user-message-bubble" || record.attributeName === "data-markdown-text-style") syncMessagePart(record.target);
@@ -183,34 +191,123 @@ export function buildThemePayload(
       return style;
     };
 
-    const apply = () => {
+    const ownedParts = (scope) => {
+      const nodes = Array.from(scope.querySelectorAll(ownedPartSelector));
+      if (scope.nodeType === 1 && scope.matches(ownedPartSelector)) nodes.unshift(scope);
+      return nodes;
+    };
+
+    const queueAncestors = (node) => {
+      for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) ancestors.add(ancestor);
+    };
+
+    const collectChanges = (records) => {
+      for (const record of records) {
+        if (record.type === "attributes") {
+          if (record.target.getAttribute(record.attributeName) === record.oldValue) continue;
+          dirtyRoots.add(record.target);
+          queueAncestors(record.target.parentElement);
+          continue;
+        }
+        let structural = false;
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          dirtyRoots.add(node);
+          structural = true;
+        }
+        for (const node of record.removedNodes) {
+          if (node.nodeType !== 1) continue;
+          removedRoots.add(node);
+          structural = true;
+        }
+        if (structural) queueAncestors(record.target);
+        // Text alone cannot change this profile's selector matches. Preserve
+        // recovery if the owned stylesheet itself was edited or replaced.
+        if (record.target.nodeType === 1 && record.target.matches(styleSelector)) dirtyRoots.add(record.target);
+      }
+      return dirtyRoots.size || ancestors.size || removedRoots.size;
+    };
+
+    const changedScopes = () => {
+      for (const node of ancestors) {
+        if (node.nodeType !== 1 || node.getRootNode() !== document) continue;
+        const signature = relationalSelectors.flatMap((selector, index) => {
+          try { return node.matches(selector) ? [index] : []; } catch { return []; }
+        }).join(",");
+        if (signature !== (relationSignatures.get(node) || "")) {
+          relationSignatures.set(node, signature);
+          dirtyRoots.add(node);
+        }
+      }
+      ancestors.clear();
+      // A :has match on an ancestor can affect other descendants (home titles
+      // and selected tab surfaces). Compare all relation matches, not just the
+      // winning part: a main surface can also be a home anchor.
+      const roots = new Set([...dirtyRoots].filter(node => node.getRootNode() === document));
+      dirtyRoots.clear();
+      return [...roots].filter(node => {
+        for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+          if (roots.has(parent)) return false;
+        }
+        return true;
+      });
+    };
+
+    const apply = (initial = false) => {
       if (location.protocol !== "app:") return false;
       const root = document.documentElement;
       if (!root) return false;
-      if (root.hasAttribute(partAttribute) && root.getAttribute(ownerAttribute) !== config.marker) return false;
+      if (root.hasAttribute(partAttribute) && root.getAttribute(ownerAttribute) !== config.marker) {
+        dirtyRoots.clear();
+        ancestors.clear();
+        removedRoots.clear();
+        return false;
+      }
+      const scopes = initial ? [document] : changedScopes();
+      for (const removed of removedRoots) {
+        // A move into a shadow tree/another document also leaves our selector
+        // scope, even though isConnected remains true.
+        if (removed.getRootNode() !== document) for (const node of ownedParts(removed)) if (assigned.has(node)) clearPart(node);
+      }
+      removedRoots.clear();
       const desired = new Map();
+      const relations = new Map();
       desired.set(root, "root");
       if (document.body) desired.set(document.body, "canvas");
       for (const [part, selector] of config.parts) {
         try {
-          for (const node of document.querySelectorAll(selector)) {
-            if (!desired.has(node)) desired.set(node, part);
+          for (const scope of scopes) {
+            const nodes = Array.from(scope.querySelectorAll(selector));
+            if (scope.nodeType === 1 && scope.matches(selector)) nodes.unshift(scope);
+            for (const node of nodes) {
+              if (!desired.has(node)) desired.set(node, part);
+              if (relationIndexes.has(selector)) {
+                if (!relations.has(node)) relations.set(node, []);
+                relations.get(node).push(relationIndexes.get(selector));
+              }
+            }
           }
         } catch {}
       }
-      for (const node of [...assigned]) {
-        if (!desired.has(node)) clearPart(node);
+      for (const scope of scopes) {
+        for (const node of ownedParts(scope)) if (assigned.has(node) && !desired.has(node)) clearPart(node);
       }
-      for (const [node, part] of desired) setPart(node, part);
+      for (const [node, part] of desired) {
+        // Root/canvas remain in desired for shell ownership, even when they are
+        // outside this batch. Do not erase their cached relational matches.
+        if (initial || scopes.some(scope => scope === node || scope.contains(node))) relationSignatures.set(node, (relations.get(node) || []).join(","));
+        setPart(node, part);
+      }
       const ownedHomeCards = Array.from(document.querySelectorAll('[data-ds-part="home-card"][data-codexstyle-owner="' + config.marker + '"]'));
       for (const [index, node] of ownedHomeCards.entries()) {
-        if (index < config.homeCards.length) node.setAttribute(homeCardIndexAttribute, String(index));
-        else node.removeAttribute(homeCardIndexAttribute);
+        if (index < config.homeCards.length) {
+          if (node.getAttribute(homeCardIndexAttribute) !== String(index)) node.setAttribute(homeCardIndexAttribute, String(index));
+        } else if (node.hasAttribute(homeCardIndexAttribute)) node.removeAttribute(homeCardIndexAttribute);
       }
       const style = ensureStyle(root);
-      root.setAttribute("data-codexstyle-appearance", config.appearance);
-      root.setAttribute("data-codexstyle-safe-area", config.art.safeArea);
-      root.setAttribute("data-codexstyle-task-mode", config.art.taskMode);
+      for (const [name, value] of [["data-codexstyle-appearance", config.appearance], ["data-codexstyle-safe-area", config.art.safeArea], ["data-codexstyle-task-mode", config.art.taskMode]]) {
+        if (root.getAttribute(name) !== value) root.setAttribute(name, value);
+      }
       const rootSelector = '[data-ds-part="root"][data-codexstyle-owner="' + config.marker + '"]';
       const canvasSelector = '[data-ds-part="canvas"][data-codexstyle-owner="' + config.marker + '"]';
       const mainSelector = '[data-ds-part="main"][data-codexstyle-owner="' + config.marker + '"]';
@@ -450,7 +547,7 @@ export function buildThemePayload(
       if (timer) return;
       timer = setTimeout(() => { timer = undefined; apply(); }, 80);
     };
-    if (!apply()) return false;
+    if (!apply(true)) return false;
     const style = ownedStyle();
     if (
       typeof MutationObserver === "function" &&
@@ -460,12 +557,13 @@ export function buildThemePayload(
       style?.setAttribute(observingAttribute, config.marker);
       const observer = new MutationObserver((records) => {
         syncChangedMessages(records);
-        schedule();
+        if (collectChanges(records)) schedule();
       });
       observer.observe(document.documentElement, {
         childList: true,
         subtree: true,
         attributes: true,
+        attributeOldValue: true,
         attributeFilter: ["aria-label", "aria-selected", "class", "id", "role", "data-sticky", "data-app-shell-inline-page-header", "data-language", "data-user-message-bubble", "data-markdown-text-style"],
       });
     }

@@ -75,6 +75,7 @@ export class CodexSessionService {
   private messageKey = "session.ready";
   private owned?: OwnedSession;
   private watcher?: NodeJS.Timeout;
+  private watcherEpoch = 0;
 
   constructor(
     private readonly platform: WindowsPlatform,
@@ -607,18 +608,34 @@ export class CodexSessionService {
 
   private startWatcher(): void {
     this.stopWatcher();
-    this.watcher = setInterval(() => {
-      void this.watchOwnedSession();
-    }, 1_500);
-  }
-
-  private async watchOwnedSession(): Promise<void> {
     const owned = this.owned;
     if (!owned) return;
+    const epoch = this.watcherEpoch;
+    const schedule = () => {
+      this.watcher = setTimeout(() => {
+        this.watcher = undefined;
+        // OS identity queries can outlast the delay. Schedule only after the
+        // entire check/notification settles, including a failed notification.
+        void this.watchOwnedSession(owned, epoch)
+          .catch(() => undefined)
+          .finally(() => {
+            if (this.owned === owned && this.watcherEpoch === epoch) schedule();
+          });
+      }, 1_500);
+    };
+    schedule();
+  }
+
+  private async watchOwnedSession(
+    owned: OwnedSession,
+    epoch: number,
+  ): Promise<void> {
+    if (this.owned !== owned || this.watcherEpoch !== epoch) return;
     try {
       await this.verifyOwnedIdentity(owned, false);
     } catch {
-      await this.onStateChanged?.(owned.pid, owned.nonce);
+      if (this.owned === owned && this.watcherEpoch === epoch)
+        await this.onStateChanged?.(owned.pid, owned.nonce);
     }
   }
 
@@ -645,7 +662,8 @@ export class CodexSessionService {
   }
 
   private stopWatcher(): void {
-    if (this.watcher) clearInterval(this.watcher);
+    this.watcherEpoch += 1;
+    if (this.watcher) clearTimeout(this.watcher);
     this.watcher = undefined;
   }
 
