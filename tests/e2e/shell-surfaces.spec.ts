@@ -87,6 +87,7 @@ const nativeCss = `
   #split-fade { top: -32px; height: 32px; }
   #footer { height: 144px; }
   #footer-plate { top: -32px; margin-top: 32px; }
+  #footer-plate._surface_18hic_2 { inset-inline: 16px; bottom: 0; }
   #composer { position: relative; z-index: 10; margin-left: 200px; width: 360px; height: 96px; pointer-events: auto; }
   #user-message { width: fit-content; }
   #thread-layout[data-presentation="compact"] #scroll { flex-direction: column; }
@@ -94,7 +95,7 @@ const nativeCss = `
   #composer, #user-message { background: var(--native-surface); }
 `;
 
-type SurfaceVersion = "current" | "legacy";
+type SurfaceVersion = "current" | "previous" | "legacy";
 
 function sidebarHtml(version: SurfaceVersion = "current"): string {
   const content = `<div id="sidebar-content" class="sidebar-navigation" data-slate-sidebar-content>
@@ -102,7 +103,7 @@ function sidebarHtml(version: SurfaceVersion = "current"): string {
     </div>`;
   return `<div class="fixture-page-surface">
     <aside id="sidebar" class="app-shell-left-panel _LeftPanel_test">
-      ${version === "current" ? `<div id="sidebar-navigation-root" data-sidebar-navigation-root class="sidebar-navigation">${content}</div>` : content}
+      ${version !== "legacy" ? `<div id="sidebar-navigation-root" data-sidebar-navigation-root class="sidebar-navigation">${content}</div>` : content}
     </aside>
     <section id="unowned-sidebar" class="_LeftPanel_test"><div id="unowned-sidebar-root" data-sidebar-navigation-root class="sidebar-navigation">Unowned navigation</div></section>
   </div><div id="tooltip" role="tooltip">Native tooltip</div>`;
@@ -275,7 +276,9 @@ for (const appearance of ["light", "dark"] as const) {
 
 const splitFade = `<div id="split-fade" aria-hidden="true" class="_background_106nk_2 _fade_106nk_2 pointer-events-none absolute inset-x-0 z-0 from-surface"></div>`;
 const legacySplitFade = `<div id="split-fade" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 h-8 bg-gradient-to-t from-surface to-transparent"></div>`;
-const footerPlate = `<div id="footer-plate" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 bottom-0 mt-8 bg-surface"></div>`;
+// Store 26.1023.6123.0 moves the surface's horizontal inset into its CSS module.
+const footerPlate = `<div id="footer-plate" aria-hidden="true" class="_background_18hic_2 _surface_18hic_2 pointer-events-none absolute z-0 bottom-0 bg-surface"></div>`;
+const previousFooterPlate = `<div id="footer-plate" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 bottom-0 mt-8 bg-surface"></div>`;
 type ThreadPresentation = "default" | "panel" | "compact";
 
 // Default/panel put the footer inside the scroll container beside the transcript.
@@ -286,7 +289,7 @@ function edgeHtml(
 ): string {
   const compact = presentation === "compact";
   const footer = `<div id="footer" data-thread-scroll-footer="true" class="pointer-events-none absolute inset-x-0 z-20 bottom-0 has-[[data-thread-focus-mode]]:bg-surface">
-    ${compact ? "" : footerPlate}<div data-codex-composer-root data-thread-focus-mode><div id="composer" data-composer-surface-variant="default"><div data-composer-layout><div data-codex-composer contenteditable="true" role="textbox" aria-label="Message">Composer</div></div></div></div>
+    ${compact ? "" : version === "current" ? footerPlate : previousFooterPlate}<div data-codex-composer-root data-thread-focus-mode><div id="composer" data-composer-surface-variant="default"><div data-composer-layout><div data-codex-composer contenteditable="true" role="textbox" aria-label="Message">Composer</div></div></div></div>
   </div>`;
   return `${sidebarHtml(version)}<main id="edge-main" class="main-surface">
   <div id="top-parent" data-app-shell-main-content-top-fade="true"><div id="top-fade" aria-hidden="true" class="_MainContentTopFade_test"></div></div>
@@ -298,9 +301,9 @@ function edgeHtml(
           <div id="legacy-fade" aria-hidden="true" class="bg-gradient-to-t from-surface via-surface to-transparent"></div>
           <div id="user-message" data-user-message-bubble="true">Message</div>
           <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="card-gradient" aria-hidden="true" class="_background_106nk_2 _fade_106nk_2 pointer-events-none absolute inset-x-0 from-surface"></div></div></section>
-          <section><div id="nested-footer" data-thread-scroll-footer="true" class="bg-surface"></div></section>
+          <section><div id="nested-footer" data-thread-scroll-footer="true" class="bg-surface"><div id="nested-footer-surface" aria-hidden="true" class="_background_18hic_2 _surface_18hic_2 pointer-events-none absolute bg-surface"></div></div></section>
         </div>
-        <div id="sticky-plate" aria-hidden="true" class="pointer-events-none sticky bottom-0 z-10 mt-auto w-full shrink-0">${compact ? "" : version === "current" ? splitFade : legacySplitFade}</div>
+        <div id="sticky-plate" aria-hidden="true" class="pointer-events-none sticky bottom-0 z-10 mt-auto w-full shrink-0">${compact ? "" : version === "legacy" ? legacySplitFade : splitFade}</div>
       </div>
       ${compact ? "" : footer}
     </div>
@@ -348,6 +351,7 @@ for (const presentation of ["default", "panel", "compact"] as const) {
             "top-parent",
             "card-gradient",
             "nested-footer",
+            "nested-footer-surface",
             "outside-gradient",
             "outside-footer",
             "scroll",
@@ -401,6 +405,7 @@ for (const presentation of ["default", "panel", "compact"] as const) {
         "top-parent",
         "card-gradient",
         "nested-footer",
+        "nested-footer-surface",
         "outside-gradient",
         "outside-footer",
         "scroll",
@@ -410,6 +415,7 @@ for (const presentation of ["default", "panel", "compact"] as const) {
       for (const id of [
         "card-gradient",
         "nested-footer",
+        "nested-footer-surface",
         "outside-gradient",
         "outside-footer",
       ]) {
@@ -497,6 +503,23 @@ test("native edges and content sidebar retain their scoped fallbacks", async ({
       before,
     );
   }
+});
+
+test("the previous inset-x footer surface remains transparent", async ({
+  shell,
+}) => {
+  await shell.setContent(
+    `<style>${nativeCss}</style>${edgeHtml("default", "previous")}`,
+  );
+  expect(await shell.evaluate(payload(settings(), await pinkArt()))).toBe(true);
+  await expect(shell.locator("#footer-plate")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(shell.locator("#footer-plate")).toHaveAttribute(
+    "data-ds-part",
+    "composer-backdrop",
+  );
 });
 
 test("advanced sidebar blur stays custom, with zero alpha still fully clear", async ({

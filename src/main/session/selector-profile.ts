@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/24" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/26" as const;
 
 // 回合提示在 26.1016.6573.0 移除了箭头的淡色类；保留按钮结构约束，
 // 用两版共有的图标尺寸标记识别，避免颜色类变化使整段用时失配。
@@ -28,8 +28,13 @@ export const THREAD_BOTTOM_FADE_SELECTOR =
   '[class~="group/thread-scroll-layout"] > .thread-scroll-container > [class~="[container-name:thread-content]"] > [aria-hidden="true"][class~="pointer-events-none"][class~="sticky"][class~="bottom-0"] > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="from-surface"]:is([class~="bg-gradient-to-t"], [class*="_background_"][class*="_fade_"])' as const;
 export const THREAD_FOOTER_SELECTOR =
   ':is([class~="group/thread-scroll-layout"], [class~="group/thread-scroll-layout"] > .thread-scroll-container) > [data-thread-scroll-footer="true"]' as const;
+// Store 26.1023.6123.0 moves the surface inset into its CSS module. Retain
+// the direct footer slot and paint anchors for both that surface and older builds.
 export const THREAD_FOOTER_BACKDROP_SELECTOR =
-  `${THREAD_FOOTER_SELECTOR} > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="bg-surface"]` as const;
+  `${THREAD_FOOTER_SELECTOR} > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="bg-surface"]:is([class~="inset-x-0"], [class*="_background_"][class*="_surface_"])` as const;
+
+export const THREAD_USER_MESSAGE_NAVIGATION_RAIL_SELECTOR =
+  "[data-thread-user-message-navigation-rail-list]" as const;
 
 export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
   'header[data-app-shell-header-edge-scroll="true"]:not([data-app-shell-tab-row]) [class*="_Toolbar_"] > [class~="text-md"][class~="flex-1"]:has(button[class~="text-base"][class~="font-medium"])' as const;
@@ -46,6 +51,23 @@ export const PAGE_SEARCH_RAIL_SELECTOR =
   'div[class~="sticky"][class~="bg-surface"]:has(input#plugins-page-search, input#scheduled-page-search)' as const;
 export const INLINE_PAGE_HEADER_SELECTOR =
   '[data-app-shell-inline-page-header] > div > div[data-sticky][class*="_shell_"]:has(> div[class*="_content_"] > div[class*="_headerRow_"] > div[class*="_title_"] > div[class*="_titleContent_"])' as const;
+
+// Store 26.1023.6123.0 keeps native foregrounds on these transparent surfaces.
+// Keep title copy separate from search/actions; some layouts move the subtitle
+// to the component's immediate next sibling without changing the header shell.
+const inlinePageTitleContentSelector = `${INLINE_PAGE_HEADER_SELECTOR} > div[class*="_content_"] > div[class*="_headerRow_"] > div[class*="_title_"] > div[class*="_titleContent_"]`;
+export const INLINE_PAGE_TITLE_SELECTOR = `${inlinePageTitleContentSelector} > h1[class~="text-default"]`;
+export const INLINE_PAGE_SUBTITLE_SELECTOR = `:is(${inlinePageTitleContentSelector} > div[class~="text-secondary"], ${INLINE_PAGE_HEADER_SELECTOR} + div:is([class~="contents"], [class~="@container/searchable-header"]) > div[class~="text-secondary"][class~="text-base"][class~="leading-6"]:has(> div[class~="max-w-lg"][class~="-translate-y-1.5"]))`;
+
+const homeSuggestionListItemSelector =
+  'section[class~="group/home-suggestions"] [class~="group/home-suggestion-list-item"]';
+// Interactive labels use a separate pointer-events-none copy layer above the
+// hit target. Color either native copy shape without touching nested actions.
+export const HOME_SUGGESTION_TEXT_SELECTOR = `:is(${homeSuggestionListItemSelector} > button, ${homeSuggestionListItemSelector} > div[class~="relative"] > div)[data-composer-mode][class~="text-start"][class~="text-size-chat"]`;
+export const HOME_SUGGESTION_CAPTION_SELECTOR =
+  'section[class~="group/home-suggestions"] > p[class~="text-codex-description"]' as const;
+export const ASSISTANT_ACTION_BUTTON_SELECTOR =
+  '.thread-scroll-container .turn-action-controls > div > button[class~="no-drag"][class~="cursor-interaction"][class~="border-transparent"]:is([class~="text-tertiary"], [class~="text-default"])' as const;
 
 // The Markdown document viewer uses CodeMirror, not the chat MarkdownRoot.
 // Own the viewport (including empty space) and exclude source/other languages.

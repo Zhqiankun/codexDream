@@ -9,10 +9,15 @@ import {
   type ThemeConfiguration,
 } from "../../contracts";
 import {
+  ASSISTANT_ACTION_BUTTON_SELECTOR,
   COLLAPSED_TURN_DISCLOSURE_SELECTOR,
   EDGE_SCROLL_THREAD_TITLE_SELECTOR,
   HOME_COMPOSER_RAIL_SELECTOR,
+  HOME_SUGGESTION_CAPTION_SELECTOR,
+  HOME_SUGGESTION_TEXT_SELECTOR,
   INLINE_PAGE_HEADER_SELECTOR,
+  INLINE_PAGE_SUBTITLE_SELECTOR,
+  INLINE_PAGE_TITLE_SELECTOR,
   MAIN_TOP_FADE_SELECTOR,
   MARKDOWN_DOCUMENT_SELECTOR,
   PAGE_SEARCH_RAIL_SELECTOR,
@@ -21,6 +26,7 @@ import {
   THREAD_BOTTOM_FADE_SELECTOR,
   THREAD_FOOTER_BACKDROP_SELECTOR,
   THREAD_FOOTER_SELECTOR,
+  THREAD_USER_MESSAGE_NAVIGATION_RAIL_SELECTOR,
   USER_MESSAGE_EDITOR_SELECTOR,
   WORK_DURATION_SELECTOR,
 } from "./selector-profile";
@@ -43,6 +49,11 @@ interface PayloadConfig {
   homeComposerRailSelector: string;
   pageSearchRailSelector: string;
   inlinePageSearchHeaderSelector: string;
+  inlinePageTitleSelector: string;
+  inlinePageSubtitleSelector: string;
+  homeSuggestionTextSelector: string;
+  homeSuggestionCaptionSelector: string;
+  assistantActionButtonSelector: string;
   markdownDocumentSelector: string;
   userMessageEditorSelector: string;
   collapsedTurnDisclosureSelector: string;
@@ -52,6 +63,7 @@ interface PayloadConfig {
   threadBottomFadeSelector: string;
   threadFooterBackdropSelector: string;
   threadFooterSelector: string;
+  threadUserMessageNavigationRailSelector: string;
   tokens: Array<readonly [string, string]>;
   parts: ReadonlyArray<readonly [string, string]>;
 }
@@ -97,6 +109,11 @@ export function buildThemePayload(
     homeComposerRailSelector: HOME_COMPOSER_RAIL_SELECTOR,
     pageSearchRailSelector: PAGE_SEARCH_RAIL_SELECTOR,
     inlinePageSearchHeaderSelector: INLINE_PAGE_HEADER_SELECTOR,
+    inlinePageTitleSelector: INLINE_PAGE_TITLE_SELECTOR,
+    inlinePageSubtitleSelector: INLINE_PAGE_SUBTITLE_SELECTOR,
+    homeSuggestionTextSelector: HOME_SUGGESTION_TEXT_SELECTOR,
+    homeSuggestionCaptionSelector: HOME_SUGGESTION_CAPTION_SELECTOR,
+    assistantActionButtonSelector: ASSISTANT_ACTION_BUTTON_SELECTOR,
     markdownDocumentSelector: MARKDOWN_DOCUMENT_SELECTOR,
     userMessageEditorSelector: USER_MESSAGE_EDITOR_SELECTOR,
     collapsedTurnDisclosureSelector: COLLAPSED_TURN_DISCLOSURE_SELECTOR,
@@ -106,6 +123,8 @@ export function buildThemePayload(
     threadBottomFadeSelector: THREAD_BOTTOM_FADE_SELECTOR,
     threadFooterBackdropSelector: THREAD_FOOTER_BACKDROP_SELECTOR,
     threadFooterSelector: THREAD_FOOTER_SELECTOR,
+    threadUserMessageNavigationRailSelector:
+      THREAD_USER_MESSAGE_NAVIGATION_RAIL_SELECTOR,
     tokens: themeTokenDeclarations(settings),
     parts: SELECTOR_PARTS,
   };
@@ -339,6 +358,10 @@ export function buildThemePayload(
         ? '\\n[data-ds-part="main-top-fade"][data-codexstyle-owner="' + config.marker + '"], ' + rootSelector + ' ' + config.mainTopFadeSelector + ' { background-color: transparent !important; background-image: none !important; }' +
           '\\n' + rootSelector + ' .thread-scroll-container [aria-hidden="true"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"], ' + rootSelector + ' ' + config.threadBottomFadeSelector + ', ' + rootSelector + ' ' + config.threadFooterBackdropSelector + ', ' + rootSelector + ' ' + config.threadFooterSelector + ' { background-color: transparent !important; background-image: none !important; }'
         : "";
+      // Rail ticks use native currentColor and state-specific opacity. Bridge
+      // only their local tokens, so wallpaper contrast follows the theme while
+      // hover, current turn, bookmarks, scrubbing and keyboard focus stay native.
+      const threadNavigationRailBridge = '\\n' + rootSelector + ' ' + config.threadUserMessageNavigationRailSelector + ' { --color-codex-description: var(--ds-theme-color-secondary) !important; --color-text: var(--ds-theme-color-text) !important; }';
       const pageSearchRailPartSelector = '[data-ds-part="page-search-rail"][data-codexstyle-owner="' + config.marker + '"]';
       const instantPageSearchRailSelectors = [config.pageSearchRailSelector, config.inlinePageSearchHeaderSelector].map(selector => rootSelector + ' ' + selector);
       // The direct rule covers SPA insertion before the observer assigns parts;
@@ -347,6 +370,25 @@ export function buildThemePayload(
       const pageSearchRailBridge = ['', '::before', '::after'].map(pseudo =>
         '\\n' + [pageSearchRailPartSelector, ...instantPageSearchRailSelectors].map(selector => selector + pseudo).join(', ') + ' { background: transparent !important; }'
       ).join('');
+      // These surfaces show the page background, so their native foregrounds
+      // must follow page text rather than an independent card or message panel.
+      // Direct colors leave descendant control/semantic tokens native; the
+      // selectors apply immediately and add no parts or observer queries.
+      const foregroundBoundary = ':is(a, input, textarea, select, [contenteditable], code, pre, [role="alert"], [role="menu"], [role="tooltip"], [role="dialog"], [class*="text-danger"], [class*="text-warning"], [class*="text-success"], [class*="text-info"], [class*="text-codex-git-"], [data-codexstyle-owner]:not([data-codexstyle-owner="' + config.marker + '"]))';
+      const foregroundSurface = ':is([class~="bg-surface"], [class*="bg-surface-"], [class~="bg-primary-solid"], [class~="bg-primary-soft"], [class~="bg-primary-soft-alpha"], [data-variant="primary"])';
+      const foregroundGuard = ':not(' + foregroundBoundary + '):not(' + foregroundBoundary + ' *):not(' + foregroundSurface + ')';
+      const pageTitleTextSelector = rootSelector + ' ' + config.inlinePageTitleSelector + foregroundGuard;
+      const pageSubtitleTextSelector = rootSelector + ' ' + config.inlinePageSubtitleSelector + foregroundGuard;
+      const homeSuggestionTextSelector = rootSelector + ' ' + config.homeSuggestionTextSelector + foregroundGuard;
+      const homeSuggestionCaptionSelector = rootSelector + ' ' + config.homeSuggestionCaptionSelector + foregroundGuard;
+      const assistantActionButtonSelector = rootSelector + ' ' + config.assistantActionButtonSelector + foregroundGuard;
+      const pageTextForeground = ' { color: var(--ds-theme-color-text) !important; -webkit-text-fill-color: currentColor !important; }';
+      const pageMutedForeground = ' { color: var(--ds-theme-color-muted) !important; -webkit-text-fill-color: currentColor !important; }';
+      const nativeForegroundBridge = '\\n' + pageTitleTextSelector + pageTextForeground +
+        '\\n' + pageSubtitleTextSelector + ', ' + homeSuggestionTextSelector + ', ' + homeSuggestionCaptionSelector + pageMutedForeground +
+        '\\n' + homeSuggestionTextSelector + '[class~="text-default"], ' + homeSuggestionTextSelector + '[class~="hover:text-default"]:hover' + pageTextForeground +
+        '\\n' + assistantActionButtonSelector + ' { color: var(--ds-theme-color-secondary) !important; -webkit-text-fill-color: currentColor !important; }' +
+        '\\n' + assistantActionButtonSelector + '[class~="text-default"]' + pageTextForeground;
       const markdownDocumentPartSelector = '[data-ds-part="markdown-document"][data-codexstyle-owner="' + config.marker + '"]';
       const instantMarkdownDocumentSelector = rootSelector + ' ' + config.markdownDocumentSelector;
       // A document is a white reading surface even when the wallpaper/theme is
@@ -538,7 +580,7 @@ export function buildThemePayload(
             : config.sendIconMask
               ? '\\n' + sendIconSelector + '::after { content: ""; display: block; width: 20px; height: 20px; background-color: var(--ds-theme-color-accent-text); -webkit-mask-image: url("' + config.sendIconMask + '"); mask-image: url("' + config.sendIconMask + '"); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }'
               : "");
-      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + pageSearchRailBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + dialogTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
+      const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + threadNavigationRailBridge + pageSearchRailBridge + nativeForegroundBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + dialogTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
       return true;
     };

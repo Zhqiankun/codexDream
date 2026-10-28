@@ -201,7 +201,7 @@ const colorGroups: ReadonlyArray<{
       {
         key: "secondary",
         label: "输入框工具栏文字",
-        hint: "加号、模型与音频等次要操作",
+        hint: "加号、模型、音频与回答复制等次要操作",
       },
       { key: "highlight", label: "选中文字背景", hint: "文本选区" },
       { key: "selectionText", label: "选区文字", hint: "文本被选中后的字色" },
@@ -211,11 +211,11 @@ const colorGroups: ReadonlyArray<{
     title: "文字与边界",
     hint: "主要内容和结构线",
     fields: [
-      { key: "text", label: "正文文字", hint: "页面主要内容" },
+      { key: "text", label: "正文文字", hint: "页面标题、主要内容与激活操作" },
       {
         key: "muted",
         label: "输入占位与说明文字",
-        hint: "“随心输入”、时间与其他辅助信息",
+        hint: "输入占位、页头说明与首页列表建议",
       },
       { key: "line", label: "边框与分隔线", hint: "卡片边界和分隔" },
     ],
