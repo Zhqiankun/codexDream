@@ -1,6 +1,7 @@
 import { app, shell } from "electron";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { z } from "zod";
 import type {
   AppUpdater,
   CancellationToken,
@@ -17,6 +18,8 @@ export const INSTALL_MARKER_NAME = ".codexstyle-installed";
 export const INSTALL_MARKER_CONTENT = "com.codexstyle.desktop/v1";
 export const UPDATE_BASE_URL =
   "https://github.com/Zhqiankun/codexDream/releases/latest/download/";
+const MAX_RELEASE_NOTES_BYTES = 32 * 1024;
+const ReleaseDateSchema = z.iso.datetime({ offset: true });
 
 type CancellationTokenConstructor = new () => CancellationToken;
 
@@ -55,6 +58,11 @@ export class ElectronUpdaterGateway implements UpdateGateway {
     return {
       version,
       url: releaseUrl(version),
+      releaseNotes: normalizeReleaseNotes(
+        result.updateInfo.releaseNotes,
+        version,
+      ),
+      releaseDate: normalizeReleaseDate(result.updateInfo.releaseDate),
     };
   }
 
@@ -192,6 +200,44 @@ function normalizeVersion(result: UpdateCheckResult): string {
   if (!parts.every(Number.isSafeInteger))
     throw new Error("UPDATE_CHECK_FAILED:release-version");
   return match[1];
+}
+
+/** 发布说明仅作为有界文本展示；缺失或损坏时仍允许校验过的更新继续。 */
+function normalizeReleaseNotes(
+  value: unknown,
+  version: string,
+): string | undefined {
+  let note: unknown = value;
+  if (Array.isArray(value)) {
+    if (value.length > 100) return undefined;
+    const matching = value.filter(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.version === "string" &&
+        entry.version.replace(/^v/u, "") === version,
+    );
+    if (matching.length !== 1) return undefined;
+    note = matching[0].note;
+  }
+  if (
+    typeof note !== "string" ||
+    note.length > MAX_RELEASE_NOTES_BYTES ||
+    Buffer.byteLength(note, "utf8") > MAX_RELEASE_NOTES_BYTES ||
+    /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(note)
+  )
+    return undefined;
+  return note.replace(/\r\n?/gu, "\n").trim() || undefined;
+}
+
+function normalizeReleaseDate(value: unknown): string | undefined {
+  if (
+    typeof value !== "string" ||
+    value.length > 40 ||
+    !ReleaseDateSchema.safeParse(value).success
+  )
+    return undefined;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : undefined;
 }
 
 function releaseUrl(version: string): string {

@@ -43,7 +43,7 @@ describe("AppController", () => {
         currentVersion: "1.3.3",
         latestVersion: "1.4.0",
       }),
-    ).toEqual({ label: "下载新版本 v1.4.0", enabled: true });
+    ).toEqual({ label: "查看新版本 v1.4.0", enabled: true });
   });
 
   it("opens the configured diagnostic log directory", async () => {

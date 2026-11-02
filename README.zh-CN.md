@@ -61,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.30`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.31`：
 
-- `CodexStyle-1.3.30-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.30-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.31-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.31-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.30` 修复删除失败原因被弹窗遮住的问题，并新增主题列表右键“删除主题”。删除成功立即更新列表，保留其他主题未保存的编辑，原有使用中保护继续生效。升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具；覆盖安装后重新打开工作台即可使用，已有主题和配置保留。
+`v1.3.31` 新增下载前的更新内容弹窗，以及可离线查看日期、内容和当前版本标记的历史更新记录。自动检查改为每次检查完成后间隔 5 分钟，后台仍不自动下载。升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具；覆盖安装后重新打开工作台即可使用，已有主题和配置保留。
 
 ## 运行要求
 

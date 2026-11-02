@@ -36,6 +36,7 @@ import {
   type ThemeLiveApplyResult,
   type ThemePatch,
   type ThemeSnapshot,
+  type UpdateDownloadRequest,
   type UpdateSnapshot,
 } from "../../contracts";
 import { registerIpc } from "../ipc/handlers";
@@ -57,7 +58,7 @@ const STUDIO_STARTUP_TIMEOUT_MS = 10_000;
 const STUDIO_RETRY_DELAY_MS = 250;
 const MAX_STUDIO_RECOVERY_ATTEMPTS = 1;
 const UPDATE_INITIAL_CHECK_DELAY_MS = 10_000;
-const UPDATE_POLL_INTERVAL_MS = 20 * 60 * 1_000;
+const UPDATE_POLL_INTERVAL_MS = 5 * 60 * 1_000;
 
 export class AppController {
   mainWindow?: BrowserWindow;
@@ -614,9 +615,24 @@ export class AppController {
     return { ok: true, data: this.updateService.snapshot() };
   }
 
-  async requestUpdate(): Promise<Result<UpdateSnapshot>> {
+  async checkUpdate(): Promise<Result<UpdateSnapshot>> {
     try {
-      return { ok: true, data: await this.updateService.checkAndDownload() };
+      return { ok: true, data: await this.updateService.checkForUpdates() };
+    } catch (error) {
+      return updateError(error, this.updateService.snapshot());
+    } finally {
+      this.broadcast();
+    }
+  }
+
+  async requestUpdate({
+    confirmationId,
+  }: UpdateDownloadRequest): Promise<Result<UpdateSnapshot>> {
+    try {
+      return {
+        ok: true,
+        data: await this.updateService.checkAndDownload(confirmationId),
+      };
     } catch (error) {
       return updateError(error, this.updateService.snapshot());
     } finally {
@@ -1093,7 +1109,33 @@ export class AppController {
   }
 
   private async checkForUpdatesFromTray(): Promise<void> {
-    const result = await this.requestUpdate();
+    let result = await this.checkUpdate();
+    if (result.ok && result.data.status === "available") {
+      const candidate = result.data;
+      const response = await dialog.showMessageBox({
+        type: "info",
+        buttons: ["稍后", "下载更新"],
+        defaultId: 0,
+        cancelId: 0,
+        title: "CodexStyle 更新内容",
+        message: `发现 CodexStyle v${candidate.latestVersion}。`,
+        detail:
+          candidate.releaseNotes ??
+          "此版本未提供更新说明。可先打开工作台查看历史更新记录，或前往官方发布页面了解详情。",
+      });
+      if (response.response !== 1 || !candidate.confirmationId) return;
+      result = await this.requestUpdate({
+        confirmationId: candidate.confirmationId,
+      });
+      if (result.ok && result.data.status === "available") {
+        await dialog.showMessageBox({
+          type: "info",
+          title: "CodexStyle 更新内容已变化",
+          message: "更新候选已变化，请再次检查并查看更新内容后确认下载。",
+        });
+        return;
+      }
+    }
     if (!result.ok) {
       const response = await dialog.showMessageBox({
         type: "warning",
@@ -1239,7 +1281,7 @@ export function trayUpdateAction(update: UpdateSnapshot): {
   enabled: boolean;
 } {
   if (update.status === "available" && update.latestVersion)
-    return { label: `下载新版本 v${update.latestVersion}`, enabled: true };
+    return { label: `查看新版本 v${update.latestVersion}`, enabled: true };
   if (update.status === "downloaded" && update.latestVersion)
     return { label: `安装已下载的 v${update.latestVersion}`, enabled: true };
   if (update.status === "scheduled" && update.latestVersion)

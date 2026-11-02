@@ -19,7 +19,7 @@ import {
   type ReasoningEffort,
   type BackgroundMode,
 } from "./reasoning-background";
-export const PROTOCOL_VERSION = 8 as const;
+export const PROTOCOL_VERSION = 9 as const;
 export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
@@ -210,6 +210,10 @@ export interface UpdateSnapshot {
   currentVersion: string;
   latestVersion?: string;
   releaseUrl?: string;
+  releaseNotes?: string;
+  releaseDate?: string;
+  /** 主进程签发的候选确认标识；只证明已查看候选，不允许客户端指定版本。 */
+  confirmationId?: string;
   checkedAt?: string;
   progress?: UpdateProgress;
   installOnQuit?: boolean;
@@ -477,6 +481,13 @@ export const RendererReadySchema = z
 export const InstallUpdateSchema = z
   .object({ ...VersionField, mode: z.enum(["now", "on-quit"]) })
   .strict();
+export const UpdateRequestSchema = z
+  .object({ ...VersionField, confirmationId: z.string().uuid() })
+  .strict();
+export type UpdateDownloadRequest = Omit<
+  z.infer<typeof UpdateRequestSchema>,
+  "v"
+>;
 export const LibraryIdSchema = z
   .object({ ...VersionField, libraryId: z.string().uuid() })
   .strict();
@@ -615,7 +626,10 @@ export interface CodexStyleApi {
   resumeSession(): Promise<Result<ThemeSnapshot>>;
   endOwnedSession(): Promise<Result<ThemeSnapshot>>;
   getUpdateStatus(): Promise<Result<UpdateSnapshot>>;
-  requestUpdate(): Promise<Result<UpdateSnapshot>>;
+  checkUpdate(): Promise<Result<UpdateSnapshot>>;
+  requestUpdate(
+    request: UpdateDownloadRequest,
+  ): Promise<Result<UpdateSnapshot>>;
   cancelUpdate(): Promise<Result<UpdateSnapshot>>;
   installUpdate(
     request: Omit<z.infer<typeof InstallUpdateSchema>, "v">,

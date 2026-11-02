@@ -15,6 +15,7 @@ import {
   ResolveImportSchema,
   RevisionSchema,
   StartupSettingsSchema,
+  UpdateRequestSchema,
   type ErrorCode,
   type Result,
   type SafeDetail,
@@ -185,8 +186,9 @@ export function registerIpc(
   handle("update.getStatus", EmptyRequestSchema, () =>
     controller.getUpdateStatus(),
   );
-  handle("update.request", EmptyRequestSchema, () =>
-    controller.requestUpdate(),
+  handle("update.check", EmptyRequestSchema, () => controller.checkUpdate());
+  handle("update.request", UpdateRequestSchema, ({ confirmationId }) =>
+    controller.requestUpdate({ confirmationId }),
   );
   handle("update.cancel", EmptyRequestSchema, () => controller.cancelUpdate());
   handle("update.install", InstallUpdateSchema, ({ mode }) =>

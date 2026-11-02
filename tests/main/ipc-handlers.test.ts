@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PROTOCOL_VERSION } from "../../src/contracts";
 
 type RegisteredHandler = (event: unknown, payload: unknown) => Promise<unknown>;
+const confirmationId = "12345678-1234-4234-8234-123456789abc";
 
 const { handlers } = vi.hoisted(() => ({
   handlers: new Map<string, RegisteredHandler>(),
@@ -186,7 +187,7 @@ describe("IPC handler command boundary", () => {
 
     const result = await handlers.get("update.request")!(
       trustedEvent({ senderId: 99 }),
-      { v: PROTOCOL_VERSION },
+      { v: PROTOCOL_VERSION, confirmationId },
     );
 
     expect(result).toEqual({
@@ -483,7 +484,7 @@ describe("IPC handler command boundary", () => {
 
   it("returns the manual update check result from AppController", async () => {
     const controller = controllerFixture();
-    controller.requestUpdate.mockResolvedValue({
+    controller.checkUpdate.mockResolvedValue({
       ok: true,
       data: {
         configured: true,
@@ -494,7 +495,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
 
-    const result = await handlers.get("update.request")!(trustedEvent(), {
+    const result = await handlers.get("update.check")!(trustedEvent(), {
       v: PROTOCOL_VERSION,
     });
 
@@ -507,8 +508,95 @@ describe("IPC handler command boundary", () => {
         latestVersion: "1.0.0",
       },
     });
-    expect(controller.requestUpdate).toHaveBeenCalledOnce();
+    expect(controller.checkUpdate).toHaveBeenCalledExactlyOnceWith();
+    expect(controller.requestUpdate).not.toHaveBeenCalled();
     expect(controller.broadcast).not.toHaveBeenCalled();
+  });
+
+  it("forwards only the opaque confirmation ID for an explicit update download", async () => {
+    const controller = controllerFixture();
+    const downloading = {
+      ok: true,
+      data: {
+        configured: true,
+        status: "downloading",
+        currentVersion: "1.0.0",
+        latestVersion: "1.1.0",
+        confirmationId,
+        releaseNotes: "修复主题删除提示。",
+        releaseDate: "2026-11-02T00:00:00.000Z",
+      },
+    };
+    controller.requestUpdate.mockResolvedValue(downloading);
+    registerIpc(controller as never);
+
+    expect(
+      await handlers.get("update.request")!(trustedEvent(), {
+        v: PROTOCOL_VERSION,
+        confirmationId,
+      }),
+    ).toEqual(downloading);
+    expect(controller.requestUpdate).toHaveBeenCalledExactlyOnceWith({
+      confirmationId,
+    });
+    expect(controller.checkUpdate).not.toHaveBeenCalled();
+    expect(controller.broadcast).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing or malformed confirmation IDs and renderer-selected update targets", async () => {
+    const controller = controllerFixture();
+    registerIpc(controller as never);
+    const request = { v: PROTOCOL_VERSION, confirmationId };
+
+    // 确认标识只能引用主进程候选，renderer 不能选择版本或下载地址。
+    for (const payload of [
+      { v: PROTOCOL_VERSION },
+      { ...request, confirmationId: "not-a-uuid" },
+      { ...request, confirmationId: 1 },
+      { ...request, version: "9.9.9" },
+      { ...request, url: "https://example.com/installer.exe" },
+    ]) {
+      expect(
+        await handlers.get("update.request")!(trustedEvent(), payload),
+      ).toMatchObject({ ok: false, error: { code: "IPC_INVALID" } });
+    }
+    expect(controller.requestUpdate).not.toHaveBeenCalled();
+    expect(controller.broadcast).not.toHaveBeenCalled();
+  });
+
+  it("keeps update checking parameter-free and rejects stale or untrusted update calls", async () => {
+    const controller = controllerFixture();
+    registerIpc(controller as never);
+
+    for (const payload of [
+      { v: PROTOCOL_VERSION, confirmationId },
+      { v: PROTOCOL_VERSION, version: "9.9.9" },
+      { v: PROTOCOL_VERSION, url: "https://example.com/updates" },
+    ]) {
+      expect(
+        await handlers.get("update.check")!(trustedEvent(), payload),
+      ).toMatchObject({ ok: false, error: { code: "IPC_INVALID" } });
+    }
+    for (const channel of ["update.check", "update.request"]) {
+      const payload = channel === "update.request" ? { confirmationId } : {};
+      expect(
+        await handlers.get(channel)!(trustedEvent(), { v: 8, ...payload }),
+      ).toMatchObject({
+        ok: false,
+        error: { code: "IPC_VERSION_MISMATCH" },
+      });
+      expect(
+        await handlers.get(channel)!(trustedEvent({ senderId: 99 }), {
+          v: PROTOCOL_VERSION,
+          ...payload,
+        }),
+      ).toMatchObject({
+        ok: false,
+        error: { code: "UNAUTHORIZED_RENDERER" },
+      });
+    }
+    expect(controller.checkUpdate).not.toHaveBeenCalled();
+    expect(controller.requestUpdate).not.toHaveBeenCalled();
   });
 
   it("validates the fixed update installation mode", async () => {
@@ -581,6 +669,7 @@ function controllerFixture() {
     resumeSession: vi.fn(),
     endOwnedSession: vi.fn(),
     getUpdateStatus: vi.fn(),
+    checkUpdate: vi.fn(),
     requestUpdate: vi.fn(),
     cancelUpdate: vi.fn(),
     installUpdate: vi.fn(),

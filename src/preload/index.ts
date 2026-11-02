@@ -62,7 +62,9 @@ const api: CodexStyleApi = {
   resumeSession: () => invoke("session.resume", { v: PROTOCOL_VERSION }),
   endOwnedSession: () => invoke("session.endOwned", { v: PROTOCOL_VERSION }),
   getUpdateStatus: () => invoke("update.getStatus", { v: PROTOCOL_VERSION }),
-  requestUpdate: () => invoke("update.request", { v: PROTOCOL_VERSION }),
+  checkUpdate: () => invoke("update.check", { v: PROTOCOL_VERSION }),
+  requestUpdate: (request) =>
+    invoke("update.request", { v: PROTOCOL_VERSION, ...request }),
   cancelUpdate: () => invoke("update.cancel", { v: PROTOCOL_VERSION }),
   installUpdate: (request) =>
     invoke("update.install", { v: PROTOCOL_VERSION, ...request }),

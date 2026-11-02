@@ -1,8 +1,11 @@
+import { randomUUID } from "node:crypto";
 import type { UpdateProgress, UpdateSnapshot } from "../../contracts";
 
 export interface ReleaseInfo {
   version: string;
   url: string;
+  releaseNotes?: string;
+  releaseDate?: string;
 }
 
 export interface DownloadProgress {
@@ -28,6 +31,7 @@ export class UpdateService {
   private pendingCheck?: Promise<UpdateSnapshot>;
   private pendingDownload?: Promise<UpdateSnapshot>;
   private cancelRequested = false;
+  private candidate?: { version: string; confirmationId: string };
 
   constructor(
     currentVersion: string,
@@ -58,7 +62,22 @@ export class UpdateService {
     return this.startCheck(true);
   }
 
-  checkAndDownload(): Promise<UpdateSnapshot> {
+  /** 手动检查仅更新候选；下载必须另行携带主进程发出的确认标识。 */
+  checkForUpdates(): Promise<UpdateSnapshot> {
+    if (!this.gateway.supported)
+      return Promise.reject(new Error("UPDATE_UNSUPPORTED"));
+    if (this.shouldSkipAvailabilityCheck())
+      return Promise.resolve(this.snapshot());
+    if (this.pendingDownload) return this.pendingDownload;
+    if (this.pendingCheck)
+      return this.pendingCheck.catch((error: unknown) => {
+        this.recordManualCheckFailure();
+        throw error;
+      });
+    return this.startCheck(false);
+  }
+
+  checkAndDownload(confirmationId: string): Promise<UpdateSnapshot> {
     if (!this.gateway.supported)
       return Promise.reject(new Error("UPDATE_UNSUPPORTED"));
     if (
@@ -70,21 +89,25 @@ export class UpdateService {
       return Promise.resolve(this.snapshot());
     if (this.pendingDownload) return this.pendingDownload;
 
-    const joinedBackgroundCheck = this.pendingCheck !== undefined;
-    const check =
-      this.state.status === "available"
-        ? Promise.resolve(this.snapshot())
-        : (this.pendingCheck ?? this.startCheck(false));
-    const pending = check
-      .catch((error: unknown) => {
-        if (joinedBackgroundCheck) this.recordManualCheckFailure();
-        throw error;
+    // 先占用下载槽，再等待检查：阻止后台在确认与实际下载之间切换 updater 目标。
+    const pending = Promise.resolve()
+      .then(async () => {
+        const joinedBackgroundCheck = this.pendingCheck !== undefined;
+        let snapshot: UpdateSnapshot;
+        try {
+          snapshot = await (this.pendingCheck ?? this.startCheck(false));
+        } catch (error) {
+          if (joinedBackgroundCheck) this.recordManualCheckFailure();
+          throw error;
+        }
+        if (
+          snapshot.status !== "available" ||
+          !confirmationId ||
+          snapshot.confirmationId !== confirmationId
+        )
+          return snapshot;
+        return this.performDownload(snapshot);
       })
-      .then((snapshot) =>
-        snapshot.status === "available"
-          ? this.performDownload(snapshot)
-          : snapshot,
-      )
       .finally(() => {
         if (this.pendingDownload === pending) this.pendingDownload = undefined;
       });
@@ -122,6 +145,9 @@ export class UpdateService {
       currentVersion: this.state.currentVersion,
       latestVersion: this.state.latestVersion,
       releaseUrl: this.state.releaseUrl,
+      releaseNotes: this.state.releaseNotes,
+      releaseDate: this.state.releaseDate,
+      confirmationId: this.state.confirmationId,
       checkedAt: this.state.checkedAt,
     });
     return this.snapshot();
@@ -182,10 +208,13 @@ export class UpdateService {
     const checkedAt = this.now().toISOString();
     if (!preserveStableStateOnFailure)
       this.setState({
+        ...this.state,
         configured: true,
         status: "checking",
         currentVersion: this.state.currentVersion,
         checkedAt,
+        progress: undefined,
+        errorPhase: undefined,
       });
 
     let latest: ReleaseInfo;
@@ -204,22 +233,33 @@ export class UpdateService {
       throw error;
     }
     if (comparison <= 0) {
+      this.candidate = undefined;
       this.setState({
         configured: true,
         status: "current",
         currentVersion: this.state.currentVersion,
         latestVersion: latest.version,
+        releaseNotes: latest.releaseNotes,
+        releaseDate: latest.releaseDate,
         checkedAt,
       });
       return this.snapshot();
     }
 
+    if (this.candidate?.version !== latest.version)
+      this.candidate = {
+        version: latest.version,
+        confirmationId: randomUUID(),
+      };
     const available: UpdateSnapshot = {
       configured: true,
       status: "available",
       currentVersion: this.state.currentVersion,
       latestVersion: latest.version,
       releaseUrl: latest.url,
+      releaseNotes: latest.releaseNotes,
+      releaseDate: latest.releaseDate,
+      confirmationId: this.candidate.confirmationId,
       checkedAt,
     };
     this.setState(available);
@@ -262,21 +302,25 @@ export class UpdateService {
   ): void {
     if (preserveStableState) return;
     this.setState({
+      ...this.state,
       configured: true,
       status: "error",
       currentVersion: this.state.currentVersion,
       checkedAt,
       errorPhase: "check",
+      progress: undefined,
     });
   }
 
   private recordManualCheckFailure(): void {
     this.setState({
+      ...this.state,
       configured: true,
       status: "error",
       currentVersion: this.state.currentVersion,
       checkedAt: this.now().toISOString(),
       errorPhase: "check",
+      progress: undefined,
     });
   }
 

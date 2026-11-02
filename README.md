@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.30` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.31` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.30-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.30-x64.zip` — portable archive.
+- `CodexStyle-1.3.31-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.31-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.30` keeps deletion errors visible in the confirmation dialog and adds a theme-list right-click Delete action. Deletion updates the list immediately and preserves unsaved edits to other themes; existing in-use protections remain enforced. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy and reopen CodexStyle; saved themes and settings are retained.
+`v1.3.31` shows release notes before you confirm an update download and adds offline version history with dates and the current version marked. Automatic checks now run five minutes after each check finishes; background checks never download updates. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy and reopen CodexStyle; saved themes and settings are retained.
 
 ## Requirements
 

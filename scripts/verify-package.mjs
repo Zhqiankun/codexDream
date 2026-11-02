@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { load as loadYaml } from "js-yaml";
+import { releaseNotesForVersion } from "./release-notes.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const unpacked = resolve(root, "release", "win-unpacked");
@@ -301,12 +302,17 @@ const installerSha512 = createHash("sha512")
   .update(installerBytes)
   .digest("base64");
 const latest = parseYamlObject(latestManifest, "latest.yml");
+const expectedReleaseNotes = releaseNotesForVersion(
+  readFileSync(resolve(root, "CHANGELOG.md"), "utf8"),
+  metadata.version,
+);
 const latestFiles = Array.isArray(latest.files) ? latest.files : [];
 const installerFiles = latestFiles.filter(
   (entry) => isRecord(entry) && entry.url === installerUrl,
 );
 if (
   latest.version !== metadata.version ||
+  latest.releaseNotes !== expectedReleaseNotes ||
   latest.path !== installerUrl ||
   latest.sha512 !== installerSha512 ||
   installerFiles.length !== 1 ||
@@ -316,7 +322,7 @@ if (
   !Number.isFinite(Date.parse(latest.releaseDate))
 ) {
   console.error(
-    "Package verification failed; latest.yml does not match the installer.",
+    "Package verification failed; latest.yml does not match the installer or release notes.",
   );
   process.exit(1);
 }

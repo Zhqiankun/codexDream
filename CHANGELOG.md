@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.31 — 2026-11-02
+
+### English
+
+- Added a release-notes dialog before update downloads from both the Studio and the system tray. Downloads require explicit confirmation; if the available version changes during the final check, its notes must be confirmed again.
+- Added an always-visible Update History entry with offline release notes, dates, and a current-version marker. Closing the dialog does not cancel an active download, and background checks do not open the dialog.
+- Changed automatic update checks to five minutes after each check finishes, retaining the first check ten seconds after startup and preventing overlapping slow requests. Release notes now come from the same CHANGELOG as the bundled history; missing notes show a clear fallback without blocking an otherwise valid update.
+
+### 简体中文
+
+- 新增更新内容弹窗：工作台和系统托盘都先展示新版说明，再由用户确认下载。下载前复查发现版本变化时，须阅读新的说明并再次确认。
+- 新增常驻“更新记录”入口，可离线查看各版本的内容、日期和当前版本标记。关闭弹窗不取消已开始的下载，后台检查不会自动弹窗。
+- 自动检测改为每次检查完成后间隔 5 分钟，启动后首次检查仍等待 10 秒，慢请求不会重叠。在线更新说明和内置历史统一来自 CHANGELOG；缺少说明时明确提示，仍可继续有效更新。
+
+> 升级前通过 CodexStyle 结束它拥有的 Codex 会话并退出工具。覆盖安装后重新打开工作台，即可使用新的更新弹窗、历史记录和 5 分钟检测；已有主题和配置保留。
+
 ## v1.3.30 — 2026-11-02
 
 ### English

@@ -2,6 +2,7 @@ import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
+import { releaseNotesForVersion } from "./release-notes.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const metadata = JSON.parse(
@@ -40,13 +41,19 @@ if (
 
 file.url = assetUrl;
 manifest.path = assetUrl;
+manifest.releaseNotes = releaseNotesForVersion(
+  readFileSync(resolve(root, "CHANGELOG.md"), "utf8"),
+  metadata.version,
+);
 
 writeFileSync(
   manifestPath,
   dumpYaml(manifest, { lineWidth: -1, noRefs: true }),
   "utf8",
 );
-console.log("Finalized latest.yml with immutable GitHub release asset URLs.");
+console.log(
+  "Finalized latest.yml with immutable asset URLs and changelog release notes.",
+);
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

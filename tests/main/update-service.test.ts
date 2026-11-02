@@ -21,11 +21,11 @@ describe("UpdateService", () => {
     });
     expect(gateway.download).not.toHaveBeenCalled();
 
-    await expect(service.checkAndDownload()).resolves.toMatchObject({
+    await expect(downloadConfirmed(service)).resolves.toMatchObject({
       status: "downloaded",
       latestVersion: "1.2.0",
     });
-    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
+    expect(gateway.fetchLatest).toHaveBeenCalledTimes(2);
     expect(gateway.download).toHaveBeenCalledOnce();
   });
 
@@ -50,12 +50,13 @@ describe("UpdateService", () => {
       changed,
     );
 
-    await expect(service.checkAndDownload()).resolves.toEqual({
+    await expect(downloadConfirmed(service)).resolves.toEqual({
       configured: true,
       status: "downloaded",
       currentVersion: "1.0.0",
       latestVersion: "1.2.0",
       releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+      confirmationId: expect.any(String),
       checkedAt: "2026-08-27T08:00:00.000Z",
     });
     expect(changed).toHaveBeenCalledWith(
@@ -83,7 +84,7 @@ describe("UpdateService", () => {
       });
       const service = new UpdateService("1.0.0", gateway);
 
-      await expect(service.checkAndDownload()).resolves.toMatchObject({
+      await expect(downloadConfirmed(service)).resolves.toMatchObject({
         status: "current",
         latestVersion: version,
       });
@@ -109,8 +110,8 @@ describe("UpdateService", () => {
     );
     const service = new UpdateService("1.0.0", gateway);
 
-    const first = service.checkAndDownload();
-    const second = service.checkAndDownload();
+    const first = downloadConfirmed(service);
+    const second = downloadConfirmed(service);
     rejectLatest(new Error("offline"));
 
     await expect(first).rejects.toThrow("offline");
@@ -155,21 +156,21 @@ describe("UpdateService", () => {
       url: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
     };
     const gateway = gatewayFixture(release);
-    gateway.fetchLatest.mockImplementation(
+    const service = new UpdateService("1.0.0", gateway);
+    const candidate = await service.checkForUpdates();
+    gateway.fetchLatest.mockImplementationOnce(
       () =>
         new Promise<ReleaseInfo>((resolve) => {
           resolveLatest = resolve;
         }),
     );
-    const service = new UpdateService("1.0.0", gateway);
-
     const background = service.checkAvailability();
-    const manual = service.checkAndDownload();
+    const manual = service.checkAndDownload(candidate.confirmationId!);
     resolveLatest(release);
 
     await expect(background).resolves.toMatchObject({ status: "available" });
     await expect(manual).resolves.toMatchObject({ status: "downloaded" });
-    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
+    expect(gateway.fetchLatest).toHaveBeenCalledTimes(2);
     expect(gateway.download).toHaveBeenCalledOnce();
   });
 
@@ -210,7 +211,7 @@ describe("UpdateService", () => {
     const service = new UpdateService("1.0.0", gateway);
 
     const background = service.checkAvailability();
-    const manual = service.checkAndDownload();
+    const manual = downloadConfirmed(service);
     rejectLatest(new Error("offline"));
 
     await expect(background).rejects.toThrow("offline");
@@ -236,7 +237,7 @@ describe("UpdateService", () => {
     );
     const service = new UpdateService("1.0.0", gateway);
 
-    const download = service.checkAndDownload();
+    const download = downloadConfirmed(service);
     await vi.waitFor(() =>
       expect(service.snapshot().status).toBe("downloading"),
     );
@@ -258,7 +259,7 @@ describe("UpdateService", () => {
     await expect(service.checkAvailability()).resolves.toMatchObject({
       status: "installing",
     });
-    expect(gateway.fetchLatest).toHaveBeenCalledOnce();
+    expect(gateway.fetchLatest).toHaveBeenCalledTimes(2);
   });
 
   it("returns to available when a user cancels an active download", async () => {
@@ -275,7 +276,7 @@ describe("UpdateService", () => {
     );
     const service = new UpdateService("1.0.0", gateway);
 
-    const request = service.checkAndDownload();
+    const request = downloadConfirmed(service);
     await vi.waitFor(() =>
       expect(service.snapshot().status).toBe("downloading"),
     );
@@ -294,13 +295,14 @@ describe("UpdateService", () => {
     gateway.download.mockRejectedValue(new Error("C:\\private\\cache.exe"));
     const service = new UpdateService("1.0.0", gateway);
 
-    await expect(service.checkAndDownload()).rejects.toThrow("cache.exe");
+    await expect(downloadConfirmed(service)).rejects.toThrow("cache.exe");
     expect(service.snapshot()).toEqual({
       configured: true,
       status: "error",
       currentVersion: "1.0.0",
       latestVersion: "1.2.0",
       releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.2.0",
+      confirmationId: expect.any(String),
       checkedAt: expect.any(String),
       errorPhase: "download",
     });
@@ -313,7 +315,7 @@ describe("UpdateService", () => {
     });
     const service = new UpdateService("1.0.0", gateway);
 
-    await expect(service.checkAndDownload()).rejects.toThrow(
+    await expect(downloadConfirmed(service)).rejects.toThrow(
       "UPDATE_CHECK_FAILED",
     );
     expect(service.snapshot()).toMatchObject({
@@ -331,7 +333,7 @@ describe("UpdateService", () => {
 
     expect(() => service.installNow()).toThrow("not-downloaded");
     expect(() => service.scheduleInstallOnQuit()).toThrow("not-downloaded");
-    await service.checkAndDownload();
+    await downloadConfirmed(service);
 
     expect(service.scheduleInstallOnQuit()).toMatchObject({
       status: "scheduled",
@@ -339,7 +341,7 @@ describe("UpdateService", () => {
     });
     expect(service.shouldInstallOnQuit()).toBe(true);
     const checksBefore = gateway.fetchLatest.mock.calls.length;
-    await expect(service.checkAndDownload()).resolves.toMatchObject({
+    await expect(downloadConfirmed(service)).resolves.toMatchObject({
       status: "scheduled",
       installOnQuit: true,
     });
@@ -366,7 +368,7 @@ describe("UpdateService", () => {
       status: "unsupported",
       currentVersion: "1.0.0",
     });
-    await expect(service.checkAndDownload()).rejects.toThrow(
+    await expect(downloadConfirmed(service)).rejects.toThrow(
       "UPDATE_UNSUPPORTED",
     );
     expect(gateway.fetchLatest).not.toHaveBeenCalled();
@@ -383,7 +385,7 @@ describe("UpdateService", () => {
       })
       .mockImplementationOnce(() => undefined);
     const service = new UpdateService("1.0.0", gateway);
-    await service.checkAndDownload();
+    await downloadConfirmed(service);
 
     expect(() => service.installNow()).toThrow("spawn failed");
     expect(service.snapshot()).toMatchObject({
@@ -403,6 +405,14 @@ describe("UpdateService", () => {
     );
   });
 });
+
+// 用真实检查结果取得确认标识，保持既有下载/安装用例经过同一用户确认契约。
+async function downloadConfirmed(service: UpdateService) {
+  const candidate = service.snapshot().confirmationId
+    ? service.snapshot()
+    : await service.checkForUpdates();
+  return service.checkAndDownload(candidate.confirmationId ?? "");
+}
 
 type GatewayFixture = UpdateGateway & {
   supported: boolean;

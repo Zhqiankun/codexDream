@@ -160,7 +160,7 @@ function makeApi() {
     }),
     rendererReady: vi.fn().mockResolvedValue({
       ok: true,
-      data: { appVersion: "1.3.8", protocolVersion: 8 },
+      data: { appVersion: "1.3.8", protocolVersion: PROTOCOL_VERSION },
     }),
     openLogDirectory: vi.fn().mockResolvedValue({ ok: true, data: true }),
     installAssistantPlugin: vi.fn().mockResolvedValue({
@@ -208,7 +208,7 @@ function makeApi() {
       ok: true,
       data: { configured: true, status: "idle", currentVersion: "1.0.0" },
     }),
-    requestUpdate: vi.fn().mockResolvedValue({
+    checkUpdate: vi.fn().mockResolvedValue({
       ok: true,
       data: {
         configured: true,
@@ -217,6 +217,7 @@ function makeApi() {
         latestVersion: "1.0.0",
       },
     }),
+    requestUpdate: vi.fn(),
     cancelUpdate: vi.fn().mockResolvedValue({
       ok: true,
       data: { configured: true, status: "idle", currentVersion: "1.0.0" },
@@ -699,21 +700,30 @@ describe("Studio renderer", () => {
     },
   );
 
-  it("downloads a verified update internally and offers installation choices", async () => {
+  it("shows release notes before a confirmed download and offers installation choices", async () => {
     const api = makeApi();
-    const downloaded = {
+    const confirmationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const available = {
       configured: true as const,
-      status: "downloaded" as const,
+      status: "available" as const,
       currentVersion: "1.0.0",
       latestVersion: "1.1.0",
+      confirmationId,
+      releaseNotes: "- 本次新增更新说明和离线历史记录。",
+      releaseDate: "2026-08-27T08:00:00.000Z",
       releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.1.0",
       checkedAt: "2026-08-27T08:00:00.000Z",
+    };
+    const downloaded = {
+      ...available,
+      status: "downloaded" as const,
     };
     const scheduled = {
       ...downloaded,
       status: "scheduled" as const,
       installOnQuit: true,
     };
+    api.checkUpdate.mockResolvedValue({ ok: true, data: available });
     api.requestUpdate.mockResolvedValue({ ok: true, data: downloaded });
     api.installUpdate.mockResolvedValue({ ok: true, data: scheduled });
     window.codexStyle = api;
@@ -721,9 +731,22 @@ describe("Studio renderer", () => {
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "检查更新" }));
 
+    const dialog = await screen.findByRole("dialog", {
+      name: "更新与版本记录",
+    });
+    expect(
+      within(dialog).getByText("本次新增更新说明和离线历史记录。"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("发布于 2026-08-27")).toBeInTheDocument();
+    expect(api.checkUpdate).toHaveBeenCalledOnce();
+    expect(api.requestUpdate).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "下载更新" }));
+    await waitFor(() =>
+      expect(api.requestUpdate).toHaveBeenCalledWith({ confirmationId }),
+    );
     expect(await screen.findByText("v1.1.0 已准备好安装")).toBeInTheDocument();
     expect(screen.getByText(/完整性校验已通过/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "退出时安装" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "退出时安装" }));
 
     await waitFor(() =>
       expect(api.installUpdate).toHaveBeenCalledWith({ mode: "on-quit" }),
@@ -738,6 +761,7 @@ describe("Studio renderer", () => {
       status: "available" as const,
       currentVersion: "1.3.3",
       latestVersion: "1.4.0",
+      confirmationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       releaseUrl: "https://github.com/Zhqiankun/codexDream/releases/tag/v1.4.0",
       checkedAt: "2026-08-28T09:00:00.000Z",
     };
@@ -753,13 +777,18 @@ describe("Studio renderer", () => {
 
     expect(await screen.findByText("有新版 v1.4.0")).toBeInTheDocument();
     expect(screen.queryByLabelText("CodexStyle 更新")).toBeNull();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     const updateButton = screen.getByRole("button", {
-      name: "下载 v1.4.0 更新",
+      name: "查看 v1.4.0 更新",
     });
     expect(updateButton.querySelector("svg.update-icon")).toBeInTheDocument();
     expect(updateButton).not.toHaveTextContent("↻");
 
     fireEvent.click(updateButton);
+    const dialog = await screen.findByRole("dialog");
+    expect(api.checkUpdate).not.toHaveBeenCalled();
+    expect(api.requestUpdate).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "下载更新" }));
     await waitFor(() => expect(api.requestUpdate).toHaveBeenCalledOnce());
     expect(await screen.findByText("v1.4.0 已准备好安装")).toBeInTheDocument();
   });
@@ -767,9 +796,9 @@ describe("Studio renderer", () => {
   it("shows immediate busy feedback when a manual check joins background work", async () => {
     const api = makeApi();
     let resolveUpdate!: (
-      result: Awaited<ReturnType<typeof api.requestUpdate>>,
+      result: Awaited<ReturnType<typeof api.checkUpdate>>,
     ) => void;
-    api.requestUpdate.mockImplementation(
+    api.checkUpdate.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveUpdate = resolve;
@@ -885,7 +914,7 @@ describe("Studio renderer", () => {
 
   it("reports update-check failures without claiming a network cause", async () => {
     const api = makeApi();
-    api.requestUpdate.mockResolvedValue({
+    api.checkUpdate.mockResolvedValue({
       ok: false,
       error: {
         code: "UPDATE_CHECK_FAILED",
@@ -926,10 +955,203 @@ describe("Studio renderer", () => {
       }),
     );
 
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(/此版本不支持应用内更新/u),
+    ).toBeInTheDocument();
+    expect(api.checkUpdate).not.toHaveBeenCalled();
+    expect(api.requestUpdate).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "查看发布页面" }),
+    );
     await waitFor(() => expect(api.openUpdatePage).toHaveBeenCalledOnce());
     expect(
-      await screen.findByText("已打开 GitHub Release 手动下载页面。"),
+      await screen.findByText("已打开 GitHub Release 下载页面。"),
     ).toBeInTheDocument();
+  });
+
+  it("keeps a closed check closed and never downloads without confirmation", async () => {
+    const api = makeApi();
+    let resolveCheck!: (value: unknown) => void;
+    api.checkUpdate.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCheck = resolve;
+        }),
+    );
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查更新" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+    await act(async () =>
+      resolveCheck({
+        ok: true,
+        data: {
+          configured: true,
+          status: "available",
+          currentVersion: "1.0.0",
+          latestVersion: "1.4.0",
+          confirmationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          releaseNotes: "- 关闭后仍可再次查看这份说明。",
+        },
+      }),
+    );
+    expect(await screen.findByText("有新版 v1.4.0")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(api.requestUpdate).not.toHaveBeenCalled();
+    expect(api.installUpdate).not.toHaveBeenCalled();
+  });
+
+  it("retains release notes after a download failure and retries only on another click", async () => {
+    const api = makeApi();
+    const available = {
+      configured: true,
+      status: "available" as const,
+      currentVersion: "1.0.0",
+      latestVersion: "1.4.0",
+      confirmationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      releaseNotes: "- 下载失败也能继续阅读本次改动。",
+    };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: available },
+    });
+    api.requestUpdate
+      .mockResolvedValueOnce({
+        ok: false,
+        error: {
+          code: "UPDATE_DOWNLOAD_FAILED",
+          messageKey: "update.downloadFailed",
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { ...available, status: "downloaded" },
+      });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "查看 v1.4.0 更新" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "下载更新" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "更新下载或完整性校验失败，请稍后重试。",
+    );
+    expect(
+      within(dialog).getByText("下载失败也能继续阅读本次改动。"),
+    ).toBeInTheDocument();
+    expect(api.requestUpdate).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: "下载更新" }));
+    expect(await screen.findByText("v1.4.0 已准备好安装")).toBeInTheDocument();
+    expect(api.requestUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows changed candidate notes and requires a second download confirmation", async () => {
+    const api = makeApi();
+    const available = {
+      configured: true,
+      status: "available" as const,
+      currentVersion: "1.0.0",
+      latestVersion: "1.4.0",
+      confirmationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      releaseNotes: "- 第一版说明。",
+    };
+    const changed = {
+      ...available,
+      latestVersion: "1.4.1",
+      confirmationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      releaseNotes: "- 后续发布的修正版说明。",
+    };
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: available },
+    });
+    api.requestUpdate.mockResolvedValueOnce({ ok: true, data: changed });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "查看 v1.4.0 更新" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "下载更新" }));
+    expect(
+      await within(dialog).findByText("后续发布的修正版说明。"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "发现了新的更新版本，请阅读更新说明后再次确认下载。",
+    );
+    expect(api.requestUpdate).toHaveBeenCalledTimes(1);
+    api.requestUpdate.mockResolvedValueOnce({
+      ok: true,
+      data: { ...changed, status: "downloaded" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "下载更新" }));
+    await waitFor(() =>
+      expect(api.requestUpdate).toHaveBeenLastCalledWith({
+        confirmationId: changed.confirmationId,
+      }),
+    );
+  });
+
+  it("opens bundled release history without calling update services", async () => {
+    const api = makeApi();
+    window.codexStyle = api;
+    render(<App />);
+    const opener = await screen.findByRole("button", { name: "更新记录" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("tab", { name: "历史更新" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(dialog).getByText("当前版本").closest("summary"),
+    ).toHaveTextContent("v1.3.8");
+    expect(
+      dialog.querySelectorAll(".release-history-entry").length,
+    ).toBeGreaterThan(1);
+    expect(api.checkUpdate).not.toHaveBeenCalled();
+    expect(api.requestUpdate).not.toHaveBeenCalled();
+    expect(api.getUpdateStatus).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+
+  it("does not reopen a closed dialog when an in-flight download is cancelled", async () => {
+    const api = makeApi();
+    const available = {
+      configured: true,
+      status: "available" as const,
+      currentVersion: "1.0.0",
+      latestVersion: "1.4.0",
+      confirmationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    };
+    let finishDownload!: (value: unknown) => void;
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, update: available },
+    });
+    api.requestUpdate.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishDownload = resolve;
+        }),
+    );
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "查看 v1.4.0 更新" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "下载更新" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+    expect(api.cancelUpdate).not.toHaveBeenCalled();
+    await act(async () => finishDownload({ ok: true, data: available }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(api.requestUpdate).toHaveBeenCalledOnce();
   });
 
   it("applies a built-in theme preset without replacing theme identity", async () => {

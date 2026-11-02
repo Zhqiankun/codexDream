@@ -82,6 +82,68 @@ describe("ElectronUpdaterGateway", () => {
     }
   });
 
+  it("returns bounded notes for the matching release and a normalized ISO date", async () => {
+    const fixture = updaterFixture("1.2.0", {
+      releaseNotes: [
+        { version: "1.1.0", note: "旧版说明" },
+        { version: "v1.2.0", note: "  本次改动\r\n> 升级提示  " },
+      ],
+      releaseDate: "2026-11-02T16:30:00+08:00",
+    });
+    const gateway = new ElectronUpdaterGateway({
+      supported: true,
+      loadUpdater: fixture.load,
+    });
+
+    await expect(gateway.fetchLatest()).resolves.toMatchObject({
+      releaseNotes: "本次改动\n> 升级提示",
+      releaseDate: "2026-11-02T08:30:00.000Z",
+    });
+    expect(fixture.updater.downloadUpdate).not.toHaveBeenCalled();
+  });
+
+  it("omits missing, malformed, ambiguous, and oversized notes without rejecting a safe release", async () => {
+    for (const releaseNotes of [
+      undefined,
+      null,
+      "   ",
+      { note: "not a notes array" },
+      [{ version: "1.1.0", note: "wrong version" }],
+      [{ version: "1.2.0", note: null }],
+      [
+        { version: "1.2.0", note: "first" },
+        { version: "1.2.0", note: "second" },
+      ],
+      "字".repeat(10_923),
+      "a".repeat(32 * 1024 + 1),
+      "bad\u0000control",
+    ]) {
+      const fixture = updaterFixture("1.2.0", {
+        releaseNotes,
+        releaseDate: "2026-02-30T12:00:00.000Z",
+      });
+      const gateway = new ElectronUpdaterGateway({
+        supported: true,
+        loadUpdater: fixture.load,
+      });
+      const release = await gateway.fetchLatest();
+      expect(release.version).toBe("1.2.0");
+      expect(release.releaseNotes).toBeUndefined();
+      expect(release.releaseDate).toBeUndefined();
+    }
+  });
+
+  it("accepts exactly 32 KiB of plain notes without treating markup as executable content", async () => {
+    const releaseNotes = "<b>文字</b>\n".padEnd(32 * 1024 - 4, "a");
+    expect(Buffer.byteLength(releaseNotes, "utf8")).toBe(32 * 1024);
+    const fixture = updaterFixture("1.2.0", { releaseNotes });
+    const gateway = new ElectronUpdaterGateway({
+      supported: true,
+      loadUpdater: fixture.load,
+    });
+    expect((await gateway.fetchLatest()).releaseNotes).toBe(releaseNotes);
+  });
+
   it("rejects updater modules with missing required exports deterministically", async () => {
     const missingUpdater = new ElectronUpdaterGateway({
       supported: true,
@@ -239,7 +301,10 @@ class FakeCancellationToken {
   }
 }
 
-function updaterFixture(version: string) {
+function updaterFixture(
+  version: string,
+  metadata: { releaseNotes?: unknown; releaseDate?: unknown } = {},
+) {
   const sha512 = Buffer.alloc(64, 1).toString("base64");
   const updateInfo = {
     version,
@@ -252,6 +317,7 @@ function updaterFixture(version: string) {
     ],
     path: `https://github.com/Zhqiankun/codexDream/releases/download/v${version}/CodexStyle-${version}-x64.exe`,
     sha512,
+    ...metadata,
   };
   const updater = Object.assign(new EventEmitter(), {
     autoDownload: true,

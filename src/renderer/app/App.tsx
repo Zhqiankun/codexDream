@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -10,7 +12,6 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject,
 } from "react";
 import {
   resolveSidebarSurface,
@@ -26,6 +27,7 @@ import {
   type UpdateSnapshot,
 } from "../../contracts";
 import { bridge } from "../api/bridge";
+import { useConfirmDialog } from "../components/useConfirmDialog";
 import { ThemeList } from "../features/library/ThemeList";
 import {
   SessionLauncher,
@@ -44,7 +46,8 @@ import { themeCommitMessage } from "../features/studio/theme-commit-feedback";
 
 const MAX_CSS_CHARACTERS = 262_144;
 const MAX_CSS_BYTES = 256 * 1024;
-const RENDERER_PROTOCOL_VERSION = 8;
+const RENDERER_PROTOCOL_VERSION = 9;
+const UpdateDialog = lazy(() => import("../features/updates/UpdateDialog"));
 const cssTextEncoder = new TextEncoder();
 const EMPTY_THEME_SUMMARIES: ThemeSnapshot["themes"] = [];
 
@@ -369,7 +372,7 @@ function updateButtonText(update?: UpdateSnapshot): string {
   if (update.status === "checking") return "正在检查更新";
   if (update.status === "available")
     return update.latestVersion
-      ? `下载 v${update.latestVersion} 更新`
+      ? `查看 v${update.latestVersion} 更新`
       : "下载可用更新";
   if (update.status === "downloading")
     return `正在下载更新 ${update.progress?.percent ?? 0}%`;
@@ -477,6 +480,12 @@ export function App() {
     useState<string>();
   const [busy, setBusy] = useState(false);
   const [manualUpdatePending, setManualUpdatePending] = useState(false);
+  const [updateDownloadPending, setUpdateDownloadPending] = useState(false);
+  const [updateDialogMode, setUpdateDialogMode] = useState<
+    "update" | "history"
+  >();
+  const [updateDialogError, setUpdateDialogError] = useState<string>();
+  const updateRequestRef = useRef(false);
   const [runtimeMismatch, setRuntimeMismatch] = useState(false);
   const [runtimeInfo, setRuntimeInfo] = useState<StudioRuntimeInfo>();
   const [themeQuery, setThemeQuery] = useState("");
@@ -654,38 +663,76 @@ export function App() {
     : updateButtonText(update);
   const updateHint = updateAvailabilityHint(update);
 
-  const checkForUpdates = async () => {
-    if (update?.status === "unsupported") {
-      const opened = unwrap(await bridge.openUpdatePage(), report);
-      if (opened) report("已打开 GitHub Release 手动下载页面。");
+  const checkForUpdates = async (force = false) => {
+    setUpdateDialogMode("update");
+    setUpdateDialogError(undefined);
+    if (updateRequestRef.current) return;
+    if (
+      update?.status === "unsupported" ||
+      (!force &&
+        update &&
+        [
+          "available",
+          "downloading",
+          "downloaded",
+          "scheduled",
+          "installing",
+        ].includes(update.status))
+    )
       return;
-    }
-    if (update?.status === "downloaded" || update?.status === "scheduled") {
-      setDismissedUpdateVersion(undefined);
-      return;
-    }
+    updateRequestRef.current = true;
     try {
       setManualUpdatePending(true);
-      const next = unwrap(await bridge.requestUpdate(), report);
+      const next = unwrap(await bridge.checkUpdate(), setUpdateDialogError);
       if (!next) return;
       setSnapshot((current) =>
         current ? { ...current, update: next } : current,
       );
-      if (next.status === "current")
-        report(`当前已是最新版 v${next.currentVersion}。`);
-      if (next.status === "downloaded") {
-        setDismissedUpdateVersion(undefined);
-        report(`v${next.latestVersion} 已下载并通过完整性校验。`);
-      }
     } catch {
-      report(messageForError("update.checkFailed"));
+      setUpdateDialogError(messageForError("update.checkFailed"));
     } finally {
+      updateRequestRef.current = false;
       setManualUpdatePending(false);
     }
   };
 
+  const downloadUpdate = async (confirmationId: string) => {
+    if (updateRequestRef.current) return;
+    updateRequestRef.current = true;
+    setUpdateDownloadPending(true);
+    setUpdateDialogError(undefined);
+    try {
+      const next = unwrap(
+        await bridge.requestUpdate({ confirmationId }),
+        setUpdateDialogError,
+      );
+      if (!next) return;
+      setSnapshot((current) =>
+        current ? { ...current, update: next } : current,
+      );
+      if (next.status === "available") {
+        if (next.confirmationId !== confirmationId)
+          setUpdateDialogMode("update");
+        setUpdateDialogError(
+          next.confirmationId !== confirmationId
+            ? "发现了新的更新版本，请阅读更新说明后再次确认下载。"
+            : "下载已取消，你可以稍后重新下载。",
+        );
+      }
+      if (next.status === "downloaded") setDismissedUpdateVersion(undefined);
+    } catch {
+      setUpdateDialogError(messageForError("update.downloadFailed"));
+    } finally {
+      updateRequestRef.current = false;
+      setUpdateDownloadPending(false);
+    }
+  };
+
   const cancelUpdate = async () => {
-    const next = unwrap(await bridge.cancelUpdate(), report);
+    const next = unwrap(
+      await bridge.cancelUpdate(),
+      updateDialogMode ? setUpdateDialogError : report,
+    );
     if (next) {
       setSnapshot((current) =>
         current ? { ...current, update: next } : current,
@@ -699,7 +746,10 @@ export function App() {
   };
 
   const installUpdate = async (mode: "now" | "on-quit") => {
-    const next = unwrap(await bridge.installUpdate({ mode }), report);
+    const next = unwrap(
+      await bridge.installUpdate({ mode }),
+      updateDialogMode ? setUpdateDialogError : report,
+    );
     if (next) {
       setSnapshot((current) =>
         current ? { ...current, update: next } : current,
@@ -709,14 +759,21 @@ export function App() {
     }
   };
 
-  const openUpdatePage = (update: UpdateSnapshot) =>
-    run(
-      () => bridge.openUpdatePage(),
-      () => {
-        setDismissedUpdateVersion(update.latestVersion);
-        report("已打开 GitHub Release 下载页面。");
-      },
-    );
+  const openUpdatePage = async (target?: UpdateSnapshot) => {
+    try {
+      const opened = unwrap(
+        await bridge.openUpdatePage(),
+        updateDialogMode ? setUpdateDialogError : report,
+      );
+      if (!opened) return;
+      setDismissedUpdateVersion(target?.latestVersion);
+      report("已打开 GitHub Release 下载页面。");
+    } catch {
+      (updateDialogMode ? setUpdateDialogError : report)(
+        messageForError("update.openFailed"),
+      );
+    }
+  };
 
   const openLogDirectory = async () => {
     try {
@@ -879,10 +936,19 @@ export function App() {
           </span>
         )}
         <button
+          className="text-button update-history-button"
+          type="button"
+          onClick={() => setUpdateDialogMode("history")}
+        >
+          更新记录
+        </button>
+        <button
           className={`icon-button update-button ${updateHasBadge ? "has-update" : ""} ${updateInProgress ? "is-busy" : ""}`}
           title={updateButtonLabel}
           aria-label={updateButtonLabel}
-          disabled={busy || updateInProgress}
+          disabled={
+            busy || manualUpdatePending || update?.status === "installing"
+          }
           onClick={() => void checkForUpdates()}
         >
           <UpdateIcon />
@@ -1195,6 +1261,31 @@ export function App() {
           onCancel={() => setDeleteCandidate(undefined)}
           onConfirm={() => void confirmDeleteTheme()}
         />
+      )}
+      {updateDialogMode && (
+        <Suspense
+          fallback={
+            <div className="confirm-backdrop" role="status">
+              正在读取更新记录…
+            </div>
+          }
+        >
+          <UpdateDialog
+            mode={updateDialogMode}
+            currentVersion={runtimeInfo?.appVersion}
+            update={update}
+            checking={manualUpdatePending}
+            downloading={updateDownloadPending}
+            error={updateDialogError}
+            onModeChange={setUpdateDialogMode}
+            onClose={() => setUpdateDialogMode(undefined)}
+            onCheck={() => void checkForUpdates(true)}
+            onDownload={(confirmationId) => void downloadUpdate(confirmationId)}
+            onCancelDownload={() => void cancelUpdate()}
+            onInstall={(mode) => void installUpdate(mode)}
+            onOpenRelease={() => void openUpdatePage(update)}
+          />
+        </Suspense>
       )}
     </div>
   );
@@ -2727,86 +2818,6 @@ function DiscardChangesDialog({
       </div>
     </div>
   );
-}
-
-function useConfirmDialog(
-  onCancel: () => void,
-  canDismiss: boolean,
-): RefObject<HTMLDivElement | null> {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const cancelRef = useRef(onCancel);
-  const dismissRef = useRef(canDismiss);
-  useEffect(() => {
-    cancelRef.current = onCancel;
-    dismissRef.current = canDismiss;
-  }, [canDismiss, onCancel]);
-  useEffect(() => {
-    const previousFocus =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : undefined;
-    const dialog = dialogRef.current;
-    const focusable = dialog ? dialogFocusableElements(dialog) : [];
-    (focusable[0] ?? dialog)?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && dismissRef.current) {
-        event.preventDefault();
-        cancelRef.current();
-        return;
-      }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const entries = dialogFocusableElements(dialogRef.current);
-      if (entries.length === 0) {
-        event.preventDefault();
-        dialogRef.current.focus();
-        return;
-      }
-      const first = entries[0];
-      const last = entries.at(-1)!;
-      const active = document.activeElement;
-      if (
-        event.shiftKey &&
-        (active === first || !dialogRef.current.contains(active))
-      ) {
-        event.preventDefault();
-        last.focus();
-      } else if (
-        !event.shiftKey &&
-        (active === last || !dialogRef.current.contains(active))
-      ) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      const previousDisabled =
-        previousFocus instanceof HTMLButtonElement && previousFocus.disabled;
-      if (
-        previousFocus?.isConnected &&
-        previousFocus.tabIndex >= 0 &&
-        !previousDisabled
-      ) {
-        previousFocus.focus();
-        return;
-      }
-      document
-        .querySelector<HTMLElement>(
-          '.studio-tabs [role="tab"][aria-selected="true"]:not(:disabled)',
-        )
-        ?.focus();
-    };
-  }, []);
-  return dialogRef;
-}
-
-function dialogFocusableElements(dialog: HTMLElement): HTMLElement[] {
-  return Array.from(
-    dialog.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    ),
-  ).filter((element) => !element.hidden);
 }
 
 function ImportConflict({

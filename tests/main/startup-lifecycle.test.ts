@@ -263,7 +263,7 @@ describe("CodexStyle startup window lifecycle", () => {
     ).toEqual(["文件", "编辑", "视图", "窗口"]);
   });
 
-  it("checks quietly after startup and then every twenty minutes", async () => {
+  it("checks quietly after startup and then every five minutes", async () => {
     const controller = createController();
     await controller.init();
 
@@ -273,7 +273,9 @@ describe("CodexStyle startup window lifecycle", () => {
     expect(state.checkAvailability).toHaveBeenCalledOnce();
 
     await flushPromises();
-    await vi.advanceTimersByTimeAsync(20 * 60 * 1_000);
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1_000 - 1);
+    expect(state.checkAvailability).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(1);
     expect(state.checkAvailability).toHaveBeenCalledTimes(2);
   });
 
@@ -340,7 +342,9 @@ describe("CodexStyle startup window lifecycle", () => {
     expect(state.checkAvailability).toHaveBeenCalledOnce();
     finishCheck();
     await flushPromises();
-    await vi.advanceTimersByTimeAsync(20 * 60 * 1_000);
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1_000 - 1);
+    expect(state.checkAvailability).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(1);
     expect(state.checkAvailability).toHaveBeenCalledTimes(2);
   });
 
@@ -354,7 +358,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 8 },
+      data: { appVersion: "1.3.1", protocolVersion: 9 },
     });
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
@@ -390,7 +394,7 @@ describe("CodexStyle startup window lifecycle", () => {
     firstWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 8 },
+      data: { appVersion: "1.3.1", protocolVersion: 9 },
     });
     firstWindow.emitWebContents(
       "render-process-gone",
@@ -403,7 +407,7 @@ describe("CodexStyle startup window lifecycle", () => {
     secondWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 8 },
+      data: { appVersion: "1.3.1", protocolVersion: 9 },
     });
     secondWindow.emitWebContents(
       "render-process-gone",
@@ -433,7 +437,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 8 },
+      data: { appVersion: "1.3.1", protocolVersion: 9 },
     });
     expect(currentWindow.show).not.toHaveBeenCalled();
 

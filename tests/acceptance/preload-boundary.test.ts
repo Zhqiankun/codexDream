@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CodexStyleApi, Result, ThemeSnapshot } from "../../src/contracts";
+import type {
+  CodexStyleApi,
+  Result,
+  ThemeSnapshot,
+  UpdateSnapshot,
+} from "../../src/contracts";
 
 const { exposed, ipcRenderer } = vi.hoisted(() => ({
   exposed: new Map<string, unknown>(),
@@ -47,6 +52,7 @@ describe("preload public boundary", () => {
 
     expect(Object.keys(api).sort()).toEqual([
       "cancelUpdate",
+      "checkUpdate",
       "chooseBackground",
       "chooseHomeCardImage",
       "chooseSendIcon",
@@ -87,29 +93,29 @@ describe("preload public boundary", () => {
     };
     await api.chooseBackground(slot);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.chooseBackground", {
-      v: 8,
+      v: 9,
       ...slot,
     });
     await api.clearReasoningBackground(slot);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(
       "theme.clearReasoningBackground",
-      { v: 8, ...slot },
+      { v: 9, ...slot },
     );
     await api.recheckSession();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("session.recheck", {
-      v: 8,
+      v: 9,
     });
     await api.getStartupSettings();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("startup.getSettings", {
-      v: 8,
+      v: 9,
     });
     await api.setStartupSettings({ enabled: true });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("startup.setSettings", {
-      v: 8,
+      v: 9,
       enabled: true,
     });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
-      v: 8,
+      v: 9,
     });
 
     await api.rendererReady();
@@ -119,12 +125,12 @@ describe("preload public boundary", () => {
 
     await api.openLogDirectory();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("diagnostics.openLogs", {
-      v: 8,
+      v: 9,
     });
 
     await api.installAssistantPlugin();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("assistant.installPlugin", {
-      v: 8,
+      v: 9,
     });
 
     await api.discardChanges({
@@ -132,7 +138,7 @@ describe("preload public boundary", () => {
       expectedRevision: 2,
     });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.discardChanges", {
-      v: 8,
+      v: 9,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 2,
     });
@@ -155,7 +161,7 @@ describe("preload public boundary", () => {
       }),
     ).resolves.toEqual(committed);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.commit", {
-      v: 8,
+      v: 9,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 2,
     });
@@ -168,18 +174,45 @@ describe("preload public boundary", () => {
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(
       "theme.chooseHomeCardImage",
       {
-        v: 8,
+        v: 9,
         libraryId: "11111111-1111-4111-8111-111111111111",
         expectedRevision: 2,
         cardIndex: 3,
       },
     );
 
+    const confirmationId = "12345678-1234-4234-8234-123456789abc";
+    const available: Result<UpdateSnapshot> = {
+      ok: true,
+      data: {
+        configured: true,
+        status: "available",
+        currentVersion: "1.0.0",
+        latestVersion: "1.1.0",
+        confirmationId,
+        releaseNotes: "更新说明只读。",
+        releaseDate: "2026-11-02T00:00:00.000Z",
+      },
+    };
+    ipcRenderer.invoke.mockResolvedValue(available);
+    // 检查不携带下载目标；下载只回传主进程签发的确认标识。
+    await expect(api.checkUpdate()).resolves.toEqual(available);
+    expect(ipcRenderer.invoke).toHaveBeenLastCalledWith("update.check", {
+      v: 9,
+    });
+    await expect(api.requestUpdate({ confirmationId })).resolves.toEqual(
+      available,
+    );
+    expect(ipcRenderer.invoke).toHaveBeenLastCalledWith("update.request", {
+      v: 9,
+      confirmationId,
+    });
+
     await api.cancelUpdate();
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 8 });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 9 });
     await api.installUpdate({ mode: "now" });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.install", {
-      v: 8,
+      v: 9,
       mode: "now",
     });
   });
