@@ -631,6 +631,7 @@ describe("bundled image theme presets", () => {
     30_000,
   );
 
+  // 整包图片校验与迁移写入在 CI 上会超过默认五秒，沿用相邻迁移用例的预算。
   it("preserves a user-edited predecessor preset while completing the pack migration", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);
@@ -663,7 +664,7 @@ describe("bundled image theme presets", () => {
     });
     expect(upgraded.listRecords()).toHaveLength(15);
     upgraded.managedStore.close();
-  });
+  }, 30_000);
 
   it("does not revive a predecessor preset deleted before the migration", async () => {
     const managed = await createManagedRoot();
