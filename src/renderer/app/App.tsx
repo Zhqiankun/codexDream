@@ -470,6 +470,9 @@ export function App() {
   const [pendingImport, setPendingImport] = useState<ImportResult>();
   const [deleteCandidate, setDeleteCandidate] =
     useState<ThemeSnapshot["themes"][number]>();
+  const [deleteError, setDeleteError] = useState<string>();
+  const deletePendingRef = useRef(false);
+  const refreshRequestRef = useRef(0);
   const [dismissedUpdateVersion, setDismissedUpdateVersion] =
     useState<string>();
   const [busy, setBusy] = useState(false);
@@ -483,11 +486,7 @@ export function App() {
   const selectedLibraryIdRef = useRef<string | undefined>(undefined);
   const selectedRevisionRef = useRef<number | undefined>(undefined);
 
-  useEffect(() => {
-    selectedLibraryIdRef.current = selected?.libraryId;
-    selectedRevisionRef.current = selected?.revision;
-  }, [selected?.libraryId]);
-
+  // 详情读取期间也需要同步选择目标；避免 effect 用上一帧状态覆盖新目标。
   const adoptSelectedDetail = (detail: ThemeDetail) => {
     selectedLibraryIdRef.current = detail.libraryId;
     selectedRevisionRef.current = detail.revision;
@@ -510,7 +509,10 @@ export function App() {
     libraryId?: string,
     onError: (message: string) => void = report,
   ) => {
-    const next = unwrap(await bridge.getSnapshot(), onError);
+    const request = ++refreshRequestRef.current;
+    const snapshotResult = await bridge.getSnapshot();
+    if (request !== refreshRequestRef.current) return;
+    const next = unwrap(snapshotResult, onError);
     if (!next) return;
     setSnapshot(next);
     const id =
@@ -519,10 +521,13 @@ export function App() {
       next.themes.find((theme) => theme.selectedForNextLaunch)?.libraryId ??
       next.themes[0]?.libraryId;
     if (id) {
-      const detail = unwrap(await bridge.getTheme({ libraryId: id }), onError);
+      const detailResult = await bridge.getTheme({ libraryId: id });
+      if (request !== refreshRequestRef.current) return;
+      const detail = unwrap(detailResult, onError);
       if (detail) adoptSelectedDetail(detail);
     } else {
       selectedLibraryIdRef.current = undefined;
+      selectedRevisionRef.current = undefined;
       setSelected(undefined);
     }
   };
@@ -545,9 +550,14 @@ export function App() {
           const summary = next.themes.find(
             (theme) => theme.libraryId === libraryId,
           );
-          if (libraryId && summary?.revision !== selectedRevisionRef.current)
+          if (
+            libraryId &&
+            summary &&
+            summary.revision !== selectedRevisionRef.current
+          )
             void bridge.getTheme({ libraryId }).then((result) => {
-              if (result.ok) adoptSelectedDetail(result.data);
+              if (result.ok && selectedLibraryIdRef.current === libraryId)
+                adoptSelectedDetail(result.data);
             });
         });
         await refresh();
@@ -754,22 +764,85 @@ export function App() {
     );
   };
 
-  const confirmDeleteTheme = () => {
+  const currentDeleteCandidate =
+    snapshot?.themes.find(
+      (theme) => theme.libraryId === deleteCandidate?.libraryId,
+    ) ?? deleteCandidate;
+  const deleteBlockedReason = currentDeleteCandidate?.selectedForNextLaunch
+    ? "请先启用另一个主题作为下次启动主题，再删除此主题。"
+    : snapshot?.session.canEnd
+      ? "请先结束由 CodexStyle 启动的 Codex 会话，再删除主题。"
+      : undefined;
+
+  const requestDeleteTheme = (theme: ThemeSnapshot["themes"][number]) => {
+    if (busy) return;
+    setDeleteError(undefined);
+    setDeleteCandidate(theme);
+  };
+
+  const confirmDeleteTheme = async () => {
     const candidate = deleteCandidate;
-    if (!candidate) return;
-    void run(
-      () =>
-        bridge.deleteTheme({
-          libraryId: candidate.libraryId,
-          expectedRevision: candidate.revision,
-        }),
-      () => {
+    if (!candidate || busy || deletePendingRef.current || deleteBlockedReason)
+      return;
+    deletePendingRef.current = true;
+    setBusy(true);
+    setDeleteError(undefined);
+    let committed = false;
+    try {
+      const result = await bridge.deleteTheme({
+        libraryId: candidate.libraryId,
+        expectedRevision: candidate.revision,
+      });
+      if (!result.ok) {
+        setDeleteError(
+          result.error.code === "THEME_IN_USE"
+            ? "该主题仍受保护。请先结束由 CodexStyle 启动的会话，并确认下次启动已选择其他主题。若它是最近成功运行的恢复主题，需要先成功启动其他主题并结束会话后才能删除。"
+            : messageForError(result.error.messageKey),
+        );
+        return;
+      }
+      // 删除返回的快照是已提交结果；不要让旧列表读取将已删除项写回来。
+      committed = true;
+      const request = ++refreshRequestRef.current;
+      setSnapshot(result.data);
+      setDeleteCandidate(undefined);
+      report(`已删除“${candidate.name}”。`);
+      if (selectedLibraryIdRef.current === candidate.libraryId) {
         selectedLibraryIdRef.current = undefined;
+        selectedRevisionRef.current = undefined;
         setSelected(undefined);
-        setDeleteCandidate(undefined);
-        report(`已删除“${candidate.name}”。`);
-      },
-    );
+        const next =
+          result.data.themes.find((theme) => theme.selectedForNextLaunch) ??
+          result.data.themes[0];
+        if (next) {
+          selectedLibraryIdRef.current = next.libraryId;
+          const detail = await bridge.getTheme({ libraryId: next.libraryId });
+          if (
+            request !== refreshRequestRef.current ||
+            selectedLibraryIdRef.current !== next.libraryId
+          )
+            return;
+          if (detail.ok) adoptSelectedDetail(detail.data);
+          else
+            report(
+              `已删除“${candidate.name}”，但读取其他主题失败，请重新选择主题。`,
+            );
+        }
+      }
+    } catch {
+      // 请求异常不能表现成按钮闪烁；提交成功后的详情失败也不误报删除失败。
+      if (committed)
+        report(
+          `已删除“${candidate.name}”，但读取其他主题失败，请重新选择主题。`,
+        );
+      else
+        setDeleteError(
+          "删除请求失败，请重试。若仍失败，请重新打开工作台核对主题列表。",
+        );
+    } finally {
+      deletePendingRef.current = false;
+      setBusy(false);
+    }
   };
 
   if (runtimeMismatch) return <RuntimeMismatch />;
@@ -834,8 +907,7 @@ export function App() {
                   () => bridge.createDraft({ name: "新主题" }),
                   (detail) => {
                     setThemeQuery("");
-                    selectedLibraryIdRef.current = detail.libraryId;
-                    setSelected(detail);
+                    adoptSelectedDetail(detail);
                   },
                 )
               }
@@ -913,6 +985,8 @@ export function App() {
             onOpen={(libraryId) => void refresh(libraryId)}
             onActivate={activateTheme}
             onClearSearch={() => setThemeQuery("")}
+            onRequestDelete={requestDeleteTheme}
+            busy={busy}
           />
           <div className="sidebar-footer">
             {!runtimeMismatch && runtimeInfo && <StartupSetting />}
@@ -1099,7 +1173,7 @@ export function App() {
               run={run}
               onDetailChanged={adoptSelectedDetail}
               onRequestDelete={() => {
-                if (selectedSummary) setDeleteCandidate(selectedSummary);
+                if (selectedSummary) requestDeleteTheme(selectedSummary);
               }}
             />
           )}
@@ -1116,8 +1190,10 @@ export function App() {
         <DeleteThemeDialog
           theme={deleteCandidate}
           busy={busy}
+          error={deleteError ?? deleteBlockedReason}
+          blocked={Boolean(deleteBlockedReason)}
           onCancel={() => setDeleteCandidate(undefined)}
-          onConfirm={confirmDeleteTheme}
+          onConfirm={() => void confirmDeleteTheme()}
         />
       )}
     </div>
@@ -2557,11 +2633,15 @@ function DeleteThemeDialog({
   busy,
   onCancel,
   onConfirm,
+  error,
+  blocked,
 }: {
   theme: ThemeSnapshot["themes"][number];
   busy: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  error?: string;
+  blocked: boolean;
 }) {
   const dialogRef = useConfirmDialog(onCancel, !busy);
   return (
@@ -2579,6 +2659,11 @@ function DeleteThemeDialog({
         <p>
           主题配置和背景图片将从 CodexStyle 本地主题库移除。此操作无法撤销。
         </p>
+        {error && (
+          <p className="delete-error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="confirm-actions">
           <button
             className="secondary-button"
@@ -2587,7 +2672,11 @@ function DeleteThemeDialog({
           >
             取消
           </button>
-          <button className="danger-button" disabled={busy} onClick={onConfirm}>
+          <button
+            className="danger-button"
+            disabled={busy || blocked}
+            onClick={onConfirm}
+          >
             {busy ? "删除中…" : "确认删除"}
           </button>
         </div>

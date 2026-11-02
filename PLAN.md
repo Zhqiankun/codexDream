@@ -2,6 +2,8 @@
 
 本文件连同 `REQUIREMENTS.md` 构成本轮实现的最终契约。其他历史或并行设计说明不是实现依据；冲突时以此处锁定的固定源后台检查、用户触发下载与安装、严格声明资产的主题 ZIP、受管启动及保存当前主题即时更新和本文件 IPC 契约为准。
 
+2026-11-02 删除反馈与右键入口：复用 `theme.delete`、既有确认弹窗及后端删除保护，不修改 IPC、存储或会话边界。ThemeList 管理右键菜单的位置、键盘和关闭；App 统一管理删除目标、忙碌、持久错误及成功快照。删除非编辑项不刷新或重置编辑器；删除编辑项才选择剩余项，并忽略已失效的详情读取。验收覆盖真实隔离 Electron 的右键确认与取消、删除持久化，以及 renderer 的保护拒绝、异常、重复提交和延迟响应。
+
 保存当前主题即时生效（2026-10-30，已实现，相关单元与隔离 Electron 验证通过，正式受管会话未验证）：沿用 `theme.commit` 与 operation gate，由 controller 在持久化成功后调用 `CodexSessionService` 的保存后更新入口，返回包含已保存主题和应用结果的具名契约；不新增 renderer 可传的路径、端口、会话 ID 或任意脚本入口。`LocalThemeStore` 复用现有 ready 注入校验按 libraryId 读取，session 用自己拥有的 themeLibraryId 决定是否匹配；下次选择可以独立变化。session 在完整身份/selector 复验后替换当前 payload 和后续文档脚本，成功后才更新主题 fingerprint、ownership 和 last-known-good。payload 通过同 owner 的受控更新入口清理旧观察器、监听器、样式与自身标记，再应用最新内容；foreign owner 拒绝替换。暂停、无会话、不同主题只返回保存成功；热应用失败不回滚已提交主题、不关闭窗口，并报告未确认生效。watcher 使用既有 epoch/session 防旧结果机制，保存热应用期间停止排程，结束后只为仍拥有的同一会话恢复。验证包括 controller 的 commit 顺序与部分成功、真实 session 身份校验和失败清理、renderer 反馈、隔离 Electron 的重复注入/重载/配置与高级模式及相邻主题回归；正式受管 Codex 和发布结果单独报告。
 
 ## 按思考强度背景切换（2026-10-30，已实现，隔离验证通过）

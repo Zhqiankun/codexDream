@@ -352,6 +352,33 @@ textarea:focus-visible {
 .theme-list.is-filtering {
   opacity: 0.72;
 }
+.theme-context-menu {
+  position: fixed;
+  z-index: 90;
+  min-width: 160px;
+  max-width: calc(100vw - 16px);
+  padding: 5px;
+  border: 1px solid #34415d;
+  border-radius: 10px;
+  background: #141d30;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.theme-context-menu button {
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 12px;
+  background: transparent;
+  color: #fda4af;
+  text-align: left;
+  cursor: pointer;
+}
+.theme-context-menu button:hover,
+.theme-context-menu button:focus-visible {
+  background: #342033;
+  outline: 2px solid #fb7185;
+  outline-offset: -2px;
+}
 .theme-list::-webkit-scrollbar {
   width: 7px;
 }
@@ -859,6 +886,14 @@ h2 {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 22px;
+}
+.confirm-dialog .delete-error {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid #924052;
+  border-radius: 8px;
+  background: #35202c;
+  color: #fecdd3;
 }
 @keyframes confirm-fade-in {
   from {

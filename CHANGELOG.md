@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.30 — 2026-11-02
+
+### English
+
+- Fixed deletion failures appearing as a brief flicker: refusal reasons and request errors now remain visible inside the confirmation dialog. Existing protections for managed sessions, next-launch themes, and the last known good theme remain enforced.
+- Added a theme-list context menu with a Delete action, also available through the menu key or Shift+F10. Both entry points require explicit confirmation.
+- Successful deletion immediately updates the list, preserves unsaved edits to other themes, and opens a remaining theme when the edited theme is removed. Late detail responses cannot reopen a deleted theme.
+
+### 简体中文
+
+- 修复删除失败时仅闪一下、看不到原因的问题：保护原因与请求错误现在持续显示在确认弹窗内。受管会话、下次启动主题和最近成功运行的恢复主题继续受保护。
+- 新增主题列表右键“删除主题”，同时支持菜单键或 Shift+F10，继续通过明确确认后删除。
+- 删除成功立即更新列表，保留其他主题未保存的编辑；删除当前编辑主题后正常打开剩余主题，旧详情响应不会重新打开已删除项。
+
+> 升级前通过 CodexStyle 结束它拥有的 Codex 会话并退出工具。覆盖安装后重新打开工作台即可使用新的删除入口与提示；已有主题和配置保留。
+
 ## v1.3.29 — 2026-11-02
 
 ### English

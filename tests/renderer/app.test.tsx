@@ -2749,6 +2749,190 @@ describe("Studio renderer", () => {
         expectedRevision: theme.revision,
       }),
     );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      screen.queryByRole("button", { name: /Midnight Copper/u }),
+    ).toBeNull();
+    expect(screen.queryByDisplayValue("Midnight Copper")).toBeNull();
+    // 已提交的删除快照直接生效，不用一次可能失败或滞后的刷新覆盖它。
+    expect(api.getSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a deletion refusal visible inside the dialog and allows retry", async () => {
+    const api = makeApi();
+    api.deleteTheme
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "THEME_IN_USE", messageKey: "error.theme_in_use" },
+      })
+      .mockResolvedValue({ ok: true, data: { ...snapshot, themes: [] } });
+    window.codexStyle = api;
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("button", { name: "删除主题" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+
+    const alert = await within(screen.getByRole("dialog")).findByRole("alert");
+    expect(alert).toHaveTextContent("恢复主题");
+    vi.useFakeTimers();
+    try {
+      act(() => vi.advanceTimersByTime(5000));
+      expect(alert).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(screen.getByRole("button", { name: "确认删除" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(api.deleteTheme).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens a remaining theme after deleting the editor theme and ignores a late detail read", async () => {
+    const other = {
+      ...theme,
+      libraryId: "22222222-2222-4222-8222-222222222222",
+      name: "Remaining theme",
+    };
+    const api = makeApi();
+    const library = { ...snapshot, themes: [...snapshot.themes, other] };
+    api.getSnapshot.mockResolvedValue({ ok: true, data: library });
+    let finishOldRead!: (result: Result<ThemeDetail>) => void;
+    api.getTheme
+      .mockResolvedValueOnce({ ok: true, data: theme })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOldRead = resolve;
+          }),
+      )
+      .mockResolvedValue({ ok: true, data: other });
+    api.deleteTheme.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, themes: [other] },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    // 请求已发出但尚未返回，删除后不得重新打开该已删除主题。
+    fireEvent.click(screen.getByRole("button", { name: /Midnight Copper/u }));
+    await waitFor(() => expect(api.getTheme).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "删除主题" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    await screen.findByDisplayValue("Remaining theme");
+    await act(async () => finishOldRead({ ok: true, data: theme }));
+    expect(screen.getByDisplayValue("Remaining theme")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Midnight Copper")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Midnight Copper/u }),
+    ).toBeNull();
+  });
+
+  it("submits deletion once while pending and preserves success if the next detail read fails", async () => {
+    const other = {
+      ...snapshot.themes[0],
+      libraryId: "22222222-2222-4222-8222-222222222222",
+      name: "Remaining theme",
+    };
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, themes: [...snapshot.themes, other] },
+    });
+    api.getTheme
+      .mockResolvedValueOnce({ ok: true, data: theme })
+      .mockRejectedValue(new Error("detail read failed"));
+    let finishDelete!: (result: Result<ThemeSnapshot>) => void;
+    api.deleteTheme.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishDelete = resolve;
+        }),
+    );
+    window.codexStyle = api;
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("button", { name: "删除主题" }));
+    const confirm = screen.getByRole("button", { name: "确认删除" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(api.deleteTheme).toHaveBeenCalledTimes(1);
+    expect(confirm).toBeDisabled();
+    await act(async () =>
+      finishDelete({ ok: true, data: { ...snapshot, themes: [other] } }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Midnight Copper/u }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/已删除“Midnight Copper”，但读取其他主题失败/u),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a rejected deletion request in the dialog", async () => {
+    const api = makeApi();
+    api.deleteTheme.mockRejectedValue(new Error("IPC disconnected"));
+    window.codexStyle = api;
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("button", { name: "删除主题" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    expect(
+      await within(screen.getByRole("dialog")).findByRole("alert"),
+    ).toHaveTextContent("删除请求失败，请重试");
+    expect(screen.getByDisplayValue("Midnight Copper")).toBeInTheDocument();
+  });
+
+  it("deletes the context-menu target while preserving another theme's unsaved edit", async () => {
+    const other = {
+      ...snapshot.themes[0],
+      libraryId: "22222222-2222-4222-8222-222222222222",
+      name: "Other theme",
+    };
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, themes: [...snapshot.themes, other] },
+    });
+    api.deleteTheme.mockResolvedValue({ ok: true, data: snapshot });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.change(await screen.findByDisplayValue("Midnight Copper"), {
+      target: { value: "Unsaved name" },
+    });
+    fireEvent.contextMenu(
+      screen.getByRole("button", { name: /Other theme/u }),
+      { clientX: 50, clientY: 80 },
+    );
+    expect(api.deleteTheme).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "删除主题" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Other theme");
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(api.deleteTheme).toHaveBeenCalledWith({
+      libraryId: other.libraryId,
+      expectedRevision: other.revision,
+    });
+    expect(screen.queryByRole("button", { name: /Other theme/u })).toBeNull();
+    expect(screen.getByDisplayValue("Unsaved name")).toBeInTheDocument();
+    expect(api.getTheme).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains managed-session protection before sending a delete request", async () => {
+    const api = makeApi();
+    api.getSnapshot.mockResolvedValue({
+      ok: true,
+      data: { ...snapshot, session: { ...snapshot.session, canEnd: true } },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    await screen.findByDisplayValue("Midnight Copper");
+    fireEvent.click(screen.getByRole("button", { name: "删除主题" }));
+    expect(
+      within(screen.getByRole("dialog")).getByRole("alert"),
+    ).toHaveTextContent("请先结束");
+    expect(screen.getByRole("button", { name: "确认删除" })).toBeDisabled();
+    expect(api.deleteTheme).not.toHaveBeenCalled();
   });
 
   it("blocks managed-session launch until a theme is explicitly selected", async () => {

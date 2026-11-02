@@ -1,5 +1,12 @@
-import { useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { ThemeSummary } from "../../../contracts";
+import { ThemeContextMenu, type ThemeMenuTarget } from "./ThemeContextMenu";
 
 export function ThemeList({
   themes,
@@ -9,6 +16,8 @@ export function ThemeList({
   onOpen,
   onActivate,
   onClearSearch,
+  onRequestDelete,
+  busy,
 }: {
   themes: ThemeSummary[];
   selectedLibraryId?: string;
@@ -17,9 +26,21 @@ export function ThemeList({
   onOpen: (libraryId: string) => void;
   onActivate: (theme: ThemeSummary) => void;
   onClearSearch: () => void;
+  onRequestDelete: (theme: ThemeSummary) => void;
+  busy: boolean;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const selectedRowRef = useRef<HTMLButtonElement>(null);
+  const [menuTarget, setMenuTarget] = useState<ThemeMenuTarget>();
+  const closeMenu = useCallback(() => setMenuTarget(undefined), []);
+  const menuTheme = themes.find(
+    (theme) => theme.libraryId === menuTarget?.theme.libraryId,
+  );
+
+  useEffect(() => {
+    if (busy || !menuTheme) closeMenu();
+  }, [busy, menuTheme, closeMenu]);
+  useEffect(() => closeMenu(), [filterKey, closeMenu]);
 
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -49,11 +70,39 @@ export function ThemeList({
           className={`theme-row ${selectedLibraryId === theme.libraryId ? "active" : ""}`}
           title={
             theme.status === "ready"
-              ? "单击编辑，双击启用"
-              : "单击编辑；保存后可双击启用"
+              ? "单击编辑，双击启用，右键删除"
+              : "单击编辑，右键删除；保存后可双击启用"
           }
           onClick={() => onOpen(theme.libraryId)}
           onDoubleClick={() => onActivate(theme)}
+          aria-haspopup="menu"
+          onContextMenu={(event) => {
+            event.preventDefault();
+            if (busy) return;
+            const bounds = event.currentTarget.getBoundingClientRect();
+            setMenuTarget({
+              theme,
+              trigger: event.currentTarget,
+              x: event.clientX || bounds.left + 12,
+              y: event.clientY || bounds.bottom,
+            });
+          }}
+          onKeyDown={(event) => {
+            if (
+              event.key !== "ContextMenu" &&
+              !(event.shiftKey && event.key === "F10")
+            )
+              return;
+            event.preventDefault();
+            if (busy) return;
+            const bounds = event.currentTarget.getBoundingClientRect();
+            setMenuTarget({
+              theme,
+              trigger: event.currentTarget,
+              x: bounds.left + 12,
+              y: bounds.bottom,
+            });
+          }}
         >
           <span
             className={`theme-swatch ${theme.backgroundThumbnailUrl ? "with-thumbnail" : "color-only"}`}
@@ -94,6 +143,13 @@ export function ThemeList({
             清空搜索
           </button>
         </div>
+      ) : null}
+      {menuTarget && menuTheme && !busy ? (
+        <ThemeContextMenu
+          target={menuTarget}
+          onClose={closeMenu}
+          onDelete={() => onRequestDelete(menuTheme)}
+        />
       ) : null}
     </div>
   );
