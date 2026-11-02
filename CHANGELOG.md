@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.3.29 — 2026-11-02
+
+### English
+
+- Extended each theme-script registration and execution deadline from 30 to 60 seconds for large wallpaper sets. This applies to initial injection, saved-theme live updates, and resumed future injection. Ordinary CDP requests and identity checks retain their five-second budget; ownership checks and failure handling remain enforced.
+
+### 简体中文
+
+- 将每条主题脚本注册与执行命令的超时由 30 秒延长至 60 秒，覆盖首次注入、保存主题即时更新和恢复后续注入。普通 CDP 请求与身份检查仍使用 5 秒预算，继续保留归属校验和失败处理。
+
+> 升级前通过 CodexStyle 结束它拥有的 Codex 会话并退出工具。覆盖安装后重新打开工作台，再通过工作台启动 Codex。已有主题、图片、配色与当前选择保留。
+
 ## v1.3.28 — 2026-11-02
 
 ### English

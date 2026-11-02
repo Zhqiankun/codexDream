@@ -1,7 +1,7 @@
 import WebSocket from "ws";
 
 const REQUEST_TIMEOUT_MS = 5_000;
-const MAX_COMMAND_TIMEOUT_MS = 30_000;
+const MAX_COMMAND_TIMEOUT_MS = 60_000;
 const MAX_CDP_RESPONSE_BYTES = 1024 * 1024;
 const CDP_ID_PATTERN = /^[A-Za-z0-9._-]{1,200}$/u;
 

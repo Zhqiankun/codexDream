@@ -437,7 +437,7 @@ describe("CodexSessionService", () => {
     expect(client.command).toHaveBeenCalledWith(
       "Page.addScriptToEvaluateOnNewDocument",
       expect.objectContaining({ source: expect.any(String) }),
-      { timeoutMs: 30_000 },
+      { timeoutMs: 60_000 },
     );
     expect(session.snapshot()).toMatchObject({
       state: "THEMED_SESSION",

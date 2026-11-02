@@ -47,7 +47,7 @@ const CODEX_STARTUP_POLL_INTERVAL_MS = 250;
 const CODEX_PRE_INJECTION_READY_TIMEOUT_MS = 15_000;
 // 多档图片内嵌脚本的传输和解析可能超过普通 CDP 请求的 5 秒预算。
 // 仅主题注册/执行使用有界长预算；身份探测、清理及失败后的不重试策略保持原样。
-const THEME_SCRIPT_TIMEOUT_MS = 30_000;
+const THEME_SCRIPT_TIMEOUT_MS = 60_000;
 
 interface PersistedOwnedSession {
   version: 1;

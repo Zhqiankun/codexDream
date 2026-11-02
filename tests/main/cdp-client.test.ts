@@ -102,15 +102,15 @@ describe("CDP command deadlines", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("accepts an injection response after five seconds with a longer deadline", async () => {
+  it("accepts an injection response after thirty seconds with a one-minute deadline", async () => {
     const { client, socket } = await connect();
     const command = client.command(
       "Page.addScriptToEvaluateOnNewDocument",
       { source: "true" },
-      { timeoutMs: 30_000 },
+      { timeoutMs: 60_000 },
     );
 
-    await vi.advanceTimersByTimeAsync(6_000);
+    await vi.advanceTimersByTimeAsync(45_000);
     expect(vi.getTimerCount()).toBe(1);
     socket.emit(
       "message",
@@ -128,13 +128,13 @@ describe("CDP command deadlines", () => {
     const command = client.command(
       "Page.addScriptToEvaluateOnNewDocument",
       { source: "true" },
-      { timeoutMs: 30_000 },
+      { timeoutMs: 60_000 },
     );
     const failure = expect(command).rejects.toThrow(
       "CDP_UNAVAILABLE:command-timeout",
     );
 
-    await vi.advanceTimersByTimeAsync(29_999);
+    await vi.advanceTimersByTimeAsync(59_999);
     expect(vi.getTimerCount()).toBe(1);
     await vi.advanceTimersByTimeAsync(1);
     await failure;
@@ -150,7 +150,7 @@ describe("CDP command deadlines", () => {
 
   it("rejects invalid deadlines before sending a command", async () => {
     const { client, socket } = await connect();
-    for (const timeoutMs of [0, -1, 1.5, 30_001, NaN, Infinity]) {
+    for (const timeoutMs of [0, -1, 1.5, 60_001, NaN, Infinity]) {
       await expect(
         client.command(
           "Page.addScriptToEvaluateOnNewDocument",
