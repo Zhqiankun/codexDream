@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PROTOCOL_VERSION } from "../../src/contracts";
 
 type RegisteredHandler = (event: unknown, payload: unknown) => Promise<unknown>;
 
@@ -19,6 +20,63 @@ import { registerIpc } from "../../src/main/ipc/handlers";
 describe("IPC handler command boundary", () => {
   beforeEach(() => handlers.clear());
 
+  it("allows bounded effort picks and clears while rejecting caller paths and unknown slots", async () => {
+    const controller = controllerFixture();
+    controller.chooseBackground.mockResolvedValue({ ok: true, data: "picked" });
+    controller.clearReasoningBackground.mockResolvedValue({
+      ok: true,
+      data: "cleared",
+    });
+    registerIpc(controller as never);
+    const request = {
+      v: PROTOCOL_VERSION,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 3,
+      reasoningEffort: "ultra",
+    };
+    const choose = handlers.get("theme.chooseBackground")!;
+    const clear = handlers.get("theme.clearReasoningBackground")!;
+    expect(await choose(trustedEvent(), request)).toMatchObject({ ok: true });
+    expect(controller.chooseBackground).toHaveBeenCalledWith(
+      request.libraryId,
+      3,
+      "ultra",
+    );
+    expect(await clear(trustedEvent(), request)).toMatchObject({ ok: true });
+    expect(controller.clearReasoningBackground).toHaveBeenCalledWith(
+      request.libraryId,
+      3,
+      "ultra",
+    );
+    for (const invalid of [
+      { ...request, reasoningEffort: "future" },
+      { ...request, path: "C:/user/private.png" },
+      { ...request, imageDataUrl: "data:image/png;base64,AA==" },
+    ]) {
+      expect(await choose(trustedEvent(), invalid)).toMatchObject({
+        ok: false,
+        error: { code: "IPC_INVALID" },
+      });
+      expect(await clear(trustedEvent(), invalid)).toMatchObject({
+        ok: false,
+        error: { code: "IPC_INVALID" },
+      });
+    }
+    expect(
+      await clear(trustedEvent(), { ...request, reasoningEffort: undefined }),
+    ).toMatchObject({ ok: false, error: { code: "IPC_INVALID" } });
+    expect(await clear(trustedEvent({ senderId: 99 }), request)).toMatchObject({
+      ok: false,
+      error: { code: "UNAUTHORIZED_RENDERER" },
+    });
+    expect(await choose(trustedEvent(), { ...request, v: 7 })).toMatchObject({
+      ok: false,
+      error: { code: "IPC_VERSION_MISMATCH" },
+    });
+    expect(controller.chooseBackground).toHaveBeenCalledOnce();
+    expect(controller.clearReasoningBackground).toHaveBeenCalledOnce();
+  });
+
   it("accepts only an explicit boolean for startup and rejects paths or untrusted senders", async () => {
     const controller = controllerFixture();
     controller.getStartupSettings.mockReturnValue({
@@ -32,19 +90,21 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
     const read = handlers.get("startup.getSettings")!;
     const write = handlers.get("startup.setSettings")!;
-    expect(await read(trustedEvent(), { v: 6 })).toMatchObject({
+    expect(await read(trustedEvent(), { v: PROTOCOL_VERSION })).toMatchObject({
       ok: true,
       data: { enabled: false },
     });
-    expect(await write(trustedEvent(), { v: 6, enabled: true })).toMatchObject({
+    expect(
+      await write(trustedEvent(), { v: PROTOCOL_VERSION, enabled: true }),
+    ).toMatchObject({
       ok: true,
       data: { enabled: true },
     });
     expect(controller.setStartupSettings).toHaveBeenCalledWith(true);
     for (const payload of [
-      { v: 6, enabled: "true" },
-      { v: 6, enabled: true, path: "C:/other.exe" },
-      { v: 6 },
+      { v: PROTOCOL_VERSION, enabled: "true" },
+      { v: PROTOCOL_VERSION, enabled: true, path: "C:/other.exe" },
+      { v: PROTOCOL_VERSION },
     ]) {
       expect(await write(trustedEvent(), payload)).toMatchObject({
         ok: false,
@@ -52,9 +112,12 @@ describe("IPC handler command boundary", () => {
       });
     }
     expect(
-      await write(trustedEvent({ senderId: 99 }), { v: 6, enabled: true }),
+      await write(trustedEvent({ senderId: 99 }), {
+        v: PROTOCOL_VERSION,
+        enabled: true,
+      }),
     ).toMatchObject({ ok: false, error: { code: "UNAUTHORIZED_RENDERER" } });
-    expect(await write(trustedEvent(), { v: 5, enabled: true })).toMatchObject({
+    expect(await write(trustedEvent(), { v: 6, enabled: true })).toMatchObject({
       ok: false,
       error: { code: "IPC_VERSION_MISMATCH" },
     });
@@ -73,7 +136,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("session.launch")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
     });
 
     expect(result).toEqual({
@@ -97,15 +160,19 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const handler = handlers.get("session.recheck")!;
-    expect(await handler(trustedEvent(), { v: 6 })).toMatchObject({ ok: true });
     expect(
-      await handler(trustedEvent({ senderId: 99 }), { v: 6 }),
+      await handler(trustedEvent(), { v: PROTOCOL_VERSION }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await handler(trustedEvent({ senderId: 99 }), { v: PROTOCOL_VERSION }),
     ).toMatchObject({ ok: false, error: { code: "UNAUTHORIZED_RENDERER" } });
-    expect(await handler(trustedEvent(), { v: 5 })).toMatchObject({
+    expect(await handler(trustedEvent(), { v: 6 })).toMatchObject({
       ok: false,
       error: { code: "IPC_VERSION_MISMATCH" },
     });
-    expect(await handler(trustedEvent(), { v: 6, port: 9222 })).toMatchObject({
+    expect(
+      await handler(trustedEvent(), { v: PROTOCOL_VERSION, port: 9222 }),
+    ).toMatchObject({
       ok: false,
       error: { code: "IPC_INVALID" },
     });
@@ -119,7 +186,7 @@ describe("IPC handler command boundary", () => {
 
     const result = await handlers.get("update.request")!(
       trustedEvent({ senderId: 99 }),
-      { v: 6 },
+      { v: PROTOCOL_VERSION },
     );
 
     expect(result).toEqual({
@@ -145,7 +212,7 @@ describe("IPC handler command boundary", () => {
 
     const result = await handlers.get("assistant.installPlugin")!(
       trustedEvent(),
-      { v: 6 },
+      { v: PROTOCOL_VERSION },
     );
 
     expect(result).toMatchObject({ ok: true, data: { version: "0.1.1" } });
@@ -157,7 +224,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.get")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "not-a-uuid",
     });
 
@@ -178,7 +245,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.patchDraft")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       patch: {
@@ -203,7 +270,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("theme.exportZip")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       format: "compatibility",
@@ -229,7 +296,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never, logger as never);
 
     await handlers.get("theme.patchDraft")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
       patch: {
@@ -253,7 +320,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const request = {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -277,7 +344,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const request = {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
       cardIndex: 2,
@@ -296,11 +363,48 @@ describe("IPC handler command boundary", () => {
     );
   });
 
+  it("rejects the old commit contract and preserves saved/application results for current protocol", async () => {
+    const controller = controllerFixture();
+    const committed = {
+      ok: true,
+      data: {
+        theme: {
+          libraryId: "11111111-1111-4111-8111-111111111111",
+          revision: 4,
+        },
+        liveApply: { status: "failed", reason: "verification" },
+      },
+    };
+    controller.commitTheme.mockResolvedValue(committed);
+    registerIpc(controller as never);
+    const request = {
+      libraryId: committed.data.theme.libraryId,
+      expectedRevision: 3,
+    };
+    expect(
+      await handlers.get("theme.commit")!(trustedEvent(), { v: 6, ...request }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "IPC_VERSION_MISMATCH" },
+    });
+    expect(controller.commitTheme).not.toHaveBeenCalled();
+    expect(
+      await handlers.get("theme.commit")!(trustedEvent(), {
+        v: PROTOCOL_VERSION,
+        ...request,
+      }),
+    ).toEqual(committed);
+    expect(controller.commitTheme).toHaveBeenCalledWith(
+      request.libraryId,
+      request.expectedRevision,
+    );
+  });
+
   it("rejects stale protocol requests but accepts the bootstrap handshake", async () => {
     const controller = controllerFixture();
     controller.rendererReady.mockReturnValue({
       ok: true,
-      data: { appVersion: "1.3.3", protocolVersion: 6 },
+      data: { appVersion: "1.3.3", protocolVersion: 7 },
     });
     registerIpc(controller as never);
 
@@ -322,7 +426,7 @@ describe("IPC handler command boundary", () => {
     expect(controller.getStudioSnapshot).not.toHaveBeenCalled();
     expect(bootstrap).toMatchObject({
       ok: true,
-      data: { protocolVersion: 6 },
+      data: { protocolVersion: 7 },
     });
     expect(controller.rendererReady).toHaveBeenCalledOnce();
   });
@@ -335,7 +439,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const request = {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 3,
     };
@@ -357,7 +461,7 @@ describe("IPC handler command boundary", () => {
     });
     registerIpc(controller as never);
     const request = {
-      v: 6,
+      v: PROTOCOL_VERSION,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 4,
     };
@@ -391,7 +495,7 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const result = await handlers.get("update.request")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
     });
 
     expect(result).toEqual({
@@ -421,11 +525,11 @@ describe("IPC handler command boundary", () => {
     registerIpc(controller as never);
 
     const valid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
       mode: "now",
     });
     const invalid = await handlers.get("update.install")!(trustedEvent(), {
-      v: 6,
+      v: PROTOCOL_VERSION,
       mode: "silent-with-path",
       path: "C:\\untrusted.exe",
     });
@@ -461,6 +565,7 @@ function controllerFixture() {
     patchDraft: vi.fn(),
     discardThemeChanges: vi.fn(),
     chooseBackground: vi.fn(),
+    clearReasoningBackground: vi.fn(),
     chooseSendIcon: vi.fn(),
     chooseHomeCardImage: vi.fn(),
     commitTheme: vi.fn(),

@@ -32,6 +32,13 @@ const presetCatalogSpecs = [
     packId: "user-wallpapers-2026-08-31-v8",
     themeCount: 10,
   },
+  {
+    label: "v9 mascot preset catalog",
+    entry: "resources/presets/mascot-reasoning-2026-11-02-v9/catalog.json",
+    directory: "resources/presets/mascot-reasoning-2026-11-02-v9",
+    packId: "mascot-reasoning-2026-11-02-v9",
+    themeCount: 3,
+  },
 ];
 const presetCatalogs = presetCatalogSpecs.map((spec) => {
   const bytes = readFileSync(resolve(root, spec.entry));
@@ -39,18 +46,28 @@ const presetCatalogs = presetCatalogSpecs.map((spec) => {
   const themes = Array.isArray(catalog.themes) ? catalog.themes : [];
   return { ...spec, bytes, catalog, themes };
 });
-const [presetCatalogV7, presetCatalogV8] = presetCatalogs;
+const [presetCatalogV7, presetCatalogV8, presetCatalogV9] = presetCatalogs;
 const presetDocumentation = [
   "resources/presets/user-wallpapers-2026-08-31-v8/SOURCES.md",
+  "resources/presets/mascot-reasoning-2026-11-02-v9/SOURCES.md",
 ];
-const presetAssets = presetCatalogs.flatMap((catalog) =>
-  catalog.themes.map((theme) => ({
-    catalog: catalog.label,
-    entry: `${catalog.directory}/${theme.image}`,
-    image: theme.image,
-    imageSha256: theme.imageSha256,
-  })),
-);
+const presetAssets = presetCatalogs
+  .flatMap((catalog) =>
+    catalog.themes.flatMap((theme) =>
+      [theme, ...Object.values(theme.reasoningBackgrounds ?? {})].map(
+        (asset) => ({
+          catalog: catalog.label,
+          entry: `${catalog.directory}/${asset.image}`,
+          image: asset.image,
+          imageSha256: asset.imageSha256,
+        }),
+      ),
+    ),
+  )
+  .filter(
+    (asset, index, assets) =>
+      assets.findIndex((other) => other.entry === asset.entry) === index,
+  );
 const pluginRoot = "plugins/codexstyle-assistant";
 const marketplaceManifest = ".agents/plugins/marketplace.json";
 const pluginFiles = [
@@ -107,10 +124,46 @@ if (
       isRecord(theme) ? theme.themeId : undefined,
     ),
   ) ||
-  presetAssets.length !== 35 ||
-  new Set(presetAssets.map((asset) => asset.entry)).size !== 35
+  presetAssets.length !== 53 ||
+  new Set(presetAssets.map((asset) => asset.entry)).size !== 53
 ) {
   console.error("Package verification failed; v8 preset catalog is invalid.");
+  process.exit(1);
+}
+if (
+  presetCatalogV9.catalog.schemaVersion !== 4 ||
+  presetCatalogV9.catalog.packId !== presetCatalogV9.packId ||
+  !Array.isArray(presetCatalogV9.catalog.replacesPackIds) ||
+  presetCatalogV9.catalog.replacesPackIds.length !== 0 ||
+  presetCatalogV9.themes.length !== 3 ||
+  !hasValidPresetThemes(presetCatalogV9.themes) ||
+  !haveSameStringSet(
+    presetCatalogV9.catalog.introducedThemeIds,
+    presetCatalogV9.themes.map((theme) => theme.themeId),
+  ) ||
+  presetCatalogV9.themes.some(
+    (theme) =>
+      theme.backgroundMode !== "reasoning" ||
+      !isRecord(theme.reasoningBackgrounds) ||
+      !haveSameStringSet(Object.keys(theme.reasoningBackgrounds), [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+      ]) ||
+      Object.values(theme.reasoningBackgrounds).some(
+        (asset) =>
+          !isRecord(asset) ||
+          !/^[a-z0-9][a-z0-9.-]{0,79}\.png$/u.test(asset.image) ||
+          !/^[a-f0-9]{64}$/u.test(asset.imageSha256),
+      ) ||
+      theme.image !== theme.reasoningBackgrounds.low.image ||
+      theme.imageSha256 !== theme.reasoningBackgrounds.low.imageSha256,
+  )
+) {
+  console.error("Package verification failed; v9 mascot catalog is invalid.");
   process.exit(1);
 }
 if (

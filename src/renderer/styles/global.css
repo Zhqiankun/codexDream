@@ -1115,6 +1115,114 @@ input.opacity-range {
   width: 74px;
   height: 48px;
 }
+.background-mode-control button {
+  white-space: normal;
+  min-width: 0;
+}
+.background-control-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #8793aa;
+  font-size: 11px;
+}
+.reasoning-background-control {
+  margin-bottom: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #293347;
+}
+.reasoning-background-list {
+  display: grid;
+  gap: 8px;
+}
+.reasoning-background-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  border: 1px solid #293347;
+  border-radius: 8px;
+  background: #10182d;
+}
+.reasoning-background-card.active {
+  border-color: #b18c47;
+}
+.reasoning-background-picker {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #e5e7eb;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.reasoning-background-picker:hover:not(:disabled) {
+  background: #1c2840;
+}
+.reasoning-background-picker img,
+.reasoning-background-placeholder {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 44px;
+  border-radius: 5px;
+  object-fit: cover;
+  background: #202c43;
+  color: #a7b3c8;
+  font-size: 24px;
+}
+.reasoning-background-info {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.reasoning-background-info strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.reasoning-background-info > span {
+  color: #a7b3c8;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.reasoning-background-card button:focus-visible {
+  outline: 2px solid #ffd37a;
+  outline-offset: 2px;
+}
+.reasoning-background-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 6px 5px 0;
+}
+.reasoning-background-actions button {
+  min-width: 44px;
+  min-height: 26px;
+  padding: 3px 5px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #a7b3c8;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.reasoning-background-actions button:hover:not(:disabled) {
+  background: #26334a;
+  color: #e5e7eb;
+}
+.reasoning-background-actions button[aria-pressed="true"] {
+  color: #ffd37a;
+}
+.reasoning-background-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 .image-requirements {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

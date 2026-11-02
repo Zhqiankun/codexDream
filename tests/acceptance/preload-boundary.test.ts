@@ -50,6 +50,7 @@ describe("preload public boundary", () => {
       "chooseBackground",
       "chooseHomeCardImage",
       "chooseSendIcon",
+      "clearReasoningBackground",
       "clearSelection",
       "commit",
       "createDraft",
@@ -79,21 +80,36 @@ describe("preload public boundary", () => {
       "setStartupSettings",
     ]);
     expect(api).not.toHaveProperty("invoke");
+    const slot = {
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 2,
+      reasoningEffort: "ultra" as const,
+    };
+    await api.chooseBackground(slot);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.chooseBackground", {
+      v: 8,
+      ...slot,
+    });
+    await api.clearReasoningBackground(slot);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith(
+      "theme.clearReasoningBackground",
+      { v: 8, ...slot },
+    );
     await api.recheckSession();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("session.recheck", {
-      v: 6,
+      v: 8,
     });
     await api.getStartupSettings();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("startup.getSettings", {
-      v: 6,
+      v: 8,
     });
     await api.setStartupSettings({ enabled: true });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("startup.setSettings", {
-      v: 6,
+      v: 8,
       enabled: true,
     });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("studio.getSnapshot", {
-      v: 6,
+      v: 8,
     });
 
     await api.rendererReady();
@@ -103,12 +119,12 @@ describe("preload public boundary", () => {
 
     await api.openLogDirectory();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("diagnostics.openLogs", {
-      v: 6,
+      v: 8,
     });
 
     await api.installAssistantPlugin();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("assistant.installPlugin", {
-      v: 6,
+      v: 8,
     });
 
     await api.discardChanges({
@@ -116,7 +132,30 @@ describe("preload public boundary", () => {
       expectedRevision: 2,
     });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.discardChanges", {
-      v: 6,
+      v: 8,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 2,
+    });
+
+    const committed = {
+      ok: true,
+      data: {
+        theme: {
+          libraryId: "11111111-1111-4111-8111-111111111111",
+          revision: 3,
+        },
+        liveApply: { status: "failed", reason: "verification" },
+      },
+    };
+    ipcRenderer.invoke.mockResolvedValue(committed);
+    await expect(
+      api.commit({
+        libraryId: "11111111-1111-4111-8111-111111111111",
+        expectedRevision: 2,
+      }),
+    ).resolves.toEqual(committed);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("theme.commit", {
+      v: 8,
       libraryId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 2,
     });
@@ -129,7 +168,7 @@ describe("preload public boundary", () => {
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(
       "theme.chooseHomeCardImage",
       {
-        v: 6,
+        v: 8,
         libraryId: "11111111-1111-4111-8111-111111111111",
         expectedRevision: 2,
         cardIndex: 3,
@@ -137,10 +176,10 @@ describe("preload public boundary", () => {
     );
 
     await api.cancelUpdate();
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 6 });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.cancel", { v: 8 });
     await api.installUpdate({ mode: "now" });
     expect(ipcRenderer.invoke).toHaveBeenCalledWith("update.install", {
-      v: 6,
+      v: 8,
       mode: "now",
     });
   });

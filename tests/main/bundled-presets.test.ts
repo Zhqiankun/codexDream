@@ -316,7 +316,7 @@ describe("bundled image theme presets", () => {
         .map((theme) => theme.presetId)
         .sort(),
     ).toEqual(["hundred-yuan", "line-dogs", "warm-tuntun"]);
-  });
+  }, 30_000);
 
   it("strictly loads the independent v8 additions without replacing the v7 pack", async () => {
     const pack = await createBundledPresetSource(

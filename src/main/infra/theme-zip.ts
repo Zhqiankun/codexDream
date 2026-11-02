@@ -16,12 +16,19 @@ import {
   writeThemeConfiguration,
   type BackgroundScope,
   type ImportResult,
+  isReasoningEffort,
 } from "../../contracts";
 import { themeFingerprint, type ThemeRecord } from "../domain/theme";
 import { validateImage } from "./image";
 import { validateSafeCss } from "./safe-css";
+import {
+  MAX_BACKGROUND_SET_BYTES,
+  reasoningReferences,
+  type ReasoningImageBytes,
+} from "./reasoning-images";
 
 export interface ParsedThemePackage {
+  reasoningImages?: ReasoningImageBytes;
   record: ThemeRecord;
   image: Buffer;
   manifest?: Record<string, unknown>;
@@ -46,6 +53,7 @@ interface FormalPackage {
 }
 
 interface SimplifiedPackage {
+  reasoningImages?: ReasoningImageBytes;
   theme: Record<string, unknown>;
   css: string;
   imageName: string;
@@ -232,8 +240,28 @@ export async function readThemeZip(
       warnings: formalPackage?.signaturePresent ? ["signature-unverified"] : [],
     },
   };
+  const reasoningImages = (parsed as SimplifiedPackage).reasoningImages;
+  if (reasoningImages && Object.keys(reasoningImages).length) {
+    record.reasoningBackgrounds = {};
+    for (const [effort, bytes] of Object.entries(reasoningImages)) {
+      if (!isReasoningEffort(effort))
+        throw new Error("UNSAFE_ARCHIVE:reasoning-effort");
+      const sourceName = (
+        parsed.theme.reasoningBackgrounds as Record<string, string>
+      )[effort];
+      const info = await validateImage(bytes, sourceName);
+      record.reasoningBackgrounds[effort] = {
+        file: `${randomUUID()}.${info.extension}`,
+        mime: info.mime,
+        sha256: info.sha256,
+        bytes: info.bytes,
+      };
+    }
+    record.json.reasoningBackgrounds = reasoningReferences(record);
+  }
   record.fingerprint = themeFingerprint(record);
   return {
+    reasoningImages,
     record,
     image: Buffer.from(parsed.image),
     manifest: formalPackage?.manifest,
@@ -245,12 +273,37 @@ export async function writeSimplifiedZip(
   filePath: string,
   record: ThemeRecord,
   image: Buffer,
+  reasoningImages: ReasoningImageBytes = {},
 ): Promise<void> {
   const extension = await validateExportImage(record, image);
   const imageName = `background.${extension}`;
   const css = validateSafeCss(record.css);
   if (!css.valid || css.empty) throw new Error("UNSAFE_CSS:export-css");
   const configuration = readThemeConfiguration(record.json);
+  const reasoningFiles: Array<{ name: string; data: Buffer }> = [];
+  const reasoningRefs: Record<string, string> = {};
+  let total = image.byteLength;
+  for (const [effort, meta] of Object.entries(
+    record.reasoningBackgrounds ?? {},
+  )) {
+    if (!isReasoningEffort(effort))
+      throw new Error("UNSAFE_ARCHIVE:reasoning-effort");
+    const bytes = reasoningImages[effort];
+    if (!bytes) throw new Error("UNSAFE_IMAGE:reasoning-missing");
+    const info = await validateImage(bytes, meta.file);
+    if (
+      info.sha256 !== meta.sha256 ||
+      info.mime !== meta.mime ||
+      info.bytes !== meta.bytes
+    )
+      throw new Error("UNSAFE_IMAGE:reasoning-fingerprint");
+    total += info.bytes;
+    const name = `background-${effort}.${info.extension}`;
+    reasoningRefs[effort] = name;
+    reasoningFiles.push({ name, data: bytes });
+  }
+  if (total > MAX_BACKGROUND_SET_BYTES)
+    throw new Error("UNSAFE_IMAGE:background-set-too-large");
   const serialized = writeThemeConfiguration(
     {
       ...record.json,
@@ -258,6 +311,9 @@ export async function writeSimplifiedZip(
       id: record.themeId,
       name: record.name,
       image: imageName,
+      reasoningBackgrounds: Object.keys(reasoningRefs).length
+        ? reasoningRefs
+        : undefined,
       backgroundScope: record.backgroundScope,
       sidebarOverlayOpacity: record.sidebarOverlayOpacity,
     },
@@ -268,6 +324,7 @@ export async function writeSimplifiedZip(
     zip.addBuffer(themeJson, "theme.json");
     zip.addBuffer(Buffer.from(record.css, "utf8"), "theme.css");
     zip.addBuffer(image, imageName);
+    for (const file of reasoningFiles) zip.addBuffer(file.data, file.name);
   });
 }
 
@@ -291,7 +348,8 @@ async function readSimplifiedPackage(
   entries: Map<string, Entry>,
 ): Promise<SimplifiedPackage> {
   if (
-    entries.size !== 3 ||
+    entries.size < 3 ||
+    entries.size > 12 ||
     !entries.has("theme.json") ||
     !entries.has("theme.css")
   )
@@ -309,9 +367,35 @@ async function readSimplifiedPackage(
   if (!isSimpleImageName(imageName) || !entries.has(imageName))
     throw new Error("UNSAFE_ARCHIVE:image-reference");
   const image = requireEntry(entries, imageName, MAX_IMAGE_BYTES).data;
+  const refs = theme.reasoningBackgrounds;
+  if (refs !== undefined && !isRecord(refs))
+    throw new Error("UNSAFE_ARCHIVE:reasoning-references");
+  const expectedNames = new Set(["theme.json", "theme.css", imageName]);
+  const reasoningImages: ReasoningImageBytes = {};
+  let total = image.byteLength;
+  for (const [effort, name] of Object.entries(refs ?? {})) {
+    if (
+      !isReasoningEffort(effort) ||
+      typeof name !== "string" ||
+      !new RegExp(`^background-${effort}\\.(png|jpg|webp)$`, "u").test(name) ||
+      expectedNames.has(name)
+    )
+      throw new Error("UNSAFE_ARCHIVE:reasoning-reference");
+    const bytes = requireEntry(entries, name, MAX_IMAGE_BYTES).data;
+    await validateImage(bytes, name);
+    total += bytes.byteLength;
+    reasoningImages[effort] = bytes;
+    expectedNames.add(name);
+  }
+  if (
+    total > MAX_BACKGROUND_SET_BYTES ||
+    expectedNames.size !== entries.size ||
+    [...entries.keys()].some((name) => !expectedNames.has(name))
+  )
+    throw new Error("UNSAFE_ARCHIVE:simplified-layout-or-size");
   const css = decodeUtf8(cssEntry.data, "css");
   assertSafeCss(css);
-  return { theme, css, imageName, image };
+  return { theme, css, imageName, image, reasoningImages };
 }
 
 async function readFormalPackage(
@@ -527,6 +611,9 @@ function validatePortableThemeConfiguration(
   theme: Record<string, unknown>,
 ): void {
   if (
+    (theme.backgroundMode !== undefined &&
+      theme.backgroundMode !== "normal" &&
+      theme.backgroundMode !== "reasoning") ||
     (theme.appearance !== undefined && !isThemeAppearance(theme.appearance)) ||
     (theme.art !== undefined && !isCompleteThemeArt(theme.art)) ||
     (theme.colors !== undefined && !isCompatibleThemeColors(theme.colors)) ||

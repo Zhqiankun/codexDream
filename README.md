@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.27` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.28` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.27-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.27-x64.zip` — portable archive.
+- `CodexStyle-1.3.28-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.28-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.27` fixes low-contrast add-files, model-picker, and microphone icons by making them follow their control's theme color. Permission colors, solid voice/send button contrast, and disabled states are preserved. Saved themes, configured transparency, and Windows startup preferences are kept. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it to load the updated theme rules.
+`v1.3.28` adds six-stage reasoning wallpapers, three bundled character themes, and immediate updates when saving the theme used by a verified managed Codex session. Large wallpaper sets receive a dedicated 30-second injection budget. Saved themes, configured transparency, and Windows startup preferences are kept. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, and launch a new Codex session through it. New themes are added without changing your selection.
 
 ## Requirements
 

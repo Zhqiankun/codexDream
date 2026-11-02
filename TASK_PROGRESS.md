@@ -1,6 +1,68 @@
 # CodexStyle 任务进度
 
-更新时间：2026-10-28
+更新时间：2026-11-02
+
+## 2026-11-02 三套六档主题入库与 v1.3.28 发布
+
+- 用户明确要求加入主题库、提交推送和发布，并确认版本 `v1.3.28`、三套主题随新版内置。保留此前已授权的档位背景、同主题保存即时应用、侧栏入口与大图 CDP 超时修正；本轮不改变当前主题选择或操作正在运行的 Codex 会话。
+- 新增 v9 内置包：DeepSeek · 沧海鲸歌、Claude · 琥珀书庭、Gemini · 星穹双子，各含轻度、中、高、极高、Max、Ultra 六张最终 PNG。18 张发行图与已交付图片逐字节一致，使用原 ZIP 的稳定主题 ID；正常背景复用 low 资源，入库时仍生成独立 UUID。包安装复用现有事务与标记，保留用户编辑、当前选择、LKG 和 checkpoint，已导入的同 ID 主题不重复添加，删除后的预设不因重启重新出现。
+- 三套 ZIP 已通过正在运行的工作台原生导入入口加入本机主题库，插件读取均为 `ready`、revision 1、图片与主题校验有效；主题库从 39 项增至 42 项，原白龙启动主题选择保持。已在工作台查看 Gemini 的六档图片与 Ultra 背景预览；这不替代正式安装版或真实受管 Codex 切档验证。
+- `bundled-presets.ts` 扩展既有解析器支持六档图与首页卡片；`local-store.ts` 和 controller 接入增量安装；`verify-package.mjs` 覆盖全部 53 张唯一发行图片及 v9 来源说明。新增 4 项图集/事务测试，无新增产品模块、依赖、公共 IPC 或存储 schema。版本、锁文件、README 下载链接和 CHANGELOG 均更新至 1.3.28。
+- 独立只读审查未发现发布阻塞项，覆盖图片事务、稳定 ID 去重、安装标记、失败回滚、受管会话身份、foreign owner 隔离和 CDP 超时边界。首轮主进程/验收为 348 项通过、5 项默认 5 秒超时；图集专项 19/19 通过，两个复杂事务实际耗时约 6/8 秒，相关图集用例改用显式 30 秒预算。完整主进程/验收复跑 38 文件、353 项全过；renderer 4 文件、93 项全过。首轮沙箱 renderer 被缓存 rename EPERM 阻止，正常用户权限复跑通过。
+- 发布文件集 ESLint/Prettier、TypeScript、架构和版本一致性检查通过，重新生成的 MCP 插件 7 工具冒烟通过。全目录格式检查初次包含 23 个不提交的本地诊断文件，lint 曾遇测试目录并发清理的 ENOENT；限定实际发布文件集、避开并发清理后的检查通过。没有修改全局忽略规则或掩盖源码问题。
+- 隔离 Electron 整组首轮 80/81 通过，失败是旧主题数量断言未包含新增三套；首次定向复测在后续新建主题数量处再次遇到旧断言。完整核对并更新初始缩略图/主题数、新建后主题数及三套名称断言后，最终 app 全流程 1/1 通过（20.7 秒），其余 80 项不受测试断言修改影响。已查看最终工作台截图；保留两次旧断言失败记录，不将定向复测改写成整组重跑。
+- 完整本机构建在 native 清理阶段因正在运行的工作台占用 `secure_store.node` 而返回 unlink EPERM；native 源码本轮未变，未关闭工作台或当前受管 Codex。复用现有 native 完成插件与 electron-vite 生产构建，再直接调用既有 electron-builder（`--publish never`）、更新清单和校验脚本；本地 NSIS/ZIP、latest.yml SHA-512、blockmap、SHA256SUMS、53 张包内图片和 native 加载校验全部通过。本地产物未安装或上传，干净环境完整重建由正式 Release Actions 执行。
+- 本轮只提交明确的产品源码、测试、文档和 v9 最终资源；`output/`、`.codex-v131-package-audit-*`、`.codexstyle-localappdata-*` 等本地素材、诊断和临时数据保留在提交之外。正式发行资产只由 `.github/workflows/release.yml` 的标签构建生成、校验和上传。
+
+## 2026-10-30 移除持续档位入口
+
+- 按用户要求，Studio 背景面板只显示轻度、中、高、极高、Max、Ultra 6 张卡片。沿用原有选图、预览、清除和保存流程，保留底层 `persistent` 枚举及旧主题图片、JSON 和 ZIP 兼容；没有把思考档位键改成倍速状态。
+- 当前 Store 包主 bundle 存在独立 `serviceTier` 及 Fast 的倍速说明，但本次未确认可供主题层持续读取的当前倍速 DOM 标记；静态文案不作为开启状态证据，未新增倍速背景入口。
+- 更新现有 renderer 与隔离 Electron 用例，覆盖六档可见、“持续”不可见、隐藏档位映射保留、选图/替换/预览/保存及重开。5 项关联 renderer 用例和 1 项隔离 Electron 全流程通过；Node 22.22.0 类型、相关 ESLint/Prettier、diff 检查以及 electron-vite main/preload/renderer 构建通过。
+- 初次 renderer 测试被沙箱临时缓存 rename EPERM 阻止、初次隔离 Electron 启动失败，均未进入功能断言；经普通用户权限重跑取得上述结果。当前用户正在运行的工作台未重载，未操作真实 Codex 会话，未提交、推送或发布。
+
+## 2026-10-30 多档大图启动超时修正
+
+- 用户报告从 CodexStyle 启动后 Codex 窗口消失。本机两次 `session.launch` 报 `CDP_UNAVAILABLE`，第二次日志后约 50ms 出现主窗口移除；未发现对应 Windows 应用崩溃记录，根进程和调试端口仍存活。该时间线符合启动注入失败后 `rollbackVerifiedLaunch` 的关窗行为，但实机日志未记录最初失败的命令细分。
+- 使用独立 Electron profile、现有 CdpClient 和六张真实 PNG 隔离复现：正常背景加七档生成 21,127,142 字节脚本，`Page.addScriptToEvaluateOnNewDocument` 在 5002ms 报 `CDP_UNAVAILABLE:command-timeout`。根因是注册/执行主题大脚本仍共用普通请求的 5 秒预算；最大入站响应不足 1 KiB，非 1 MiB 响应限制。
+- CdpClient 增加受限命令超时选项（整数 1..30000ms），仅首次注入、保存热更新、恢复后续脚本的五处主题注册/执行调用使用 30 秒。普通请求和身份校验仍为 5 秒、DOM 就绪等待仍为 4 秒；身份边界、入站大小限制、失败回滚及不重试副作用保持不变。无新增业务模块、依赖、IPC 或存储变化。
+- 修后同一真图三轮注册/注入成功（最慢 8835/7416ms）；接近 32 MiB 上限的有效 PNG 集共 33,485,824 字节，44,713,973 字节脚本注册/注入 22277/20154ms 成功，切档、页面状态及未发送草稿保持正常。修前/修后证据分别为忽略目录中的 `output/diagnostics/large-cdp-repeat-result.json` 和 `large-cdp-fixed-result.json`，没有覆盖失败记录。
+- 关联测试首次受沙箱缓存 rename EPERM 阻止，未运行用例；正常用户权限首轮为 102 通过/1 失败（既有恢复测试未包含新增超时参数），更新断言后含新增 CDP 超时回归共 5 文件/109 项通过。Node 22.22.0 类型、相关 ESLint/Prettier、架构和 diff 检查通过，electron-vite main/preload/renderer 构建通过。未重启或附着当前真实 Codex，正在运行的工作台仍需重启加载本地构建；真实启动效果待复测，未提交、推送或发布。
+
+## 2026-10-30 档位背景改为直接点击配置
+
+- 按用户反馈移除“无”“极低”配置入口和档位下拉框，直接显示轻度、中、高、极高、Max、Ultra、持续 7 张紧凑卡片。点击卡片直接上传或更换并切换工作台预览，右侧独立预览与清除按钮继续复用既有回调。显示当前图片或正常背景回退，以及已配置/上传提示；保留忙碌、JSON 未校验时禁用与键盘焦点。
+- 仅修改原背景控件与局部 CSS，底层枚举/存储/ZIP 保持兼容，不删除历史 none/minimal 图片，无新增模块、依赖或 IPC。需求和计划已同步，相关既有 renderer 与隔离 Studio 测试适配为直接点击入口。
+- TypeScript、受影响文件 ESLint/Prettier、diff 检查及 electron-vite main/preload/renderer 构建通过。关联 renderer 5 项通过、81 项未运行，覆盖卡片入口、隐藏旧档并保留数据、取消/失败保留草稿、清除回退和禁用；首轮沙箱缓存 rename 被 EPERM 拒绝，正常权限复测通过。隔离 Studio 首轮因“高 预览”定位器同时命中“极高 预览”失败，改为精确名称后 1 项完整复测通过，覆盖双图、二次换图字节、预览、保存重载、清除及 1100px 无横向溢出。最终局部截图复测同一项通过，`test-results/reasoning-background-cards-reviewed/.last-run.json` 为 passed；主代理已查看 7 档卡片截图，确认文字、图片、操作及当前预览标记完整。当前受管 Codex 未重启，未提交、推送或发布。
+
+## 2026-10-30 按思考强度配置并切换背景
+
+- 用户明确要求在“画面 → 背景”提供正常背景与按档位背景两种选择，每档独立图片并随原生档位切换。实施前已更新 REQUIREMENTS/PLAN；正常背景作为未配置、未知或缺失档位的回退，不更改主题颜色、透明度、焦点及当前模型。真实 Codex 26.1027.3384.0 中已只读确认 `data-selected-reasoning-effort` 随用户操作由 `max` 变为 `ultra`；此证据只证明读档，不代表新换图逻辑已在正式会话运行。
+- 契约增加 `backgroundMode`、档位枚举、`reasoningBackgroundUrls`；`chooseBackground` 扩展可选档位参数，新增具名清除方法，普通 IPC 升至 v8、bootstrap 保持 v1。图片通过 secure-store 独立 UUID 管理，纳入 checkpoint/恢复/派生/删除/导入替换；JSON 不允许伪造受管图片引用。完整 ZIP 带严格声明的档位图片，兼容旧三件套；单图10MiB、全部背景32MiB。旧 normal 默认值不改变主题指纹。
+- Studio 复用原背景区，增加模式、编辑与预览档位选择、独立图片选择及清除；预览使用同一回退规则，切换模式不清空图片。runtime 复用已有 MutationObserver，切档只更新归属当前 owner 的背景样式，动态控件和清理/重注入均有边界验证，不轮询或反复整页扫描。
+- 新增公开模块 `contracts/reasoning-background.ts` 承载档位与回退；`infra/reasoning-images.ts` 承载受管图片集校验和事务配套；`renderer/features/studio/BackgroundControls.tsx` 承载背景编辑。没有新增依赖、系统权限、任意路径或脚本入口。保留此前未提交的保存即时应用、提示和侧栏入口改动；未提交、推送或发布。
+- 初次关联5文件49项为47通过、2失败，原因是新测试在操作后读取已变化对象作为“旧revision/旧文件”基线；改为预先保存原始值，10项档位存储/ZIP专项全过，随后完整关联10文件161项通过，覆盖旧存储/ZIP、IPC、controller、启动、payload、保存应用及边界。独立审查发现待入库UUID排除范围不足，修复后新增大小/UUID与生命周期合计12项通过；未用局部通过覆盖初次失败记录。
+- payload 原有30项单测和6项新增隔离 Electron 场景通过。首轮Electron 5过1失败是测试计入 Playwright 自身观察器，限定产品观察器后失败用例及完整6项复测通过。Studio初次完整85项通过，独立复核发现选图后的patch失败可能丢失未保存字段，已修复并加回归；修复后完整renderer 86项通过。
+- 隔离真实工作台已完成双档PNG配置、图片协议实际字节、回退、正常/档位模式保留配置、保存/重载/清除及1100px宽度溢出验证。初次测试的 browser fetch 被既有 CSP 拒绝，改用 Electron net.fetch 核对同一受控协议并保留页面图片自然尺寸检查；随后截图复测的创建主题时序竞态由测试等待新主题就绪修正。第一次业务全流程通过与时序修正后的1项复测分别通过。截图检查发现清除按钮误用不存在的样式类，改用现有按钮样式；最终1项复测通过，`test-results/reasoning-background-studio-reviewed/.last-run.json` 为 passed，无失败项；主代理已查看最终背景控件截图确认两种模式、档位选择、预览及操作按钮显示正常。
+- 最终 TypeScript、全部修改和新增源码/测试的 ESLint/Prettier、架构边界、diff检查及生产 electron-vite main/preload/renderer 构建通过；最后仅按钮样式修正后生产构建再次通过。独立工程复核未发现剩余阻断项。当前受管 Codex 未注入本次功能、未重启；正式安装包及真实会话换图效果仍未验证。
+
+## 2026-10-30 编辑器提示与侧栏暗化入口
+
+- 用户反馈开发版保存已生效；此为用户反馈，不替代正式安装包验收。编辑器旧的“仅下次启动”提示已改为保存当前使用主题即时更新，暂停时除外；选择其他主题仍用于下次通过 CodexStyle 启动 Codex。
+- 经用户同意，将“左侧栏暗化”从“设计 → 画面”移至“高级配置 → 侧栏微调”。复用原滑杆、draft、预览和保存路径，保留旧主题数值与效果，不改数据、IPC 或注入规则。仅内容区禁用并提示背景范围入口；JSON 尚未校验时禁用滑杆，应用或恢复后重新启用，防止两处编辑互相覆盖。
+- 调整既有 renderer 验证后，5 项定向用例通过：入口位置与原值保留、透明度规则、配置保存、JSON 校验及恢复。TypeScript、修改文件 ESLint、Prettier 和 diff 检查通过。本轮不重复此前全套检查或生产构建。
+
+## 2026-10-30 保存当前主题即时生效
+
+- 用户在确认可行性后明确要求“先做吧”，并在本地测试受限后明确允许正常用户权限运行本轮单元与隔离 Electron 测试。范围为 Studio 保存当前受管 Codex 正在使用的同一主题；暂停、不同主题、外部或孤立会话只保存，下次启动选择保持独立。未获本轮提交或发布授权，版本维持 `1.3.27`，既有六个未跟踪审计/测试目录保留。
+- 先更新 `.agents.md`、`REQUIREMENTS.md` 与 `PLAN.md` 的行为契约。`theme.commit` 在现有 operation gate 内先持久化 ready，再调用 `CodexSessionService.applySavedTheme`；`LocalThemeStore.readyForInjection(libraryId)` 复用既有完整 payload/指纹校验。保存与即时应用分别返回 `ThemeCommitResult`，IPC 升为 v7，bootstrap 仍为 v1；旧 renderer/main 混用继续拦截。无新增依赖、主题字段或存储迁移。
+- session 按当前 owned themeLibraryId 匹配，复验 AppX、PID/开始时间、nonce、SID、监听端口、Browser ID、target 与 selector 后才写 CDP。成功替换当前页面及后续文档脚本后更新 fingerprint、ownership 和 last-known-good；失败保留已保存主题，仅在重新证明身份后清理已知新脚本，停止管理不确定会话，不关闭、重启或附着 Codex。更新期间使旧 watcher epoch 失效，同一 operation gate 阻止暂停/结束/安装等操作交叠。
+- payload 保留原入口，通过仅交换 marker/ack 的文档事件交接同 owner 运行态，停止旧 observer、timer 与 listener，清理本实例实际写入的归属，再同步应用最新 CSS、背景和配置。foreign owner 不接管，未确认旧观察器停止时拒绝更新。新增反馈模块 `renderer/features/studio/theme-commit-feedback.ts` 只负责保存结果文案；保存后读取刷新失败仍保留已确认结果和新的 revision，单独提示刷新失败，无新增共享抽象。
+- 独立审查实测发现重载的两个必要条件：必须先 `Page.enable`，且 new-document 脚本可能在 HTML 根节点出现前执行。已在初次注入、恢复和保存注册前启用 Page domain；payload 等待 DOMContentLoaded，4 秒未就绪则撤销监听并返回失败，低于 CDP 的 5 秒命令超时。真实 CDP 注册、替换及重载独立用例通过；仅 Runtime.evaluate 成功不作为重载证据。
+- 主进程第一轮 5 文件 114 项通过，覆盖 session/live-save/watcher/startup-readiness/local-store；Page.enable 修正后的首轮 4 文件为 77 通过、1 失败，失败是旧恢复用例只允许一次 CDP 调用的断言。更新为 Page.enable 后注册脚本且不执行当前页面，完整同组复测 78/78 通过。payload 单测最终 30/30 通过；前两轮各 28 通过、1 失败来自新增 observer 构造和 descriptor 夹具，修正后复测通过并补充就绪超时用例。
+- controller/IPC/preload/renderer 六文件首轮为 133 通过、1 失败；失败为既有取消背景选择后保留本地名称的 renderer 用例。未修改代码的失败项与相邻用例复测 2/2 通过，新增保存及相邻流程 16/16 通过；独立审查的保存后 snapshot/theme 失败与 reject 反馈复测 4/4 通过。保留首轮整组失败，不将局部复测写成整组全过；未复现该取消选择问题的稳定原因。
+- 隔离 Electron 共 25 个不同场景通过，分组执行：新连续保存/foreign owner/真实重载 3 项，增量映射与消息首次绘制 16 项，构建后的实际 Studio 保存与输入栏图标 6 项。连续保存验证配置/高级模式切换、颜色/图片、动态消息、草稿/焦点/选区/滚动保留及一份 observer/style；最后浅色夹具调整后同用例再次通过并查看截图。独立 reload 初次在 generateConfiguredCss 夹具参数处失败，修正后通过。记录位于忽略的 `test-results/live-theme-payload/`、`test-results/live-theme-review/` 与 `test-results/live-theme-integration/`。
+- 最初沙箱 Vitest 因临时缓存 rename EPERM 未执行，随后两次自动审批超时；用户明确允许后正常权限测试成功运行。工具连接恢复期间另有调用在分发前中止，未算作执行成功。类型检查、修改文件 ESLint/Prettier、架构边界、diff 检查和生产 electron-vite main/preload/renderer 构建通过；构建时间晚于最终产品源码修改。独立工程审查未发现剩余阻塞问题。尚未提交、推送、发布或操作正式受管 Codex，当前安装版不会自动加载本地功能；正式窗口效果与正式安装包仍未验证。
 
 ## 2026-10-28 v1.3.27 发布完成
 

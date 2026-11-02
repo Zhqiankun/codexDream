@@ -3,6 +3,7 @@ import {
   isThemeSendIcon,
   type ThemeSendIcon,
 } from "./send-icon";
+import type { BackgroundMode } from "./reasoning-background";
 
 export type ThemeAppearance = "auto" | "light" | "dark";
 export type ThemeSafeArea = "none" | "left" | "right";
@@ -85,6 +86,7 @@ export interface ThemeStyleConfig {
 }
 
 export interface ThemeConfiguration {
+  backgroundMode?: BackgroundMode;
   appearance: ThemeAppearance;
   art: ThemeArt;
   colors: ThemeColors;
@@ -238,7 +240,15 @@ export function readThemeConfiguration(
     colors.homeCardBackground,
   );
   const styleConfig = normalizeThemeStyleConfig(json.style, "advanced");
-  return { appearance, art, colors, homeCards, styleConfig };
+  return {
+    backgroundMode:
+      json.backgroundMode === "reasoning" ? "reasoning" : "normal",
+    appearance,
+    art,
+    colors,
+    homeCards,
+    styleConfig,
+  };
 }
 
 export function writeThemeConfiguration(
@@ -247,6 +257,7 @@ export function writeThemeConfiguration(
 ): Record<string, unknown> {
   return {
     ...json,
+    backgroundMode: configuration.backgroundMode ?? "normal",
     appearance: configuration.appearance,
     art: { ...configuration.art },
     colors: { ...configuration.colors },
@@ -701,6 +712,7 @@ export function cloneThemeConfiguration(
   configuration: ThemeConfiguration,
 ): ThemeConfiguration {
   return {
+    backgroundMode: configuration.backgroundMode ?? "normal",
     appearance: configuration.appearance,
     art: { ...configuration.art },
     colors: { ...configuration.colors },

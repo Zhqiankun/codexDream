@@ -704,6 +704,22 @@ describe("local theme store", () => {
     );
   });
 
+  it("validates a saved current theme independently of the next-launch selection", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const store = new LocalThemeStore(managed.root);
+    await store.init();
+    const [current, next] = store.listRecords();
+    await store.select(next.libraryId, next.revision);
+    expect(await store.readyForInjection(current.libraryId)).toBe(current);
+    expect(store.selected()?.libraryId).toBe(next.libraryId);
+    current.fingerprint = "0".repeat(64);
+    await expect(store.readyForInjection(current.libraryId)).rejects.toThrow(
+      "UNSAFE_ARCHIVE:theme-fingerprint",
+    );
+    expect(store.selected()?.libraryId).toBe(next.libraryId);
+  });
+
   it("rejects selecting a ready theme whose content fingerprint changed", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);

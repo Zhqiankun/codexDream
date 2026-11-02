@@ -13,7 +13,13 @@ import { isThemeIconDataUrl } from "./send-icon";
 export * from "./theme-config";
 export * from "./send-icon";
 
-export const PROTOCOL_VERSION = 6 as const;
+export * from "./reasoning-background";
+import {
+  REASONING_EFFORTS,
+  type ReasoningEffort,
+  type BackgroundMode,
+} from "./reasoning-background";
+export const PROTOCOL_VERSION = 8 as const;
 export const BOOTSTRAP_PROTOCOL_VERSION = 1 as const;
 export type BackgroundScope = "content" | "window";
 export const DEFAULT_BACKGROUND_SCOPE: BackgroundScope = "window";
@@ -94,6 +100,8 @@ export interface ThemeSummary {
 }
 
 export interface ThemeDetail extends ThemeSummary {
+  backgroundMode?: BackgroundMode;
+  reasoningBackgroundUrls?: Partial<Record<ReasoningEffort, string>>;
   canDiscardChanges: boolean;
   themeId: string;
   description: string;
@@ -108,6 +116,20 @@ export interface ThemeDetail extends ThemeSummary {
   backgroundUrl?: string;
   json: Record<string, unknown>;
   validation: ValidationSummary;
+}
+
+export type ThemeLiveApplyResult =
+  | { status: "applied" }
+  | {
+      status: "skipped";
+      reason: "no-session" | "different-theme" | "paused";
+    }
+  | { status: "failed"; reason: "verification" | "injection" };
+
+// 保存已提交与当前窗口应用是两个结果；应用失败不得丢失新的主题 revision。
+export interface ThemeCommitResult {
+  theme: ThemeDetail;
+  liveApply: ThemeLiveApplyResult;
 }
 
 export interface ValidationSummary {
@@ -202,6 +224,7 @@ export interface UpdateProgress {
 }
 
 export interface ThemePatch {
+  backgroundMode?: BackgroundMode;
   name?: string;
   description?: string;
   css?: string;
@@ -472,6 +495,12 @@ export const HomeCardImageSchema = z
     cardIndex: z.number().int().min(0).max(3),
   })
   .strict();
+export const BackgroundImageSchema = RevisionSchema.extend({
+  reasoningEffort: z.enum(REASONING_EFFORTS).optional(),
+}).strict();
+export const ReasoningBackgroundSchema = RevisionSchema.extend({
+  reasoningEffort: z.enum(REASONING_EFFORTS),
+}).strict();
 export const CreateDraftSchema = z
   .object({ ...VersionField, name: z.string().trim().max(80).optional() })
   .strict();
@@ -491,6 +520,7 @@ export const PatchDraftSchema = z
           .optional(),
         themeId: z.string().trim().max(80).optional(),
         backgroundScope: z.enum(["content", "window"]).optional(),
+        backgroundMode: z.enum(["normal", "reasoning"]).optional(),
         sidebarOverlayOpacity: z.number().int().min(0).max(100).optional(),
         appearance: z.enum(["auto", "light", "dark"]).optional(),
         art: ThemeArtSchema.optional(),
@@ -551,7 +581,10 @@ export interface CodexStyleApi {
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
   ): Promise<Result<ThemeDetail>>;
   chooseBackground(
-    request: Omit<z.infer<typeof RevisionSchema>, "v">,
+    request: Omit<z.infer<typeof BackgroundImageSchema>, "v">,
+  ): Promise<Result<ThemeDetail>>;
+  clearReasoningBackground(
+    request: Omit<z.infer<typeof ReasoningBackgroundSchema>, "v">,
   ): Promise<Result<ThemeDetail>>;
   chooseSendIcon(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
@@ -561,7 +594,7 @@ export interface CodexStyleApi {
   ): Promise<Result<ThemeDetail>>;
   commit(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
-  ): Promise<Result<ThemeDetail>>;
+  ): Promise<Result<ThemeCommitResult>>;
   deleteTheme(
     request: Omit<z.infer<typeof RevisionSchema>, "v">,
   ): Promise<Result<ThemeSnapshot>>;

@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.28 — 2026-11-02
+
+### English
+
+- Added reasoning-based wallpapers with six editable stages: Low, Medium, High, Extra High, Max, and Ultra. Missing or unrecognized stages fall back to the normal wallpaper; existing hidden stage assets remain compatible.
+- Bundled three new themes: DeepSeek · 沧海鲸歌, Claude · 琥珀书庭, and Gemini · 星穹双子, each with six generated backgrounds and a complete readable color palette. Existing themes and the selected theme are preserved; previously imported copies are not duplicated.
+- Saving the theme used by a verified managed Codex session now updates that session immediately. Saving other themes and changing the next-launch selection retain their existing behavior; identity checks and ownership boundaries remain enforced.
+- Increased only theme-script registration and execution timeouts to 30 seconds to support large wallpaper sets, while preserving ordinary request budgets and safe failure handling.
+
+### 简体中文
+
+- 新增按思考强度切换背景，提供轻度、中、高、极高、Max、Ultra 六档图片配置；未知或缺少图片时回退正常背景，隐藏档位的旧图片继续兼容。
+- 内置 DeepSeek · 沧海鲸歌、Claude · 琥珀书庭、Gemini · 星穹双子三套主题，每套包含六档生成背景和完整配色。保留原主题与当前选择，已手动导入的同款主题不会重复添加。
+- 保存当前受管 Codex 正在使用的主题后即时更新画面，继续执行完整身份和归属检查；其他主题的保存及下次启动选择保持既有行为。
+- 仅将主题脚本注册与执行的超时预算延长至 30 秒，以支持多档大图；普通请求预算和安全失败处理不变。
+
+> 升级前通过 CodexStyle 结束它拥有的 Codex 会话并退出工具。覆盖安装后重新打开工作台，再通过工作台启动 Codex。已有主题与配置保留；新主题自动加入主题库，不自动切换当前主题。
+
 ## v1.3.27 — 2026-10-28
 
 ### English

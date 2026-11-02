@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
   BackgroundScope,
+  ReasoningEffort,
   PackageFormat,
   ThemeDetail,
   ThemeSummary,
@@ -9,6 +10,12 @@ import type {
 import { readThemeConfiguration } from "../../contracts";
 
 export interface ThemeRecord {
+  reasoningBackgrounds?: Partial<
+    Record<
+      ReasoningEffort,
+      { file: string; mime: string; sha256: string; bytes: number }
+    >
+  >;
   libraryId: string;
   themeId: string;
   name: string;
@@ -125,6 +132,13 @@ export function toDetail(
     css: theme.css,
     backgroundScope: theme.backgroundScope,
     sidebarOverlayOpacity: theme.sidebarOverlayOpacity,
+    backgroundMode: configuration.backgroundMode ?? "normal",
+    reasoningBackgroundUrls: Object.fromEntries(
+      Object.keys(theme.reasoningBackgrounds ?? {}).map((effort) => [
+        effort,
+        assetUrl ? `${assetUrl}&effort=${effort}` : undefined,
+      ]),
+    ),
     appearance: configuration.appearance,
     art: { ...configuration.art },
     colors: { ...configuration.colors },
@@ -175,12 +189,26 @@ export function themeFingerprint(
     | "json"
     | "css"
     | "backgroundSha256"
+    | "reasoningBackgrounds"
     | "importedFormal"
   >,
 ): string {
   const json = { ...theme.json };
   delete json.id;
   delete json.image;
+  delete json.reasoningBackgrounds;
+  // 普通背景是旧格式默认值；不能因此改变既有主题的内容指纹。
+  if (json.backgroundMode === "normal") delete json.backgroundMode;
+  if (
+    theme.reasoningBackgrounds &&
+    Object.keys(theme.reasoningBackgrounds).length
+  )
+    json.reasoningBackgrounds = Object.fromEntries(
+      Object.entries(theme.reasoningBackgrounds).map(([effort, image]) => [
+        effort,
+        image.sha256,
+      ]),
+    );
   return createHash("sha256")
     .update(
       JSON.stringify({

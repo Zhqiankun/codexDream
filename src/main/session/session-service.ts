@@ -3,6 +3,8 @@ import {
   readThemeConfiguration,
   type SessionSnapshot,
   type SessionState,
+  type ThemeLiveApplyResult,
+  type ReasoningEffort,
 } from "../../contracts";
 import type { ThemeRecord } from "../domain/theme";
 import { validateSafeCss } from "../infra/safe-css";
@@ -43,6 +45,9 @@ interface OwnedSession {
 export const CODEX_STARTUP_VERIFY_TIMEOUT_MS = 90_000;
 const CODEX_STARTUP_POLL_INTERVAL_MS = 250;
 const CODEX_PRE_INJECTION_READY_TIMEOUT_MS = 15_000;
+// 多档图片内嵌脚本的传输和解析可能超过普通 CDP 请求的 5 秒预算。
+// 仅主题注册/执行使用有界长预算；身份探测、清理及失败后的不重试策略保持原样。
+const THEME_SCRIPT_TIMEOUT_MS = 30_000;
 
 interface PersistedOwnedSession {
   version: 1;
@@ -68,6 +73,7 @@ const MAX_PERSISTED_SELECTOR_PROFILE_VERSION = 64;
 export interface ReadyThemePayload {
   record: ThemeRecord;
   image: Buffer;
+  reasoningBackgroundDataUrls?: Partial<Record<ReasoningEffort, string>>;
 }
 
 export class CodexSessionService {
@@ -248,10 +254,8 @@ export class CodexSessionService {
       this.messageKey = "session.ready";
       return;
     }
-    // Resume permits the next tool-owned launch only. It deliberately neither
-    // re-adds a new-document script nor rewrites the page that was paused.
-    // The current owned page remains themed, so it is no longer reported as
-    // paused once the persisted next-launch setting has been restored.
+    // 恢复只重新注册后续文档脚本，不重写暂停时的当前页面。
+    // 对当前页面的即时更新由保存同一主题的独立入口执行。
     if (this.state !== "PAUSED_FUTURE") return;
     const owned = this.owned;
     try {
@@ -279,6 +283,98 @@ export class CodexSessionService {
     } catch {
       this.markOrphaned(owned);
       throw new Error("CLEANUP_FAILED");
+    }
+  }
+
+  /** 保存已完成；仅更新该会话正在使用的主题，失败不能把持久化成功改报为保存失败。 */
+  async applySavedTheme(
+    libraryId: string,
+    loadTheme: () => Promise<ReadyThemePayload | undefined>,
+  ): Promise<ThemeLiveApplyResult> {
+    const owned = this.owned;
+    if (this.paused() || this.state === "PAUSED_FUTURE")
+      return { status: "skipped", reason: "paused" };
+    if (!owned || this.state !== "THEMED_SESSION")
+      return { status: "skipped", reason: "no-session" };
+    if (owned.themeLibraryId !== libraryId)
+      return { status: "skipped", reason: "different-theme" };
+
+    // 保存操作已持有 main operation gate；使旧 watcher 结果失效，避免异步检查穿过本次替换。
+    this.stopWatcher();
+    let verificationStarted = false;
+    let injectionStarted = false;
+    let replacementScriptId: string | undefined;
+    try {
+      const saved = await loadTheme();
+      if (
+        !saved ||
+        saved.record.libraryId !== libraryId ||
+        saved.record.status !== "ready" ||
+        !saved.record.fingerprint
+      )
+        throw new Error("INCOMPLETE_THEME:live-save");
+      const validation = validateSafeCss(saved.record.css);
+      if (!validation.valid || validation.empty) throw new Error("UNSAFE_CSS");
+      const expression = themePayloadExpression(saved);
+      verificationStarted = true;
+      await this.verifyOwnedIdentity(owned, true);
+      if (this.owned !== owned || this.paused())
+        throw new Error("TARGET_IDENTITY_MISMATCH:session-changed");
+
+      injectionStarted = true;
+      // CDP 注册脚本前必须启用 Page domain，否则重载可能不执行已注册脚本。
+      await owned.client.command("Page.enable");
+      const registration = await owned.client.command(
+        "Page.addScriptToEvaluateOnNewDocument",
+        { source: expression },
+        { timeoutMs: THEME_SCRIPT_TIMEOUT_MS },
+      );
+      replacementScriptId = scriptIdentifier(registration);
+      if (!replacementScriptId)
+        throw new Error("INJECTION_FAILED:script-registration");
+      // 先确认新脚本注册成功，再移除旧脚本。每次成功保存只保留一份后续文档脚本。
+      if (owned.newDocumentScriptId) {
+        await owned.client.command("Page.removeScriptToEvaluateOnNewDocument", {
+          identifier: owned.newDocumentScriptId,
+        });
+      }
+      owned.newDocumentScriptId = replacementScriptId;
+      const injected = await owned.client.command(
+        "Runtime.evaluate",
+        { expression, returnByValue: true, awaitPromise: true },
+        { timeoutMs: THEME_SCRIPT_TIMEOUT_MS },
+      );
+      if (runtimeValue(injected) !== true)
+        throw new Error("INJECTION_FAILED:runtime-result");
+      owned.themeFingerprint = saved.record.fingerprint;
+      await this.persistOwnership(owned);
+      await this.markLastKnownGood?.(libraryId, saved.record.fingerprint);
+      this.messageKey = "session.themed";
+      return { status: "applied" };
+    } catch {
+      if (verificationStarted) {
+        // CDP 失败可能已产生部分副作用。只在重新验证同一 owner 后清理已知新脚本，
+        // 不重试执行、不重启窗口，也不声称当前页面已回滚到旧主题。
+        if (replacementScriptId && this.owned === owned) {
+          try {
+            await this.verifyOwnedIdentity(owned, true);
+            if (this.owned === owned)
+              await owned.client.command(
+                "Page.removeScriptToEvaluateOnNewDocument",
+                { identifier: replacementScriptId },
+              );
+          } catch {
+            // 无法证明身份时停止所有写入；孤立记录只用于提示，不授权后续重新附着。
+          }
+        }
+        this.markOrphaned(owned);
+      }
+      return {
+        status: "failed",
+        reason: injectionStarted ? "injection" : "verification",
+      };
+    } finally {
+      if (this.owned === owned) this.startWatcher();
     }
   }
 
@@ -437,31 +533,22 @@ export class CodexSessionService {
     const validation = validateSafeCss(theme.css);
     if (!validation.valid || validation.empty) throw new Error("UNSAFE_CSS");
     await this.waitForInjectionReadiness(session);
-    const marker = `codexstyle-${theme.libraryId}`;
-    const configuration = readThemeConfiguration(theme.json);
-    const expression = buildThemePayload(
-      marker,
-      theme.css,
-      imageDataUrl(theme, selected.image),
-      {
-        ...configuration,
-        backgroundScope: theme.backgroundScope,
-        sidebarOverlayOpacity: theme.sidebarOverlayOpacity,
-      },
-    );
+    const expression = themePayloadExpression(selected);
+    await session.client.command("Page.enable");
     const registration = await session.client.command(
       "Page.addScriptToEvaluateOnNewDocument",
       { source: expression },
+      { timeoutMs: THEME_SCRIPT_TIMEOUT_MS },
     );
     const identifier = scriptIdentifier(registration);
     if (!identifier) throw new Error("INJECTION_FAILED:script-registration");
     session.newDocumentScriptId = identifier;
     try {
-      const injected = await session.client.command("Runtime.evaluate", {
-        expression,
-        returnByValue: true,
-        awaitPromise: true,
-      });
+      const injected = await session.client.command(
+        "Runtime.evaluate",
+        { expression, returnByValue: true, awaitPromise: true },
+        { timeoutMs: THEME_SCRIPT_TIMEOUT_MS },
+      );
       if (runtimeValue(injected) !== true)
         throw new Error("INJECTION_FAILED:runtime-result");
       await this.persistOwnership(session);
@@ -476,8 +563,8 @@ export class CodexSessionService {
 
   /**
    * Re-enable only the script applied to documents created after resume. The
-   * current page is intentionally not evaluated again: users must restart a
-   * tool-owned session to apply a different theme to the running document.
+   * current page is intentionally not evaluated again. Saving the same current
+   * theme is the separate live-update path; changing themes still needs a launch.
    */
   private async registerFutureInjection(session: OwnedSession): Promise<void> {
     if (session.newDocumentScriptId)
@@ -495,20 +582,13 @@ export class CodexSessionService {
     const validation = validateSafeCss(theme.css);
     if (!validation.valid || validation.empty) throw new Error("UNSAFE_CSS");
     await this.verifyOwnedIdentity(session, true);
+    await session.client.command("Page.enable");
     const registration = await session.client.command(
       "Page.addScriptToEvaluateOnNewDocument",
       {
-        source: buildThemePayload(
-          `codexstyle-${theme.libraryId}`,
-          theme.css,
-          imageDataUrl(theme, selected.image),
-          {
-            ...readThemeConfiguration(theme.json),
-            backgroundScope: theme.backgroundScope,
-            sidebarOverlayOpacity: theme.sidebarOverlayOpacity,
-          },
-        ),
+        source: themePayloadExpression(selected),
       },
+      { timeoutMs: THEME_SCRIPT_TIMEOUT_MS },
     );
     const identifier = scriptIdentifier(registration);
     if (!identifier) throw new Error("INJECTION_FAILED:script-registration");
@@ -701,6 +781,25 @@ export class CodexSessionService {
     this.messageKey = messageKey;
     throw new Error(code);
   }
+}
+
+// 初次注入、恢复后的文档与保存后的当前页面使用完全相同的主题生成和图片校验。
+function themePayloadExpression({
+  record,
+  image,
+  reasoningBackgroundDataUrls,
+}: ReadyThemePayload): string {
+  return buildThemePayload(
+    `codexstyle-${record.libraryId}`,
+    record.css,
+    imageDataUrl(record, image),
+    {
+      ...readThemeConfiguration(record.json),
+      backgroundScope: record.backgroundScope,
+      sidebarOverlayOpacity: record.sidebarOverlayOpacity,
+      reasoningBackgroundDataUrls,
+    },
+  );
 }
 
 function imageDataUrl(theme: ThemeRecord, image: Buffer): string {

@@ -2,6 +2,8 @@ import { ipcMain, type IpcMainInvokeEvent } from "electron";
 import { z } from "zod";
 import {
   EmptyRequestSchema,
+  BackgroundImageSchema,
+  ReasoningBackgroundSchema,
   ExportSchema,
   HomeCardImageSchema,
   CreateDraftSchema,
@@ -103,9 +105,19 @@ export function registerIpc(
   );
   handle(
     "theme.chooseBackground",
-    RevisionSchema,
-    async ({ libraryId, expectedRevision }) =>
-      controller.chooseBackground(libraryId, expectedRevision),
+    BackgroundImageSchema,
+    async ({ libraryId, expectedRevision, reasoningEffort }) =>
+      controller.chooseBackground(libraryId, expectedRevision, reasoningEffort),
+  );
+  handle(
+    "theme.clearReasoningBackground",
+    ReasoningBackgroundSchema,
+    async ({ libraryId, expectedRevision, reasoningEffort }) =>
+      controller.clearReasoningBackground(
+        libraryId,
+        expectedRevision,
+        reasoningEffort,
+      ),
   );
   handle(
     "theme.chooseSendIcon",

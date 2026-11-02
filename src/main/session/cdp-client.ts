@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 
 const REQUEST_TIMEOUT_MS = 5_000;
+const MAX_COMMAND_TIMEOUT_MS = 30_000;
 const MAX_CDP_RESPONSE_BYTES = 1024 * 1024;
 const CDP_ID_PATTERN = /^[A-Za-z0-9._-]{1,200}$/u;
 
@@ -69,7 +70,15 @@ export class CdpClient {
   async command(
     method: string,
     params?: Record<string, unknown>,
+    options?: { timeoutMs?: number },
   ): Promise<unknown> {
+    const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
+    if (
+      !Number.isSafeInteger(timeoutMs) ||
+      timeoutMs < 1 ||
+      timeoutMs > MAX_COMMAND_TIMEOUT_MS
+    )
+      throw new Error("CDP_UNAVAILABLE:timeout");
     if (!/^[A-Za-z]+\.[A-Za-z]+$/u.test(method))
       throw new Error("CDP_UNAVAILABLE:method");
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN)
@@ -79,7 +88,7 @@ export class CdpClient {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error("CDP_UNAVAILABLE:command-timeout"));
-      }, REQUEST_TIMEOUT_MS);
+      }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       this.socket!.send(JSON.stringify({ id, method, params }), (error) => {
         if (!error) return;

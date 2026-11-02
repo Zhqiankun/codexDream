@@ -42,6 +42,10 @@ export const EDGE_SCROLL_THREAD_TITLE_SELECTOR =
 export const HOME_COMPOSER_RAIL_SELECTOR =
   '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
 
+// Store 26.1027.3384.0 原生控件直接提供当前档位；不依赖本地化标签或隐藏的动画文案。
+export const REASONING_EFFORT_CONTROL_SELECTOR =
+  "[data-codex-composer-root] [data-codex-intelligence-trigger][data-selected-reasoning-effort]" as const;
+
 // Legacy search rails still need their page-specific anchors. Store
 // 26.1007.2314.0 changes the Plugins search ID and omits search in some states;
 // its shared sticky header paints ::before independently of those controls.

@@ -19,6 +19,7 @@ import {
   type ImportResult,
   type Result,
   type ThemeDetail,
+  type ThemeLiveApplyResult,
   type ThemeSnapshot,
 } from "../../src/contracts";
 import { App } from "../../src/renderer/app/App";
@@ -159,7 +160,7 @@ function makeApi() {
     }),
     rendererReady: vi.fn().mockResolvedValue({
       ok: true,
-      data: { appVersion: "1.3.8", protocolVersion: 6 },
+      data: { appVersion: "1.3.8", protocolVersion: 8 },
     }),
     openLogDirectory: vi.fn().mockResolvedValue({ ok: true, data: true }),
     installAssistantPlugin: vi.fn().mockResolvedValue({
@@ -179,11 +180,15 @@ function makeApi() {
       .mockResolvedValue({ ok: true, data: { ...theme, revision: 3 } }),
     discardChanges: vi.fn().mockResolvedValue({ ok: true, data: theme }),
     chooseBackground: vi.fn(),
+    clearReasoningBackground: vi.fn(),
     chooseSendIcon: vi.fn(),
     chooseHomeCardImage: vi.fn(),
     commit: vi.fn().mockResolvedValue({
       ok: true,
-      data: { ...theme, revision: 4, status: "ready" },
+      data: {
+        theme: { ...theme, revision: 4, status: "ready" },
+        liveApply: { status: "skipped", reason: "no-session" },
+      },
     }),
     deleteTheme: vi.fn().mockResolvedValue({ ok: true, data: snapshot }),
     importZip: vi.fn(),
@@ -670,24 +675,29 @@ describe("Studio renderer", () => {
     ).toBeVisible();
   });
 
-  it("blocks a renderer loaded by an incompatible resident main process", async () => {
-    const api = makeApi();
-    api.rendererReady.mockResolvedValue({
-      ok: true,
-      data: true as never,
-    });
-    window.codexStyle = api;
+  it.each([true, { appVersion: "1.3.27", protocolVersion: 6 }])(
+    "blocks a renderer loaded by an incompatible resident main process: %j",
+    async (runtime) => {
+      const api = makeApi();
+      api.rendererReady.mockResolvedValue({
+        ok: true,
+        data: runtime as never,
+      });
+      window.codexStyle = api;
 
-    render(<App />);
+      render(<App />);
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "检测到新旧版本组件同时运行",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/从托盘彻底退出 CodexStyle/u)).toBeInTheDocument();
-    expect(api.getSnapshot).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByRole("heading", {
+          name: "检测到新旧版本组件同时运行",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/从托盘彻底退出 CodexStyle/u),
+      ).toBeInTheDocument();
+      expect(api.getSnapshot).not.toHaveBeenCalled();
+    },
+  );
 
   it("downloads a verified update internally and offers installation choices", async () => {
     const api = makeApi();
@@ -1150,12 +1160,327 @@ describe("Studio renderer", () => {
     );
   });
 
+  it("lists six reasoning backgrounds without a dropdown, preserves hidden slots, and previews with normal fallback", async () => {
+    const api = makeApi();
+    const maxUrl = `${theme.backgroundUrl}?effort=max&v=2`;
+    const configured: ThemeDetail = {
+      ...theme,
+      backgroundMode: "normal",
+      reasoningBackgroundUrls: {
+        none: `${theme.backgroundUrl}?effort=none&v=2`,
+        minimal: `${theme.backgroundUrl}?effort=minimal&v=2`,
+        persistent: `${theme.backgroundUrl}?effort=persistent&v=2`,
+        max: maxUrl,
+      },
+      json: {
+        ...theme.json,
+        reasoningBackgrounds: {
+          none: "reasoning-none.png",
+          minimal: "reasoning-minimal.png",
+          persistent: "reasoning-persistent.png",
+          max: "reasoning-max.png",
+        },
+      },
+    };
+    api.getTheme.mockResolvedValue({ ok: true, data: configured });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "画面" }));
+    expect(screen.getByRole("button", { name: "正常背景" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(document.querySelector(".mock-background")).toHaveAttribute(
+      "src",
+      theme.backgroundUrl,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "根据档位更换背景" }));
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: /^为 .+ 选择图片$/u }),
+    ).toHaveLength(6);
+    for (const label of ["轻度", "中", "高", "极高", "Max", "Ultra"]) {
+      expect(
+        screen.getByRole("button", { name: `为 ${label} 选择图片` }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: `${label} 预览` }),
+      ).toBeInTheDocument();
+    }
+    for (const label of ["无", "极低", "持续"]) {
+      expect(
+        screen.queryByRole("button", { name: `为 ${label} 选择图片` }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: `${label} 预览` }),
+      ).not.toBeInTheDocument();
+    }
+    expect(document.querySelector(".mock-background")).toHaveAttribute(
+      "src",
+      theme.backgroundUrl,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Max 预览" }));
+    expect(document.querySelector(".mock-background")).toHaveAttribute(
+      "src",
+      maxUrl,
+    );
+    expect(api.chooseBackground).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "正常背景" }));
+    expect(document.querySelector(".mock-background")).toHaveAttribute(
+      "src",
+      theme.backgroundUrl,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "根据档位更换背景" }));
+    expect(document.querySelector(".mock-background")).toHaveAttribute(
+      "src",
+      maxUrl,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "高级配置" }));
+    const json = screen.getByRole("textbox", {
+      name: "theme.json 编辑器",
+    }) as HTMLTextAreaElement;
+    expect(JSON.parse(json.value)).toMatchObject({
+      backgroundMode: "reasoning",
+      reasoningBackgrounds: {
+        none: "reasoning-none.png",
+        minimal: "reasoning-minimal.png",
+        persistent: "reasoning-persistent.png",
+        max: "reasoning-max.png",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
+    await waitFor(() => expect(api.patchDraft).toHaveBeenCalled());
+    expect(api.patchDraft.mock.calls[0][0].patch).toMatchObject({
+      backgroundMode: "reasoning",
+    });
+    expect(api.patchDraft.mock.calls[0][0].patch).not.toHaveProperty(
+      "reasoningBackgrounds",
+    );
+    expect(api.patchDraft.mock.calls[0][0].patch).not.toHaveProperty(
+      "reasoningBackgroundUrls",
+    );
+  });
+
+  it("keeps local edits when a reasoning image picker is canceled and merges a successful selection at its new revision", async () => {
+    const api = makeApi();
+    const maxUrl = `${theme.backgroundUrl}?effort=max&v=3`;
+    const selected: ThemeDetail = {
+      ...theme,
+      revision: 3,
+      reasoningBackgroundUrls: { max: maxUrl },
+    };
+    api.chooseBackground
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "CANCELLED", messageKey: "dialog.cancelled" },
+      })
+      .mockResolvedValueOnce({ ok: true, data: selected });
+    api.patchDraft.mockResolvedValue({
+      ok: true,
+      data: {
+        ...selected,
+        revision: 4,
+        name: "My backgrounds",
+        backgroundMode: "reasoning",
+      },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.change(await screen.findByDisplayValue(theme.name), {
+      target: { value: "My backgrounds" },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
+    fireEvent.click(screen.getByRole("button", { name: "根据档位更换背景" }));
+    fireEvent.click(screen.getByRole("button", { name: "为 Max 选择图片" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "为 Max 选择图片" }),
+      ).toBeEnabled(),
+    );
+    expect(api.patchDraft).not.toHaveBeenCalled();
+    expect(api.chooseBackground).toHaveBeenCalledWith({
+      libraryId: theme.libraryId,
+      expectedRevision: 2,
+      reasoningEffort: "max",
+    });
+    expect(
+      screen.getByRole("button", { name: "根据档位更换背景" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "为 Max 选择图片" }));
+    await waitFor(() =>
+      expect(api.patchDraft).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: 3,
+        patch: expect.objectContaining({
+          name: "My backgrounds",
+          backgroundMode: "reasoning",
+        }),
+      }),
+    );
+    await waitFor(() =>
+      expect(document.querySelector(".mock-background")).toHaveAttribute(
+        "src",
+        maxUrl,
+      ),
+    );
+  });
+
+  it("retains local edits and the chosen reasoning image when the follow-up patch and list refresh fail", async () => {
+    const api = makeApi();
+    const maxUrl = `${theme.backgroundUrl}?effort=max&v=3`;
+    api.chooseBackground.mockResolvedValue({
+      ok: true,
+      data: { ...theme, revision: 3, reasoningBackgroundUrls: { max: maxUrl } },
+    });
+    api.getSnapshot
+      .mockResolvedValueOnce({ ok: true, data: snapshot })
+      .mockRejectedValueOnce(new Error("refresh failed"))
+      .mockResolvedValue({ ok: true, data: snapshot });
+    api.patchDraft
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "INVALID_THEME", messageKey: "theme.invalid" },
+      })
+      .mockResolvedValue({
+        ok: true,
+        data: {
+          ...theme,
+          revision: 4,
+          backgroundMode: "reasoning",
+          name: "Keep my edits",
+          reasoningBackgroundUrls: { max: maxUrl },
+        },
+      });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.change(await screen.findByDisplayValue(theme.name), {
+      target: { value: "Keep my edits" },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
+    fireEvent.click(screen.getByRole("button", { name: "根据档位更换背景" }));
+    fireEvent.click(screen.getByRole("button", { name: "为 Max 选择图片" }));
+    await waitFor(() => expect(api.patchDraft).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(document.querySelector(".mock-background")).toHaveAttribute(
+        "src",
+        maxUrl,
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: "根据档位更换背景" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "基础" }));
+    expect(screen.getByDisplayValue("Keep my edits")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
+    await waitFor(() => expect(api.patchDraft).toHaveBeenCalledTimes(2));
+    expect(api.patchDraft.mock.calls[1][0]).toMatchObject({
+      expectedRevision: 3,
+      patch: { name: "Keep my edits", backgroundMode: "reasoning" },
+    });
+  });
+
+  it("clears one reasoning background and restores the normal preview while preserving other slots", async () => {
+    const api = makeApi();
+    const maxUrl = `${theme.backgroundUrl}?effort=max&v=2`;
+    const ultraUrl = `${theme.backgroundUrl}?effort=ultra&v=2`;
+    const configured: ThemeDetail = {
+      ...theme,
+      backgroundMode: "reasoning",
+      reasoningBackgroundUrls: { max: maxUrl, ultra: ultraUrl },
+    };
+    api.getTheme.mockResolvedValue({ ok: true, data: configured });
+    api.clearReasoningBackground.mockResolvedValue({
+      ok: true,
+      data: {
+        ...configured,
+        revision: 3,
+        reasoningBackgroundUrls: { ultra: ultraUrl },
+      },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "画面" }));
+    fireEvent.click(screen.getByRole("button", { name: "Max 预览" }));
+    expect(document.querySelector(".mock-background")).toHaveAttribute(
+      "src",
+      maxUrl,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Max 使用正常背景" }));
+    await waitFor(() =>
+      expect(api.clearReasoningBackground).toHaveBeenCalledWith({
+        libraryId: theme.libraryId,
+        expectedRevision: 2,
+        reasoningEffort: "max",
+      }),
+    );
+    await waitFor(() =>
+      expect(document.querySelector(".mock-background")).toHaveAttribute(
+        "src",
+        theme.backgroundUrl,
+      ),
+    );
+    expect(api.patchDraft).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Max 使用正常背景" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ultra 预览" }));
+    expect(document.querySelector(".mock-background")).toHaveAttribute(
+      "src",
+      ultraUrl,
+    );
+  });
+
+  it("disables reasoning background edits during pending selection and unvalidated JSON edits", async () => {
+    const api = makeApi();
+    let cancelPicker!: (value: Result<ThemeDetail>) => void;
+    api.chooseBackground.mockImplementation(
+      () =>
+        new Promise<Result<ThemeDetail>>((resolve) => {
+          cancelPicker = resolve;
+        }),
+    );
+    api.getTheme.mockResolvedValue({
+      ok: true,
+      data: { ...theme, backgroundMode: "reasoning" },
+    });
+    window.codexStyle = api;
+    render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "画面" }));
+    fireEvent.click(screen.getByRole("button", { name: "为 中 选择图片" }));
+    expect(screen.getByRole("button", { name: "正常背景" })).toBeDisabled();
+    for (const button of screen.getAllByRole("button", {
+      name: /^为 .+ 选择图片$|^.+ 预览$/u,
+    })) {
+      expect(button).toBeDisabled();
+    }
+    await act(async () =>
+      cancelPicker({
+        ok: false,
+        error: { code: "CANCELLED", messageKey: "dialog.cancelled" },
+      }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "高级配置" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "theme.json 编辑器" }),
+      {
+        target: { value: "{" },
+      },
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "设计" }));
+    expect(screen.getByRole("button", { name: "正常背景" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "为 中 选择图片" }),
+    ).toBeDisabled();
+    expect(api.patchDraft).not.toHaveBeenCalled();
+  });
+
   it("previews and patches configurable background coverage", async () => {
     const api = window.codexStyle as ReturnType<typeof makeApi>;
     render(<App />);
     await screen.findByDisplayValue("Midnight Copper");
     fireEvent.click(screen.getByRole("tab", { name: "画面" }));
 
+    expect(screen.queryByRole("slider", { name: "左侧栏暗化强度" })).toBeNull();
     expect(
       document.querySelector(".mock-codex > .mock-background"),
     ).toBeInTheDocument();
@@ -1173,14 +1498,23 @@ describe("Studio renderer", () => {
     expect(
       document.querySelector(".mock-main > .mock-background"),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "高级配置" }));
     expect(
       screen.getByRole("slider", { name: "左侧栏暗化强度" }),
     ).toBeDisabled();
+    expect(screen.getByRole("slider", { name: "左侧栏暗化强度" })).toHaveValue(
+      String(theme.sidebarOverlayOpacity),
+    );
     expect(
-      screen.getByText("仅内容区不使用侧栏暗化；切换到全窗口后可调整。"),
+      screen.getByText(
+        "仅内容区不使用侧栏暗化；在“设计 → 画面”切换到全窗口后可调整。",
+      ),
     ).toBeInTheDocument();
+    expect(api.patchDraft).not.toHaveBeenCalled();
 
+    fireEvent.click(screen.getByRole("tab", { name: "设计" }));
     fireEvent.click(screen.getByRole("button", { name: "全窗口" }));
+    fireEvent.click(screen.getByRole("tab", { name: "高级配置" }));
     expect(
       screen.getByRole("slider", { name: "左侧栏暗化强度" }),
     ).toBeEnabled();
@@ -1191,6 +1525,10 @@ describe("Studio renderer", () => {
     expect(document.querySelector(".mock-codex")).toHaveStyle({
       "--preview-sidebar-surface": "rgba(31, 34, 41, 1)",
     });
+    const jsonEditor = screen.getByRole("textbox", {
+      name: "theme.json 编辑器",
+    }) as HTMLTextAreaElement;
+    expect(JSON.parse(jsonEditor.value).sidebarOverlayOpacity).toBe(35);
 
     fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
     await waitFor(() =>
@@ -1472,7 +1810,7 @@ describe("Studio renderer", () => {
       );
     }
 
-    fireEvent.click(screen.getByRole("tab", { name: "画面" }));
+    fireEvent.click(screen.getByRole("tab", { name: "高级配置" }));
     fireEvent.change(screen.getByRole("slider", { name: "左侧栏暗化强度" }), {
       target: { value: String(HIGH_CONTRAST_SIDEBAR_OVERLAY_OPACITY) },
     });
@@ -2000,6 +2338,9 @@ describe("Studio renderer", () => {
     const source = JSON.stringify(json, null, 2);
     fireEvent.change(editor, { target: { value: source } });
 
+    expect(
+      screen.getByRole("slider", { name: "左侧栏暗化强度" }),
+    ).toBeDisabled();
     expect(screen.getByRole("button", { name: "保存主题" })).toBeDisabled();
     expect(screen.queryByDisplayValue("JSON Applied")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "校验并应用" }));
@@ -2010,6 +2351,11 @@ describe("Studio renderer", () => {
         expectedRevision: theme.revision,
         patch: { themeJson: source },
       }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("slider", { name: "左侧栏暗化强度" }),
+      ).toBeEnabled(),
     );
     fireEvent.click(screen.getByRole("tab", { name: "设计" }));
     expect(await screen.findByDisplayValue("JSON Applied")).toBeInTheDocument();
@@ -2029,6 +2375,16 @@ describe("Studio renderer", () => {
       await screen.findByText("JSON 语法无效，请检查括号、逗号和引号。"),
     ).toBeInTheDocument();
     expect(api.patchDraft).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("slider", { name: "左侧栏暗化强度" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "恢复当前配置" }));
+    expect(
+      screen.getByRole("slider", { name: "左侧栏暗化强度" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("slider", { name: "左侧栏暗化强度" })).toHaveValue(
+      String(theme.sidebarOverlayOpacity),
+    );
   });
 
   it("patches before commit so revisions cannot go stale", async () => {
@@ -2049,6 +2405,125 @@ describe("Studio renderer", () => {
       ),
     );
   });
+
+  it.each([
+    [{ status: "applied" }, "主题已保存，当前 Codex 窗口已更新。"],
+    [
+      { status: "skipped", reason: "no-session" },
+      "主题已保存。当前没有可更新的受管 Codex 会话。",
+    ],
+    [
+      { status: "skipped", reason: "different-theme" },
+      "主题已保存。当前 Codex 正在使用其他主题，窗口保持原样。",
+    ],
+    [
+      { status: "skipped", reason: "paused" },
+      "主题已保存。当前已暂停注入，窗口保持原样。",
+    ],
+    [
+      { status: "failed", reason: "verification" },
+      "主题已保存，但未能确认当前 Codex 窗口已更新。请查看会话状态。",
+    ],
+    [
+      { status: "failed", reason: "injection" },
+      "主题已保存，但未能确认当前 Codex 窗口已更新。请查看会话状态。",
+    ],
+  ] satisfies Array<[ThemeLiveApplyResult, string]>)(
+    "reports the confirmed save/application result %j and retains the saved revision",
+    async (liveApply, message) => {
+      const api = window.codexStyle as ReturnType<typeof makeApi>;
+      const savedTheme = { ...theme, name: "Saved current theme", revision: 4 };
+      api.commit.mockResolvedValue({
+        ok: true,
+        data: { theme: savedTheme, liveApply },
+      });
+      render(<App />);
+      fireEvent.click(await screen.findByRole("button", { name: "保存主题" }));
+      expect(await screen.findByText(message)).toBeVisible();
+      expect(await screen.findByDisplayValue(savedTheme.name)).toBeVisible();
+      expect(api.patchDraft).not.toHaveBeenCalled();
+      expect(api.selectForNextLaunch).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "保存主题" })).toBeEnabled(),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
+      await waitFor(() =>
+        expect(api.commit).toHaveBeenLastCalledWith({
+          libraryId: theme.libraryId,
+          expectedRevision: 4,
+        }),
+      );
+    },
+  );
+
+  it("does not report a saved theme when the commit itself fails", async () => {
+    const api = window.codexStyle as ReturnType<typeof makeApi>;
+    api.commit.mockResolvedValue({
+      ok: false,
+      error: { code: "STALE_REVISION", messageKey: "theme.staleRevision" },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "保存主题" }));
+    await waitFor(() => expect(api.commit).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "保存主题" })).toBeEnabled(),
+    );
+    expect(screen.queryByText(/主题已保存/u)).toBeNull();
+  });
+
+  it.each([
+    "snapshot-result",
+    "snapshot-rejection",
+    "theme-result",
+    "theme-rejection",
+  ])(
+    "keeps saved revision and application feedback when subsequent refresh fails: %s",
+    async (failure) => {
+      const api = window.codexStyle as ReturnType<typeof makeApi>;
+      const savedTheme = {
+        ...theme,
+        name: "Saved despite refresh",
+        revision: 4,
+      };
+      api.commit.mockResolvedValue({
+        ok: true,
+        data: {
+          theme: savedTheme,
+          liveApply: { status: "failed", reason: "verification" },
+        },
+      });
+      render(<App />);
+      await screen.findByDisplayValue(theme.name);
+      const read = failure.startsWith("snapshot")
+        ? api.getSnapshot
+        : api.getTheme;
+      if (failure.endsWith("rejection"))
+        read.mockRejectedValue(new Error("refresh failed"));
+      else
+        read.mockResolvedValue({
+          ok: false,
+          error: { code: "UNKNOWN", messageKey: "error.unknown" },
+        });
+      fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
+      expect(
+        await screen.findByText(
+          "主题已保存，但未能确认当前 Codex 窗口已更新。请查看会话状态。 工作台状态刷新失败，请重新打开工作台。",
+        ),
+      ).toBeVisible();
+      expect(screen.getByDisplayValue(savedTheme.name)).toBeVisible();
+      expect(screen.queryByText("操作未完成，请重试。")).toBeNull();
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "保存主题" })).toBeEnabled(),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "保存主题" }));
+      await waitFor(() =>
+        expect(api.commit).toHaveBeenLastCalledWith({
+          libraryId: theme.libraryId,
+          expectedRevision: savedTheme.revision,
+        }),
+      );
+    },
+  );
 
   it("exports the complete current theme package without dropping colors", async () => {
     const api = makeApi();

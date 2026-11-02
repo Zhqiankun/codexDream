@@ -15,9 +15,15 @@ import { pathToFileURL } from "node:url";
 import { LocalThemeStore } from "../infra/local-store";
 import { ThemeService } from "./theme-service";
 import { WindowsPlatform } from "../platform/windows";
-import { CodexSessionService } from "../session/session-service";
+import {
+  CodexSessionService,
+  type ReadyThemePayload,
+} from "../session/session-service";
+import type { ThemeRecord } from "../domain/theme";
 import {
   PROTOCOL_VERSION,
+  REASONING_EFFORTS,
+  type ReasoningEffort,
   type CodexAssistantPluginInstallResult,
   type ErrorCode,
   type ExportResult,
@@ -25,7 +31,9 @@ import {
   type Result,
   type StudioRuntimeInfo,
   type StartupSettings,
+  type ThemeCommitResult,
   type ThemeDetail,
+  type ThemeLiveApplyResult,
   type ThemePatch,
   type ThemeSnapshot,
   type UpdateSnapshot,
@@ -37,6 +45,7 @@ import { ElectronUpdaterGateway } from "../infra/electron-updater-gateway";
 import type { MainLogger } from "../infra/main-logger";
 import {
   ADDITIONAL_BUNDLED_PRESET_PACK_ID,
+  MASCOT_BUNDLED_PRESET_PACK_ID,
   createBundledPresetSource,
 } from "../infra/bundled-presets";
 import { CodexAssistantBridge } from "../assistant/assistant-bridge";
@@ -98,14 +107,17 @@ export class AppController {
         join(presetRoot, ADDITIONAL_BUNDLED_PRESET_PACK_ID),
         ADDITIONAL_BUNDLED_PRESET_PACK_ID,
       ),
+      createBundledPresetSource(
+        join(presetRoot, MASCOT_BUNDLED_PRESET_PACK_ID),
+        MASCOT_BUNDLED_PRESET_PACK_ID,
+      ),
     ]);
     this.session = new CodexSessionService(
       this.platform,
       async () => {
         const record = await this.store.selectedReadyForInjection();
         if (!record) return undefined;
-        const image = this.store.getBackground(record.libraryId);
-        return image ? { record, image } : undefined;
+        return this.readyThemePayload(record);
       },
       () =>
         this.store.snapshot(
@@ -211,21 +223,29 @@ export class AppController {
       }
       if (url.hostname === "theme-asset") {
         const version = url.searchParams.get("v");
+        const effort = url.searchParams.get("effort");
         if (
           url.username ||
           url.password ||
-          (url.search !== "" &&
-            (url.searchParams.size !== 1 ||
-              typeof version !== "string" ||
-              !/^[1-9][0-9]*$/u.test(version)))
+          [...url.searchParams.keys()].some(
+            (key) => key !== "v" && key !== "effort",
+          ) ||
+          url.searchParams.getAll("v").length > 1 ||
+          url.searchParams.getAll("effort").length > 1 ||
+          (version !== null && !/^[1-9][0-9]*$/u.test(version)) ||
+          (effort !== null &&
+            !REASONING_EFFORTS.includes(effort as ReasoningEffort))
         )
           return new Response("Not found", { status: 404 });
         const libraryId = decodeURIComponent(url.pathname.replace(/^\//u, ""));
         if (!isLibraryId(libraryId))
           return new Response("Not found", { status: 404 });
-        const data = this.themeService.asset(libraryId);
+        const reasoningEffort =
+          effort === null ? undefined : (effort as ReasoningEffort);
+        const data = this.themeService.asset(libraryId, reasoningEffort);
         const mime =
-          this.themeService.assetMime(libraryId) ?? "application/octet-stream";
+          this.themeService.assetMime(libraryId, reasoningEffort) ??
+          "application/octet-stream";
         return data
           ? new Response(new Uint8Array(data), {
               headers: { "content-type": mime, "cache-control": "no-store" },
@@ -373,10 +393,56 @@ export class AppController {
   chooseBackground(
     libraryId: string,
     expectedRevision: number,
+    reasoningEffort?: ReasoningEffort,
   ): Promise<Result<ThemeDetail>> {
     return this.runSideEffect(() =>
-      this.themeService.chooseBackground(libraryId, expectedRevision),
+      this.themeService.chooseBackground(
+        libraryId,
+        expectedRevision,
+        reasoningEffort,
+      ),
     );
+  }
+
+  clearReasoningBackground(
+    libraryId: string,
+    expectedRevision: number,
+    reasoningEffort: ReasoningEffort,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(() =>
+      this.themeService.clearReasoningBackground(
+        libraryId,
+        expectedRevision,
+        reasoningEffort,
+      ),
+    );
+  }
+
+  // 只在 store 已完成 ready 复验后组装资源；renderer 不能提供路径或图片字节。
+  private readyThemePayload(
+    record: ThemeRecord,
+  ): ReadyThemePayload | undefined {
+    const image = this.store.getBackground(record.libraryId);
+    if (!image) return undefined;
+    if (
+      !record.reasoningBackgrounds ||
+      Object.keys(record.reasoningBackgrounds).length === 0
+    )
+      return { record, image };
+    const images = this.store.getReasoningBackgrounds(record.libraryId);
+    const reasoningBackgroundDataUrls: Partial<
+      Record<ReasoningEffort, string>
+    > = {};
+    for (const effort of REASONING_EFFORTS) {
+      const asset = record.reasoningBackgrounds[effort];
+      if (!asset) continue;
+      const bytes = images[effort];
+      if (!bytes)
+        throw new Error("STORE_TAMPERED:reasoning-background-missing");
+      reasoningBackgroundDataUrls[effort] =
+        `data:${asset.mime};base64,${bytes.toString("base64")}`;
+    }
+    return { record, image, reasoningBackgroundDataUrls };
   }
 
   chooseSendIcon(
@@ -405,10 +471,28 @@ export class AppController {
   commitTheme(
     libraryId: string,
     expectedRevision: number,
-  ): Promise<Result<ThemeDetail>> {
-    return this.runSideEffect(() =>
-      this.themeService.commit(libraryId, expectedRevision),
-    );
+  ): Promise<Result<ThemeCommitResult>> {
+    return this.runSideEffect<ThemeCommitResult>(async () => {
+      const saved = await this.themeService.commit(libraryId, expectedRevision);
+      if (!saved.ok) return saved;
+
+      // 同一 operation gate 内先提交再应用；即使窗口更新失败，也返回已经保存的主题。
+      let liveApply: ThemeLiveApplyResult;
+      try {
+        liveApply = await this.session.applySavedTheme(libraryId, async () => {
+          const record = await this.store.readyForInjection(libraryId);
+          if (!record) return undefined;
+          return this.readyThemePayload(record);
+        });
+      } catch {
+        liveApply = { status: "failed", reason: "injection" };
+      }
+      if (liveApply.status === "failed")
+        this.logger?.warn("theme.liveApply.failed", {
+          reason: liveApply.reason,
+        });
+      return { ok: true, data: { theme: saved.data, liveApply } };
+    });
   }
 
   deleteTheme(

@@ -8,6 +8,7 @@ import type {
   ThemeDetail,
   ThemePatch,
   ThemeSnapshot,
+  ReasoningEffort,
 } from "../../contracts";
 import {
   isThemeHomeCardImageDataUrl,
@@ -17,6 +18,7 @@ import {
 import type { ThemeRecord } from "../domain/theme";
 import { LocalThemeStore } from "../infra/local-store";
 import { readImageFileBounded, validateImage } from "../infra/image";
+import type { ReasoningImageBytes } from "../infra/reasoning-images";
 import {
   importSummary,
   readThemeZip,
@@ -25,6 +27,7 @@ import {
 } from "../infra/theme-zip";
 
 interface PendingImport {
+  reasoningImages?: ReasoningImageBytes;
   record: ThemeRecord;
   image: Buffer;
   signaturePresent: boolean;
@@ -112,6 +115,7 @@ export class ThemeService {
   async chooseBackground(
     libraryId: string,
     expectedRevision: number,
+    reasoningEffort?: ReasoningEffort,
   ): Promise<Result<ThemeDetail>> {
     const window = this.mainWindow();
     if (!window) return this.error("UNKNOWN", "window.unavailable");
@@ -124,13 +128,41 @@ export class ThemeService {
     try {
       const data = await readImageFileBounded(selected.filePaths[0]);
       const image = await validateImage(data, selected.filePaths[0]);
-      const record = await this.store.setBackground(
+      const record = reasoningEffort
+        ? await this.store.setReasoningBackground(
+            libraryId,
+            expectedRevision,
+            reasoningEffort,
+            data,
+            selected.filePaths[0],
+          )
+        : await this.store.setBackground(
+            libraryId,
+            expectedRevision,
+            selected.filePaths[0],
+            data,
+            image.mime,
+            image.sha256,
+          );
+      return {
+        ok: true,
+        data: this.store.getDetail(record.libraryId, "app://theme-asset")!,
+      };
+    } catch (error) {
+      return this.fromError(error);
+    }
+  }
+
+  async clearReasoningBackground(
+    libraryId: string,
+    expectedRevision: number,
+    reasoningEffort: ReasoningEffort,
+  ): Promise<Result<ThemeDetail>> {
+    try {
+      const record = await this.store.setReasoningBackground(
         libraryId,
         expectedRevision,
-        selected.filePaths[0],
-        data,
-        image.mime,
-        image.sha256,
+        reasoningEffort,
       );
       return {
         ok: true,
@@ -291,6 +323,7 @@ export class ThemeService {
         this.pendingImports.set(transactionId, {
           record: parsed.record,
           image: parsed.image,
+          reasoningImages: parsed.reasoningImages,
           signaturePresent: parsed.signaturePresent,
           conflictLibraryId: idConflict.libraryId,
           conflictRevision: idConflict.revision,
@@ -309,7 +342,11 @@ export class ThemeService {
           },
         };
       }
-      await this.store.addImported(parsed.record, parsed.image);
+      await this.store.addImported(
+        parsed.record,
+        parsed.image,
+        parsed.reasoningImages,
+      );
       return {
         ok: true,
         data: importSummary(parsed, false, nameCollision),
@@ -339,7 +376,11 @@ export class ThemeService {
           ...pending.record.json,
           image: pending.record.backgroundFile,
         };
-        await this.store.addImported(pending.record, pending.image);
+        await this.store.addImported(
+          pending.record,
+          pending.image,
+          pending.reasoningImages,
+        );
       } else {
         if (!replaceLibraryId || expectedRevision === undefined)
           return this.error("IPC_INVALID", "import.replaceArguments");
@@ -366,6 +407,7 @@ export class ThemeService {
           expectedRevision,
           pending.record,
           pending.image,
+          pending.reasoningImages,
         );
       }
       this.pendingImports.delete(transactionId);
@@ -411,7 +453,13 @@ export class ThemeService {
     try {
       if (format === "formal")
         await writeFormalZip(selected.filePath, record, image);
-      else await writeSimplifiedZip(selected.filePath, record, image);
+      else
+        await writeSimplifiedZip(
+          selected.filePath,
+          record,
+          image,
+          this.store.getReasoningBackgrounds(libraryId),
+        );
       return { ok: true, data: { cancelled: false, format } };
     } catch (error) {
       return this.fromError(error);
@@ -440,12 +488,16 @@ export class ThemeService {
     return { ok: true, data: this.snapshot() };
   }
 
-  asset(libraryId: string): Buffer | undefined {
-    return this.store.getBackground(libraryId);
+  asset(libraryId: string, effort?: ReasoningEffort): Buffer | undefined {
+    return effort
+      ? this.store.getReasoningBackgrounds(libraryId)[effort]
+      : this.store.getBackground(libraryId);
   }
 
-  assetMime(libraryId: string): string | undefined {
-    return this.store.get(libraryId)?.backgroundMime;
+  assetMime(libraryId: string, effort?: ReasoningEffort): string | undefined {
+    return effort
+      ? this.store.get(libraryId)?.reasoningBackgrounds?.[effort]?.mime
+      : this.store.get(libraryId)?.backgroundMime;
   }
 
   private fromError(error: unknown): Result<never> {

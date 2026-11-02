@@ -32,6 +32,11 @@ const api: CodexStyleApi = {
     invoke("theme.discardChanges", { v: PROTOCOL_VERSION, ...request }),
   chooseBackground: (request) =>
     invoke("theme.chooseBackground", { v: PROTOCOL_VERSION, ...request }),
+  clearReasoningBackground: (request) =>
+    invoke("theme.clearReasoningBackground", {
+      v: PROTOCOL_VERSION,
+      ...request,
+    }),
   chooseSendIcon: (request) =>
     invoke("theme.chooseSendIcon", { v: PROTOCOL_VERSION, ...request }),
   chooseHomeCardImage: (request) =>

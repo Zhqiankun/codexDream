@@ -34,11 +34,20 @@ import {
 import { validateSafeCss } from "./safe-css";
 import sharp from "sharp";
 import { validateImage } from "./image";
+import {
+  ReasoningImages,
+  records as reasoningRecords,
+  reasoningReferences,
+  validReasoningImages,
+  type ReasoningImageBytes,
+} from "./reasoning-images";
+import { isReasoningEffort, type ReasoningEffort } from "../../contracts";
 import type {
   BundledPresetSource,
   PreparedBundledPresetPack,
   PreparedBundledPresetTheme,
 } from "./bundled-presets";
+import { MASCOT_BUNDLED_PRESET_PACK_ID } from "./bundled-presets";
 import {
   MANAGED_FILES,
   SecureManagedStore,
@@ -92,6 +101,7 @@ export class LocalThemeStore {
   readonly managedStore: SecureManagedStore;
   private index: ThemeIndex = createDefaultIndex();
   private backgrounds = new Map<string, Buffer>();
+  private readonly reasoningImages: ReasoningImages;
 
   constructor(
     root: string,
@@ -99,6 +109,9 @@ export class LocalThemeStore {
   ) {
     this.root = root;
     this.managedStore = SecureManagedStore.open(root);
+    this.reasoningImages = new ReasoningImages(this.managedStore, (extension) =>
+      this.allocateManagedImageFile(extension),
+    );
   }
 
   async init(): Promise<void> {
@@ -200,6 +213,10 @@ export class LocalThemeStore {
 
   getBackground(libraryId: string): Buffer | undefined {
     return this.backgrounds.get(libraryId);
+  }
+  getReasoningBackgrounds(libraryId: string): ReasoningImageBytes {
+    const record = this.get(libraryId);
+    return record ? this.reasoningImages.get(record) : {};
   }
 
   async createDraft(name = "Untitled theme"): Promise<ThemeRecord> {
@@ -328,6 +345,7 @@ export class LocalThemeStore {
       if (!written || !written.equals(sourceImage))
         throw new Error("STORE_TAMPERED:theme-file-write");
       this.backgrounds.set(libraryId, Buffer.from(written));
+      await this.reasoningImages.copy(record);
       this.index.themes.unshift(record);
       persistAttempted = true;
       await this.persist();
@@ -375,6 +393,8 @@ export class LocalThemeStore {
         if (patch.sidebarOverlayOpacity !== undefined)
           theme.sidebarOverlayOpacity = patch.sidebarOverlayOpacity;
         const configuration = readThemeConfiguration(theme.json);
+        if (patch.backgroundMode !== undefined)
+          configuration.backgroundMode = patch.backgroundMode;
         if (patch.appearance !== undefined)
           configuration.appearance = patch.appearance;
         if (patch.art !== undefined) configuration.art = { ...patch.art };
@@ -499,6 +519,51 @@ export class LocalThemeStore {
       }
       throw error;
     }
+  }
+
+  async setReasoningBackground(
+    libraryId: string,
+    expectedRevision: number,
+    effort: ReasoningEffort,
+    data?: Buffer,
+    fileName?: string,
+  ): Promise<ThemeRecord> {
+    const theme = this.require(libraryId);
+    if (theme.revision !== expectedRevision) throw new Error("STALE_REVISION");
+    if (!isReasoningEffort(effort))
+      throw new Error("UNSAFE_IMAGE:reasoning-effort");
+    await this.reasoningImages.validate(theme);
+    const info =
+      data && fileName ? await validateImage(data, fileName) : undefined;
+    return this.mutateWithCheckpoint(libraryId, async () => {
+      const images = this.reasoningImages.get(theme);
+      theme.reasoningBackgrounds = { ...theme.reasoningBackgrounds };
+      if (info && data) {
+        // stage 会分配新文件；此临时名字只提供经过解码验证的扩展名。
+        theme.reasoningBackgrounds[effort] = {
+          file: `${randomUUID()}.${info.extension}`,
+          mime: info.mime,
+          sha256: info.sha256,
+          bytes: info.bytes,
+        };
+        images[effort] = data;
+      } else {
+        delete theme.reasoningBackgrounds[effort];
+        delete images[effort];
+      }
+      await this.reasoningImages.stage(theme, images);
+      theme.status = "draft";
+      theme.validation.package = "draft";
+      theme.revision += 1;
+      theme.updatedAt = new Date().toISOString();
+      if (theme.importedFormal) {
+        theme.importedFormal.edited = true;
+        theme.packageFormat = "simplified";
+      }
+      if (this.index.lastKnownGoodLibraryId === libraryId)
+        this.index.lastKnownGoodLibraryId = undefined;
+      return theme;
+    });
   }
 
   async commit(
@@ -750,7 +815,13 @@ export class LocalThemeStore {
   }
 
   async selectedReadyForInjection(): Promise<ThemeRecord | undefined> {
-    const theme = this.selected();
+    const libraryId = this.index.selectedLibraryId;
+    return libraryId ? this.readyForInjection(libraryId) : undefined;
+  }
+
+  // 当前会话与下次启动选择独立；两条注入路径复用相同的 payload 和指纹复验。
+  async readyForInjection(libraryId: string): Promise<ThemeRecord | undefined> {
+    const theme = this.get(libraryId);
     if (!theme) return undefined;
     if (theme.status !== "ready") throw new Error("INCOMPLETE_THEME");
     await this.validateThemePayload(theme);
@@ -780,6 +851,7 @@ export class LocalThemeStore {
     expectedRevision: number,
     replacement: ThemeRecord,
     image: Buffer,
+    reasoningImages: ReasoningImageBytes = {},
   ): Promise<void> {
     const index = this.index.themes.findIndex(
       (theme) => theme.libraryId === libraryId,
@@ -820,6 +892,7 @@ export class LocalThemeStore {
         : previousImage;
     let persistAttempted = false;
     try {
+      await this.reasoningImages.stage(nextReplacement, reasoningImages);
       this.managedStore.writeFileAtomic(
         managedThemeFile(replacementFile),
         image,
@@ -872,7 +945,11 @@ export class LocalThemeStore {
     }
   }
 
-  async addImported(record: ThemeRecord, image: Buffer): Promise<void> {
+  async addImported(
+    record: ThemeRecord,
+    image: Buffer,
+    reasoningImages: ReasoningImageBytes = {},
+  ): Promise<void> {
     if (
       this.get(record.libraryId) ||
       this.managedImageIds().has(record.libraryId)
@@ -894,6 +971,7 @@ export class LocalThemeStore {
     let imageWriteAttempted = false;
     let persistAttempted = false;
     try {
+      await this.reasoningImages.stage(record, reasoningImages);
       imageWriteAttempted = true;
       this.managedStore.writeFileAtomic(importedFile, image);
       this.backgrounds.set(record.libraryId, Buffer.from(image));
@@ -949,10 +1027,12 @@ export class LocalThemeStore {
       if (!backgroundFile)
         throw new Error("STORE_TAMPERED:checkpoint-file-conflict");
     }
+    const record = cloneThemeRecord(theme);
+    await this.reasoningImages.copy(record);
     return {
       checkpoint: {
         libraryId: theme.libraryId,
-        record: cloneThemeRecord(theme),
+        record,
         backgroundFile,
         wasLastKnownGood: this.index.lastKnownGoodLibraryId === theme.libraryId,
         createdAt: new Date().toISOString(),
@@ -1021,6 +1101,11 @@ export class LocalThemeStore {
         ...this.index.themes.map((theme) => theme.backgroundFile),
         ...this.index.checkpoints.map(
           (checkpoint) => checkpoint.backgroundFile,
+        ),
+        ...reasoningRecords(this.index).flatMap((record) =>
+          Object.values(record.reasoningBackgrounds ?? {}).map(
+            (image) => image.file,
+          ),
         ),
       ]
         .filter((file): file is string => Boolean(file))
@@ -1104,9 +1189,11 @@ export class LocalThemeStore {
   private captureState(): {
     index: ThemeIndex;
     backgrounds: Map<string, Buffer>;
+    reasoningImages: Map<string, Buffer>;
   } {
     return {
       index: JSON.parse(JSON.stringify(this.index)) as ThemeIndex,
+      reasoningImages: this.reasoningImages.snapshot(),
       backgrounds: new Map(
         [...this.backgrounds].map(([id, image]) => [id, Buffer.from(image)]),
       ),
@@ -1116,13 +1203,22 @@ export class LocalThemeStore {
   private restoreState(state: {
     index: ThemeIndex;
     backgrounds: Map<string, Buffer>;
+    reasoningImages: Map<string, Buffer>;
   }): void {
+    this.reasoningImages.restore(state.reasoningImages);
     this.index = state.index;
     this.backgrounds = state.backgrounds;
+    const persisted = this.managedStore.readFile(MANAGED_FILES.index);
+    if (!persisted || indexPayloadMatches(persisted, state.index))
+      this.reasoningImages.cleanup(state.index);
   }
 
   private async rollbackBackgroundMutation(
-    before: { index: ThemeIndex; backgrounds: Map<string, Buffer> },
+    before: {
+      index: ThemeIndex;
+      backgrounds: Map<string, Buffer>;
+      reasoningImages: Map<string, Buffer>;
+    },
     fileName: string,
     backgroundWriteAttempted: boolean,
     persistAttempted: boolean,
@@ -1151,6 +1247,7 @@ export class LocalThemeStore {
       }
     }
     await this.removeTransactionArtifacts(index);
+    this.reasoningImages.cleanup(index);
     const restored = this.managedStore.readFile(MANAGED_FILES.index);
     if (!restored || !indexPayloadMatches(restored, index))
       throw new Error("STORE_TAMPERED:index-rollback");
@@ -1263,6 +1360,7 @@ export class LocalThemeStore {
   }
 
   private async validateStoredImage(theme: ThemeRecord): Promise<void> {
+    await this.reasoningImages.validate(theme);
     if (
       !theme.backgroundFile ||
       !theme.backgroundMime ||
@@ -1304,6 +1402,7 @@ export class LocalThemeStore {
     )
       throw new Error("STORE_TAMPERED:checkpoint");
     await this.readCheckpointBackground(checkpoint);
+    await this.reasoningImages.validate(checkpoint.record);
   }
 
   private async readCheckpointBackground(
@@ -1399,6 +1498,13 @@ export class LocalThemeStore {
         managedImageIds.add(checkpointImageId!);
       }
     }
+    for (const record of reasoningRecords(this.index))
+      for (const image of Object.values(record.reasoningBackgrounds ?? {})) {
+        const imageId = managedImageId(image.file);
+        if (managedImageIds.has(imageId) || ids.has(imageId))
+          throw new Error("STORE_TAMPERED:reasoning-image-alias");
+        managedImageIds.add(imageId);
+      }
   }
 
   private async installBundledPresetPacks(): Promise<void> {
@@ -1448,6 +1554,8 @@ export class LocalThemeStore {
           (theme) => theme.themeId === preset.themeId,
         );
         if (existing) {
+          // 本增量包沿用先前用户导入的 UUID；同 ID 的编辑项也必须原样保留。
+          if (pack.packId === MASCOT_BUNDLED_PRESET_PACK_ID) continue;
           if (!replacesInstalledPack)
             throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-id-conflict");
           if (this.canUpgradeBundledPreset(existing, preset)) {
@@ -1487,7 +1595,7 @@ export class LocalThemeStore {
         )
           continue;
 
-        const record = this.createBundledPresetRecord(preset);
+        const record = await this.createBundledPresetRecord(preset);
         const duplicate = this.index.themes.find(
           (theme) =>
             theme.status === "ready" &&
@@ -1507,6 +1615,8 @@ export class LocalThemeStore {
         if (!written || !written.equals(preset.imageBytes))
           throw new Error("STORE_TAMPERED:preset-file-write");
         this.backgrounds.set(record.libraryId, Buffer.from(written));
+        await this.reasoningImages.stage(record, preset.reasoningImages ?? {});
+        record.fingerprint = this.fingerprint(record);
         this.index.themes.push(record);
       }
 
@@ -1596,9 +1706,9 @@ export class LocalThemeStore {
       throw new Error("BUNDLED_PRESET_PACK_INVALID:upgraded-theme-record");
   }
 
-  private createBundledPresetRecord(
+  private async createBundledPresetRecord(
     preset: PreparedBundledPresetTheme,
-  ): ThemeRecord {
+  ): Promise<ThemeRecord> {
     const libraryId = this.allocateLibraryId();
     const backgroundFile = this.allocateManagedImageFile(
       preset.imageInfo.extension,
@@ -1643,6 +1753,28 @@ export class LocalThemeStore {
         warnings: [],
       },
     };
+    if (preset.reasoningBackgrounds) {
+      record.reasoningBackgrounds = {};
+      for (const [effort, asset] of Object.entries(
+        preset.reasoningBackgrounds,
+      )) {
+        if (!isReasoningEffort(effort))
+          throw new Error("BUNDLED_PRESET_PACK_INVALID:reasoning-effort");
+        const bytes = preset.reasoningImages?.[effort];
+        if (!bytes)
+          throw new Error("BUNDLED_PRESET_PACK_INVALID:reasoning-missing");
+        const info = await validateImage(bytes, asset.image);
+        if (info.sha256 !== asset.imageSha256)
+          throw new Error("BUNDLED_PRESET_PACK_INVALID:reasoning-image-hash");
+        record.reasoningBackgrounds[effort] = {
+          file: this.allocateManagedImageFile(info.extension),
+          mime: info.mime,
+          sha256: info.sha256,
+          bytes: info.bytes,
+        };
+      }
+      record.json.reasoningBackgrounds = reasoningReferences(record);
+    }
     record.fingerprint = this.fingerprint(record);
     return record;
   }
@@ -1651,10 +1783,13 @@ export class LocalThemeStore {
     preset: PreparedBundledPresetTheme,
   ): ThemeConfiguration {
     return {
+      backgroundMode: preset.backgroundMode ?? "normal",
       appearance: preset.appearance,
       art: { ...preset.art },
       colors: { ...preset.colors },
-      homeCards: createDefaultThemeHomeCards(preset.colors.homeCardBackground),
+      homeCards: preset.homeCards
+        ? cloneThemeHomeCards(preset.homeCards)
+        : createDefaultThemeHomeCards(preset.colors.homeCardBackground),
       styleConfig: {
         ...preset.style,
         recipes: { ...preset.style.recipes },
@@ -1763,6 +1898,9 @@ export class LocalThemeStore {
   }
 
   private async persist(): Promise<void> {
+    for (const record of reasoningRecords(this.index))
+      if (!validReasoningImages(record))
+        throw new Error("UNSAFE_IMAGE:reasoning-metadata-or-total-size");
     const payload = JSON.stringify(this.index, null, 2);
     const payloadBuffer = Buffer.from(payload, "utf8");
     const release = await this.acquireLock();
@@ -1786,6 +1924,7 @@ export class LocalThemeStore {
       if (!written) throw new Error("STORE_TAMPERED:index-write");
       if (sha256(written) !== journal.afterSha256)
         throw new Error("STORE_TAMPERED:index-write");
+      this.reasoningImages.cleanup(this.index);
       // A stale journal is recoverable because the committed hash was read
       // back successfully. Never report this as a failed mutation.
       try {
@@ -2023,6 +2162,7 @@ function isThemeRecord(value: unknown): value is ThemeRecord {
   )
     return false;
   const configuration = readThemeConfiguration(theme.json);
+  if (!validReasoningImages(theme as ThemeRecord)) return false;
   if (
     configuration.styleConfig.mode === "configured" &&
     theme.css !== generateConfiguredCss(configuration.styleConfig)
@@ -2184,6 +2324,8 @@ function withPresentationDefaults(index: StoredThemeIndex): ThemeIndex {
 }
 
 const EDITABLE_THEME_KEYS = new Set([
+  "backgroundMode",
+  "reasoningBackgrounds",
   "schemaVersion",
   "id",
   "name",
@@ -2218,6 +2360,8 @@ function applyThemeJsonSource(theme: ThemeRecord, source: string): void {
   if (!isRecord(parsed)) throw new Error("UNSAFE_ARCHIVE:theme-json-fields");
   if (Object.keys(parsed).some((key) => !EDITABLE_THEME_KEYS.has(key)))
     throw new Error("UNSAFE_ARCHIVE:theme-json-fields");
+  if (!validReasoningImages({ ...theme, json: parsed }))
+    throw new Error("UNSAFE_ARCHIVE:reasoning-reference");
   if (
     parsed.schemaVersion !== 1 ||
     !boundedString(parsed.id, 1, 80) ||
@@ -2258,6 +2402,8 @@ function applyThemeJsonSource(theme: ThemeRecord, source: string): void {
     throw new Error("UNSAFE_ARCHIVE:theme-json-fields");
 
   const configuration: ThemeConfiguration = {
+    backgroundMode:
+      parsed.backgroundMode === "reasoning" ? "reasoning" : "normal",
     appearance: parsed.appearance,
     art: { ...parsed.art },
     colors: readThemeConfiguration(parsed).colors,

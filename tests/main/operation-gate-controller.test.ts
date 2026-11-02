@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppController } from "../../src/main/app/controller";
 import { MainOperationGate } from "../../src/main/app/operation-gate";
-import type { UpdateSnapshot } from "../../src/contracts";
+import type { ThemeLiveApplyResult, UpdateSnapshot } from "../../src/contracts";
 
 type RegisteredHandler = (event: unknown, payload: unknown) => Promise<unknown>;
 
@@ -50,7 +50,7 @@ describe("AppController operation gate", () => {
     });
     registerIpc(fixture.controller);
 
-    const ipcLaunch = handlers.get("session.launch")!(trustedEvent(), { v: 6 });
+    const ipcLaunch = handlers.get("session.launch")!(trustedEvent(), { v: 8 });
     await Promise.resolve();
     const trayLaunch = fixture.controller.launch();
     await Promise.resolve();
@@ -119,10 +119,10 @@ describe("AppController operation gate", () => {
     });
     registerIpc(fixture.controller);
 
-    const launch = handlers.get("session.launch")!(trustedEvent(), { v: 6 });
+    const launch = handlers.get("session.launch")!(trustedEvent(), { v: 8 });
     await Promise.resolve();
     const pause = fixture.controller.pause();
-    const end = handlers.get("session.endOwned")!(trustedEvent(), { v: 6 });
+    const end = handlers.get("session.endOwned")!(trustedEvent(), { v: 8 });
     const quit = fixture.controller.requestQuit();
     const install = fixture.controller.installUpdate("now");
 
@@ -159,7 +159,7 @@ describe("AppController operation gate", () => {
     registerIpc(fixture.controller);
 
     const result = await handlers.get("session.launch")!(trustedEvent(), {
-      v: 6,
+      v: 8,
     });
 
     expect(result).toEqual({
@@ -206,6 +206,176 @@ describe("AppController operation gate", () => {
       error: { code: "THEME_IN_USE", messageKey: "theme.inUse" },
     });
     expect(fixture.themeService.delete).not.toHaveBeenCalled();
+  });
+
+  it("commits first and reads the saved theme for live application independently of selection", async () => {
+    const fixture = controllerFixture();
+    const libraryId = "11111111-1111-4111-8111-111111111111";
+    const savedTheme = { libraryId, revision: 4, status: "ready" };
+    const record = { libraryId, fingerprint: "saved-fingerprint" };
+    const image = Buffer.from([0]);
+    fixture.themeService.commit.mockResolvedValue({
+      ok: true,
+      data: savedTheme,
+    });
+    fixture.store.readyForInjection.mockResolvedValue(record);
+    fixture.store.getBackground.mockReturnValue(image);
+    fixture.session.applySavedTheme.mockImplementation(
+      async (_id: string, loadTheme: () => Promise<unknown>) => {
+        expect(await loadTheme()).toEqual({ record, image });
+        return { status: "applied" };
+      },
+    );
+
+    expect(await fixture.controller.commitTheme(libraryId, 3)).toEqual({
+      ok: true,
+      data: { theme: savedTheme, liveApply: { status: "applied" } },
+    });
+    expect(fixture.themeService.commit).toHaveBeenCalledWith(libraryId, 3);
+    expect(fixture.store.readyForInjection).toHaveBeenCalledWith(libraryId);
+    expect(fixture.store.getBackground).toHaveBeenCalledWith(libraryId);
+    expect(
+      fixture.themeService.commit.mock.invocationCallOrder[0],
+    ).toBeLessThan(fixture.session.applySavedTheme.mock.invocationCallOrder[0]);
+  });
+
+  it("never applies when the persistent commit fails", async () => {
+    const fixture = controllerFixture();
+    const failure = {
+      ok: false,
+      error: { code: "STALE_REVISION", messageKey: "theme.staleRevision" },
+    };
+    fixture.themeService.commit.mockResolvedValue(failure);
+    expect(await fixture.controller.commitTheme("theme-id", 3)).toEqual(
+      failure,
+    );
+    expect(fixture.session.applySavedTheme).not.toHaveBeenCalled();
+    expect(fixture.store.readyForInjection).not.toHaveBeenCalled();
+  });
+
+  it("passes verified slot images to live application and preserves the committed result if an asset disappears", async () => {
+    const fixture = controllerFixture();
+    const libraryId = "11111111-1111-4111-8111-111111111111";
+    const savedTheme = { libraryId, revision: 4, status: "ready" };
+    const record = {
+      libraryId,
+      reasoningBackgrounds: { ultra: { mime: "image/png" } },
+    };
+    fixture.themeService.commit.mockResolvedValue({
+      ok: true,
+      data: savedTheme,
+    });
+    fixture.store.readyForInjection.mockResolvedValue(record);
+    fixture.store.getBackground.mockReturnValue(Buffer.from("normal"));
+    fixture.store.getReasoningBackgrounds.mockReturnValue({
+      ultra: Buffer.from("ultra"),
+    });
+    fixture.session.applySavedTheme.mockImplementation(
+      async (_id: string, loadTheme: () => Promise<unknown>) => {
+        expect(await loadTheme()).toMatchObject({
+          reasoningBackgroundDataUrls: {
+            ultra: "data:image/png;base64,dWx0cmE=",
+          },
+        });
+        return { status: "applied" };
+      },
+    );
+    expect(await fixture.controller.commitTheme(libraryId, 3)).toMatchObject({
+      ok: true,
+      data: { liveApply: { status: "applied" } },
+    });
+    fixture.store.getReasoningBackgrounds.mockReturnValue({});
+    expect(await fixture.controller.commitTheme(libraryId, 3)).toMatchObject({
+      ok: true,
+      data: { theme: savedTheme, liveApply: { status: "failed" } },
+    });
+  });
+
+  it.each([
+    { status: "skipped", reason: "no-session" },
+    { status: "skipped", reason: "different-theme" },
+    { status: "skipped", reason: "paused" },
+    { status: "failed", reason: "verification" },
+    { status: "failed", reason: "injection" },
+  ] satisfies ThemeLiveApplyResult[])(
+    "retains successful persistence when live application returns %j",
+    async (liveApply) => {
+      const fixture = controllerFixture();
+      const savedTheme = { libraryId: "saved-theme", revision: 4 };
+      fixture.themeService.commit.mockResolvedValue({
+        ok: true,
+        data: savedTheme,
+      });
+      fixture.session.applySavedTheme.mockResolvedValue(liveApply);
+      expect(
+        await fixture.controller.commitTheme(savedTheme.libraryId, 3),
+      ).toEqual({
+        ok: true,
+        data: { theme: savedTheme, liveApply },
+      });
+    },
+  );
+
+  it("retains successful persistence even when live application unexpectedly rejects", async () => {
+    const fixture = controllerFixture();
+    const savedTheme = { libraryId: "saved-theme", revision: 4 };
+    fixture.themeService.commit.mockResolvedValue({
+      ok: true,
+      data: savedTheme,
+    });
+    fixture.session.applySavedTheme.mockRejectedValue(new Error("unexpected"));
+    expect(
+      await fixture.controller.commitTheme(savedTheme.libraryId, 3),
+    ).toEqual({
+      ok: true,
+      data: {
+        theme: savedTheme,
+        liveApply: { status: "failed", reason: "injection" },
+      },
+    });
+  });
+
+  it("holds the operation gate until live application settles and broadcasts its final session state", async () => {
+    const fixture = controllerFixture({
+      canEnd: true,
+      state: "THEMED_SESSION",
+    });
+    fixture.themeService.commit.mockResolvedValue({
+      ok: true,
+      data: { libraryId: "saved-theme", revision: 4 },
+    });
+    let finish!: () => void;
+    fixture.session.applySavedTheme.mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      fixture.state.state = "ORPHANED";
+      fixture.state.canEnd = false;
+      return { status: "failed", reason: "verification" };
+    });
+    const commit = fixture.controller.commitTheme("saved-theme", 3);
+    await vi.waitFor(() =>
+      expect(fixture.session.applySavedTheme).toHaveBeenCalledOnce(),
+    );
+    for (const result of await Promise.all([
+      fixture.controller.pauseSession(),
+      fixture.controller.endOwnedSession(),
+      fixture.controller.launchSession(),
+    ]))
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: "OPERATION_BUSY" },
+      });
+    expect(fixture.session.pause).not.toHaveBeenCalled();
+    expect(fixture.session.endOwned).not.toHaveBeenCalled();
+    expect(fixture.session.launch).not.toHaveBeenCalled();
+    finish();
+    expect(await commit).toMatchObject({
+      ok: true,
+      data: { liveApply: { status: "failed" } },
+    });
+    expect(fixture.broadcast).toHaveBeenCalledOnce();
+    expect(fixture.broadcast.mock.calls[0][0].session.state).toBe("ORPHANED");
   });
 
   it("ends an owned Codex session before starting an immediate update", async () => {
@@ -312,6 +482,7 @@ function controllerFixture(
     pause: vi.fn(),
     resume: vi.fn(),
     endOwned: vi.fn(),
+    applySavedTheme: vi.fn(),
     snapshot: vi.fn(() => state),
   };
   const updateState: UpdateSnapshot = {
@@ -330,8 +501,15 @@ function controllerFixture(
   }));
   const broadcast = vi.fn();
   const themeService = {
+    commit: vi.fn(),
     delete: vi.fn(),
     setPaused: vi.fn().mockResolvedValue({ ok: true }),
+  };
+  const store = {
+    setPaused: vi.fn().mockResolvedValue(undefined),
+    readyForInjection: vi.fn(),
+    getBackground: vi.fn(),
+    getReasoningBackgrounds: vi.fn(),
   };
   const controller = Object.create(AppController.prototype) as AppController;
   const updateService = {
@@ -350,7 +528,7 @@ function controllerFixture(
     },
     platform,
     session,
-    store: { setPaused: vi.fn().mockResolvedValue(undefined) },
+    store,
     themeService,
     updateService,
     snapshot,
@@ -364,6 +542,7 @@ function controllerFixture(
     state,
     broadcast,
     themeService,
+    store,
     updateService,
   };
 }

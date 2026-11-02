@@ -5,7 +5,9 @@ import {
   resolveSidebarSurface,
   themeTokenDeclarations,
   builtInSendIconMask,
+  REASONING_EFFORTS,
   type BackgroundScope,
+  type ReasoningEffort,
   type ThemeConfiguration,
 } from "../../contracts";
 import {
@@ -21,6 +23,7 @@ import {
   MAIN_TOP_FADE_SELECTOR,
   MARKDOWN_DOCUMENT_SELECTOR,
   PAGE_SEARCH_RAIL_SELECTOR,
+  REASONING_EFFORT_CONTROL_SELECTOR,
   SELECTOR_PARTS,
   THINKING_LABEL_SELECTOR,
   THREAD_BOTTOM_FADE_SELECTOR,
@@ -35,6 +38,9 @@ interface PayloadConfig {
   marker: string;
   css: string;
   artDataUrl: string;
+  backgroundMode: "normal" | "reasoning";
+  reasoningBackgroundDataUrls: Partial<Record<ReasoningEffort, string>>;
+  reasoningControlSelector: string;
   backgroundScope: BackgroundScope;
   sidebarSurface: string;
   sidebarSurfaceTransparent: boolean;
@@ -71,6 +77,7 @@ interface PayloadConfig {
 export interface ThemePayloadSettings extends ThemeConfiguration {
   backgroundScope: BackgroundScope;
   sidebarOverlayOpacity: number;
+  reasoningBackgroundDataUrls?: Partial<Record<ReasoningEffort, string>>;
 }
 
 /**
@@ -92,6 +99,17 @@ export function buildThemePayload(
     marker,
     css,
     artDataUrl,
+    backgroundMode: settings.backgroundMode ?? "normal",
+    reasoningBackgroundDataUrls:
+      settings.backgroundMode === "reasoning" && settings.art.taskMode !== "off"
+        ? Object.fromEntries(
+            REASONING_EFFORTS.flatMap((effort) => {
+              const image = settings.reasoningBackgroundDataUrls?.[effort];
+              return image ? [[effort, image]] : [];
+            }),
+          )
+        : {},
+    reasoningControlSelector: REASONING_EFFORT_CONTROL_SELECTOR,
     backgroundScope: settings.backgroundScope,
     sidebarSurface: sidebarSurface.color,
     sidebarSurfaceTransparent: sidebarSurface.transparent,
@@ -130,14 +148,24 @@ export function buildThemePayload(
   };
   return `(() => {
     const config = ${JSON.stringify(config)};
+    const install = () => {
     const ownerAttribute = "data-codexstyle-owner";
     const partAttribute = "data-ds-part";
     const partMarkerAttribute = "data-codexstyle-part";
     const styleMarkerAttribute = "data-codexstyle-style";
     const homeCardIndexAttribute = "data-codexstyle-home-card-index";
     const observingAttribute = "data-codexstyle-observing";
+    const lifecycleEvent = "codexstyle:replace-theme-runtime";
     const styleSelector = 'style[' + styleMarkerAttribute + '="1"][' + ownerAttribute + '="' + config.marker + '"]';
     const ownedPartSelector = '[' + partAttribute + '][' + ownerAttribute + '="' + config.marker + '"]';
+    const initialRoot = document.documentElement;
+    const foreignOwner = (node) => (node.hasAttribute(partAttribute) || node.hasAttribute(ownerAttribute)) && node.getAttribute(ownerAttribute) !== config.marker;
+    if (location.protocol !== "app:" || !initialRoot || foreignOwner(initialRoot)) return false;
+    const previousStyle = document.querySelector(styleSelector);
+    // 只通过数据事件通知旧注入闭包退出，不读取或执行页面提供的全局 cleanup 函数。
+    const retirement = { marker: config.marker, stopped: false };
+    document.dispatchEvent(new CustomEvent(lifecycleEvent, { detail: retirement }));
+    if (previousStyle?.getAttribute(observingAttribute) === config.marker && !retirement.stopped) return false;
     const relationalSelectors = config.parts.map(([, selector]) => selector).filter(selector => selector.includes(":has("));
     const relationIndexes = new Map(relationalSelectors.map((selector, index) => [selector, index]));
     const relationSignatures = new WeakMap();
@@ -146,10 +174,15 @@ export function buildThemePayload(
     const ancestors = new Set();
     const removedRoots = new Set();
     let timer;
+    let observer;
+    let active = true;
+    const reasoningEnabled = config.backgroundMode === "reasoning" && config.art.taskMode !== "off" && Object.keys(config.reasoningBackgroundDataUrls).length > 0;
+    const reasoningControls = new Set();
+    let reasoningStyle;
 
     const setPart = (node, part) => {
       if (!node || typeof node.setAttribute !== "function") return;
-      if (node.hasAttribute(partAttribute) && node.getAttribute(ownerAttribute) !== config.marker) return;
+      if (foreignOwner(node)) return;
       if (node.getAttribute(ownerAttribute) !== config.marker) {
         node.setAttribute(ownerAttribute, config.marker);
       }
@@ -223,6 +256,8 @@ export function buildThemePayload(
     const collectChanges = (records) => {
       for (const record of records) {
         if (record.type === "attributes") {
+          // 切档只更新背景覆盖层，不触发其他主题节点的重新映射。
+          if (record.attributeName === "data-selected-reasoning-effort") continue;
           if (record.target.getAttribute(record.attributeName) === record.oldValue) continue;
           dirtyRoots.add(record.target);
           queueAncestors(record.target.parentElement);
@@ -272,11 +307,24 @@ export function buildThemePayload(
       });
     };
 
+    const backgroundImageFor = (image) => {
+      if (config.art.taskMode === "off") return "none";
+      const taskLayer = config.art.taskMode === "ambient"
+        ? 'linear-gradient(rgb(2 6 23 / 0.18), rgb(2 6 23 / 0.36)), '
+        : '';
+      const safeAreaLayer = config.art.safeArea === "left"
+        ? 'linear-gradient(90deg, rgb(2 6 23 / 0.42), transparent 38%), '
+        : config.art.safeArea === "right"
+          ? 'linear-gradient(270deg, rgb(2 6 23 / 0.42), transparent 38%), '
+          : '';
+      return taskLayer + safeAreaLayer + 'url("' + image + '")';
+    };
+
     const apply = (initial = false) => {
-      if (location.protocol !== "app:") return false;
+      if (!active || location.protocol !== "app:") return false;
       const root = document.documentElement;
       if (!root) return false;
-      if (root.hasAttribute(partAttribute) && root.getAttribute(ownerAttribute) !== config.marker) {
+      if (foreignOwner(root)) {
         dirtyRoots.clear();
         ancestors.clear();
         removedRoots.clear();
@@ -333,17 +381,7 @@ export function buildThemePayload(
       const tokenDeclarations = config.tokens.map(([property, value]) => property + ': ' + value + ';').join(' ');
       const colorScheme = config.appearance === "auto" ? "light dark" : config.appearance;
       const tokenBridge = rootSelector + ' { ' + tokenDeclarations + ' color-scheme: ' + colorScheme + '; accent-color: var(--ds-theme-color-accent); }';
-      const taskLayer = config.art.taskMode === "ambient"
-        ? 'linear-gradient(rgb(2 6 23 / 0.18), rgb(2 6 23 / 0.36)), '
-        : '';
-      const safeAreaLayer = config.art.safeArea === "left"
-        ? 'linear-gradient(90deg, rgb(2 6 23 / 0.42), transparent 38%), '
-        : config.art.safeArea === "right"
-          ? 'linear-gradient(270deg, rgb(2 6 23 / 0.42), transparent 38%), '
-          : '';
-      const backgroundImage = config.art.taskMode === "off"
-        ? 'none'
-        : taskLayer + safeAreaLayer + 'url("' + config.artDataUrl + '")';
+      const backgroundImage = backgroundImageFor(config.artDataUrl);
       const backgroundTargets = config.backgroundScope === "window"
         ? rootSelector + ', ' + canvasSelector
         : mainSelector;
@@ -592,11 +630,81 @@ export function buildThemePayload(
       return true;
     };
 
+    // 档位来自原生输入控件的明确属性。多个候选时回退普通背景，避免误用其他输入区。
+    const addReasoningControls = (scope) => {
+      let found = false;
+      if (scope.nodeType === 1 && scope.matches(config.reasoningControlSelector)) {
+        reasoningControls.add(scope);
+        found = true;
+      }
+      for (const control of scope.querySelectorAll(config.reasoningControlSelector)) {
+        reasoningControls.add(control);
+        found = true;
+      }
+      return found;
+    };
+    const updateReasoningBackground = () => {
+      const root = document.documentElement;
+      if (!active || location.protocol !== "app:" || !root || foreignOwner(root)) return;
+      const eligible = [];
+      for (const control of reasoningControls) {
+        if (control.getRootNode() !== document || !control.matches(config.reasoningControlSelector)) {
+          reasoningControls.delete(control);
+          continue;
+        }
+        if (control.closest('[hidden], [aria-hidden="true"], [data-codexstyle-owner]:not([data-codexstyle-owner="' + config.marker + '"])')) continue;
+        if (typeof control.checkVisibility === "function" && !control.checkVisibility({ visibilityProperty: true })) continue;
+        eligible.push(control);
+      }
+      const effort = eligible.length === 1 ? eligible[0].getAttribute("data-selected-reasoning-effort") : null;
+      const image = effort && Object.prototype.hasOwnProperty.call(config.reasoningBackgroundDataUrls, effort)
+        ? config.reasoningBackgroundDataUrls[effort] : undefined;
+      if (!reasoningStyle?.isConnected || reasoningStyle.getAttribute(ownerAttribute) !== config.marker) {
+        reasoningStyle = document.createElement("style");
+        reasoningStyle.setAttribute(ownerAttribute, config.marker);
+        reasoningStyle.setAttribute("data-codexstyle-reasoning-background", "1");
+        (document.head || root).appendChild(reasoningStyle);
+      }
+      const target = (part) => '[data-ds-part="' + part + '"][data-codexstyle-owner="' + config.marker + '"][data-codexstyle-part="1"]';
+      const targets = config.backgroundScope === "window" ? target("root") + ', ' + target("canvas") : target("main");
+      const source = image ? targets + ' { background-image: ' + backgroundImageFor(image) + ' !important; }' : '';
+      if (reasoningStyle.textContent !== source) reasoningStyle.textContent = source;
+    };
+    const syncReasoningBackground = (records) => {
+      if (!reasoningEnabled) return;
+      let changed = false;
+      for (const record of records) {
+        if (record.type === "attributes") {
+          if (["data-selected-reasoning-effort", "data-codex-intelligence-trigger", "data-codex-composer-root"].includes(record.attributeName)) {
+            changed = addReasoningControls(record.target) || changed;
+            for (const control of reasoningControls) if (record.target.contains(control)) changed = true;
+          }
+          if (["class", "hidden", "aria-hidden"].includes(record.attributeName)) {
+            for (const control of reasoningControls) if (record.target.contains(control)) changed = true;
+          }
+          continue;
+        }
+        if (record.target === reasoningStyle) changed = true;
+        for (const node of record.addedNodes) {
+          if (node.nodeType === 1 && node.getRootNode() === document) changed = addReasoningControls(node) || changed;
+        }
+        for (const node of record.removedNodes) {
+          if (node === reasoningStyle) changed = true;
+          for (const control of reasoningControls) if (node === control || node.contains(control)) changed = true;
+        }
+      }
+      if (changed) updateReasoningBackground();
+    };
+
     const schedule = () => {
-      if (timer) return;
+      if (!active || timer) return;
       timer = setTimeout(() => { timer = undefined; apply(); }, 80);
     };
     if (!apply(true)) return false;
+    if (reasoningEnabled) {
+      addReasoningControls(document);
+      updateReasoningBackground();
+    }
     const style = ownedStyle();
     if (
       typeof MutationObserver === "function" &&
@@ -604,7 +712,9 @@ export function buildThemePayload(
       style?.getAttribute(observingAttribute) !== config.marker
     ) {
       style?.setAttribute(observingAttribute, config.marker);
-      const observer = new MutationObserver((records) => {
+      observer = new MutationObserver((records) => {
+        if (!active) return;
+        syncReasoningBackground(records);
         syncChangedMessages(records);
         if (collectChanges(records)) schedule();
       });
@@ -613,10 +723,55 @@ export function buildThemePayload(
         subtree: true,
         attributes: true,
         attributeOldValue: true,
-        attributeFilter: ["aria-label", "aria-selected", "class", "id", "role", "data-sticky", "data-app-shell-inline-page-header", "data-language", "data-user-message-bubble", "data-markdown-text-style"],
+        attributeFilter: ["aria-label", "aria-selected", "class", "id", "role", "data-sticky", "data-app-shell-inline-page-header", "data-language", "data-user-message-bubble", "data-markdown-text-style", ...(reasoningEnabled ? ["data-selected-reasoning-effort", "data-codex-intelligence-trigger", "data-codex-composer-root", "hidden", "aria-hidden"] : [])],
       });
     }
+    const retire = (event) => {
+      const request = event.detail;
+      if (!request || typeof request !== "object" || typeof request.marker !== "string") return;
+      // 同 owner 的保存替换旧运行态；页面整体重建后失去根归属的旧闭包也应停止。
+      if (request.marker !== config.marker && initialRoot.getAttribute(ownerAttribute) === config.marker && initialRoot === document.documentElement) return;
+      active = false;
+      if (observer) {
+        collectChanges(observer.takeRecords());
+        observer.disconnect();
+      }
+      if (timer) clearTimeout(timer);
+      document.removeEventListener(lifecycleEvent, retire);
+      if (initialRoot.getAttribute(ownerAttribute) === config.marker) {
+        for (const name of ["data-codexstyle-appearance", "data-codexstyle-safe-area", "data-codexstyle-task-mode"]) initialRoot.removeAttribute(name);
+      }
+      // 保存发生在 mutation 批次前时，移出文档或移入 shadow tree 的旧节点也需要撤销归属。
+      for (const scope of [document, initialRoot, ...removedRoots]) {
+        for (const node of ownedParts(scope)) if (assigned.has(node)) clearPart(node);
+      }
+      if (style?.getAttribute(ownerAttribute) === config.marker) style.remove();
+      if (reasoningStyle?.getAttribute(ownerAttribute) === config.marker) reasoningStyle.remove();
+      reasoningControls.clear();
+      dirtyRoots.clear();
+      ancestors.clear();
+      removedRoots.clear();
+      if (request.marker === config.marker) request.stopped = true;
+    };
+    document.addEventListener(lifecycleEvent, retire);
     return true;
+    };
+    if (location.protocol !== "app:") return false;
+    if (document.documentElement) return install();
+    if (document.readyState !== "loading") return false;
+    // new-document 脚本可能早于 HTML 根节点；当前页面调用仍等待真正安装完成才确认成功。
+    return new Promise(resolve => {
+      const ready = () => {
+        clearTimeout(deadline);
+        try { resolve(install()); } catch { resolve(false); }
+      };
+      // DOM 等待仍限制为 4 秒；较大的 CDP 传输预算不应延长页面就绪等待。
+      const deadline = setTimeout(() => {
+        document.removeEventListener("DOMContentLoaded", ready);
+        resolve(false);
+      }, 4_000);
+      document.addEventListener("DOMContentLoaded", ready, { once: true });
+    });
   })()`;
 }
 

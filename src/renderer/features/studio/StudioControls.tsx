@@ -10,8 +10,10 @@ import {
   type ThemeShadow,
   type ThemeStyleMode,
   type ThemeTaskMode,
+  type ReasoningEffort,
 } from "../../../contracts";
 import { SendIconGlyph } from "./SendIconGlyph";
+import { BackgroundControls } from "./BackgroundControls";
 import { isStudioThemeColor } from "./theme-color-input";
 import {
   applyThemePreset,
@@ -36,6 +38,7 @@ interface StudioControlsProps {
   cssValid: boolean;
   cssContractValid: boolean;
   backgroundKey: string;
+  previewEffort: ReasoningEffort;
   tab: StudioTab;
   themeJsonSource: string;
   themeJsonDirty: boolean;
@@ -43,7 +46,9 @@ interface StudioControlsProps {
   locateRequest?: StudioControlLocateRequest;
   onTabChange: (tab: StudioTab) => void;
   onDraftChange: (draft: ThemeDetail) => void;
-  onChooseBackground: () => void;
+  onChooseBackground: (effort?: ReasoningEffort) => void;
+  onClearReasoningBackground: (effort: ReasoningEffort) => void;
+  onPreviewEffortChange: (effort: ReasoningEffort) => void;
   onChooseSendIcon: () => void;
   onChooseHomeCardImage: (cardIndex: number) => void;
   onThemeJsonChange: (source: string) => void;
@@ -261,6 +266,9 @@ export function StudioControls({
   onTabChange,
   onDraftChange,
   onChooseBackground,
+  onClearReasoningBackground,
+  onPreviewEffortChange,
+  previewEffort,
   onChooseSendIcon,
   onChooseHomeCardImage,
   onThemeJsonChange,
@@ -352,10 +360,14 @@ export function StudioControls({
           draft={draft}
           busy={busy}
           backgroundKey={backgroundKey}
+          previewEffort={previewEffort}
+          themeJsonDirty={themeJsonDirty}
           section={designSection}
           onSectionChange={setDesignSection}
           onDraftChange={onDraftChange}
           onChooseBackground={onChooseBackground}
+          onClearReasoningBackground={onClearReasoningBackground}
+          onPreviewEffortChange={onPreviewEffortChange}
           onChooseHomeCardImage={onChooseHomeCardImage}
           onPreviewColorTargetChange={onPreviewColorTargetChange}
         />
@@ -372,10 +384,12 @@ export function StudioControls({
       )}
       {tab === "theme-json" && (
         <ThemeJsonPanel
+          draft={draft}
           source={themeJsonSource}
           dirty={themeJsonDirty}
           error={themeJsonError}
           busy={busy}
+          onDraftChange={onDraftChange}
           onChange={onThemeJsonChange}
           onApply={onApplyThemeJson}
           onReset={onResetThemeJson}
@@ -393,6 +407,10 @@ function DesignPanel({
   onSectionChange,
   onDraftChange,
   onChooseBackground,
+  onClearReasoningBackground,
+  onPreviewEffortChange,
+  previewEffort,
+  themeJsonDirty,
   onChooseHomeCardImage,
   onPreviewColorTargetChange,
 }: Pick<
@@ -402,6 +420,10 @@ function DesignPanel({
   | "backgroundKey"
   | "onDraftChange"
   | "onChooseBackground"
+  | "onClearReasoningBackground"
+  | "onPreviewEffortChange"
+  | "previewEffort"
+  | "themeJsonDirty"
   | "onChooseHomeCardImage"
   | "onPreviewColorTargetChange"
 > & {
@@ -548,27 +570,16 @@ function DesignPanel({
         {section === "canvas" && (
           <>
             <StudioSection title="背景画面" meta="本地图片">
-              <div className="background-picker compact">
-                {draft.backgroundUrl ? (
-                  <img
-                    key={backgroundKey}
-                    src={draft.backgroundUrl}
-                    alt="主题背景预览"
-                    style={{
-                      objectPosition: `${draft.art.focusX * 100}% ${draft.art.focusY * 100}%`,
-                    }}
-                  />
-                ) : (
-                  <span className="image-placeholder">未选择背景</span>
-                )}
-                <button
-                  className="secondary-button"
-                  disabled={busy}
-                  onClick={onChooseBackground}
-                >
-                  选择图片
-                </button>
-              </div>
+              <BackgroundControls
+                draft={draft}
+                disabled={busy || themeJsonDirty}
+                backgroundKey={backgroundKey}
+                previewEffort={previewEffort}
+                onDraftChange={onDraftChange}
+                onPreviewEffortChange={onPreviewEffortChange}
+                onChooseBackground={onChooseBackground}
+                onClearReasoningBackground={onClearReasoningBackground}
+              />
               <div
                 className="image-requirements"
                 role="note"
@@ -594,22 +605,6 @@ function DesignPanel({
                 ]}
                 onChange={(backgroundScope) => update({ backgroundScope })}
               />
-              <RangeField
-                label="左侧栏暗化"
-                value={draft.sidebarOverlayOpacity}
-                max={100}
-                suffix="%"
-                ariaLabel="左侧栏暗化强度"
-                disabled={draft.backgroundScope !== "window"}
-                onChange={(sidebarOverlayOpacity) =>
-                  update({ sidebarOverlayOpacity })
-                }
-              />
-              <p className="field-hint">
-                {draft.backgroundScope === "window"
-                  ? "只调整面板颜色的深浅，不增加不透明度；面板透明度为 0% 时侧栏完全透明。"
-                  : "仅内容区不使用侧栏暗化；切换到全窗口后可调整。"}
-              </p>
             </StudioSection>
 
             <StudioSection title="外观与焦点" meta="实时预览">
@@ -1237,24 +1232,48 @@ function CssPanel({
 }
 
 function ThemeJsonPanel({
+  draft,
   source,
   dirty,
   error,
   busy,
+  onDraftChange,
   onChange,
   onApply,
   onReset,
 }: {
+  draft: ThemeDetail;
   source: string;
   dirty: boolean;
   error?: string;
   busy: boolean;
+  onDraftChange: (draft: ThemeDetail) => void;
   onChange: (source: string) => void;
   onApply: () => void;
   onReset: () => void;
 }) {
   return (
     <div className="studio-panel-body" role="tabpanel">
+      <StudioSection title="侧栏微调" meta="仅全窗口">
+        <RangeField
+          label="左侧栏暗化"
+          value={draft.sidebarOverlayOpacity}
+          max={100}
+          suffix="%"
+          ariaLabel="左侧栏暗化强度"
+          disabled={busy || dirty || draft.backgroundScope !== "window"}
+          onChange={(sidebarOverlayOpacity) =>
+            onDraftChange({ ...draft, sidebarOverlayOpacity })
+          }
+        />
+        <p className="field-hint">
+          {dirty
+            ? "请先校验并应用 JSON 修改，或恢复当前配置，再调整左侧栏暗化。"
+            : draft.backgroundScope === "window"
+              ? "只调整面板颜色的深浅，不增加不透明度；面板透明度为 0% 时侧栏完全透明。"
+              : "仅内容区不使用侧栏暗化；在“设计 → 画面”切换到全窗口后可调整。"}
+        </p>
+      </StudioSection>
       <StudioSection
         title="主题配置 JSON"
         meta={`${source.length.toLocaleString()} / 393,216`}

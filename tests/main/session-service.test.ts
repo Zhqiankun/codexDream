@@ -430,10 +430,14 @@ describe("CodexSessionService", () => {
 
     await session.resume();
 
-    expect(client.command).toHaveBeenCalledTimes(1);
+    expect(client.command.mock.calls.map(([method]) => method)).toEqual([
+      "Page.enable",
+      "Page.addScriptToEvaluateOnNewDocument",
+    ]);
     expect(client.command).toHaveBeenCalledWith(
       "Page.addScriptToEvaluateOnNewDocument",
       expect.objectContaining({ source: expect.any(String) }),
+      { timeoutMs: 30_000 },
     );
     expect(session.snapshot()).toMatchObject({
       state: "THEMED_SESSION",

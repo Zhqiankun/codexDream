@@ -38,12 +38,41 @@ vi.mock("electron", () => ({
 import { registerIpc } from "../../src/main/ipc/handlers";
 
 describe("IPC public boundary", () => {
+  it("rejects unknown effort, caller image paths and stale protocol before background dispatch", async () => {
+    const controller = controllerFixture();
+    registerFixture(controller);
+    const request = {
+      v: 8,
+      libraryId: "11111111-1111-4111-8111-111111111111",
+      expectedRevision: 1,
+      reasoningEffort: "ultra",
+    };
+    for (const channel of [
+      "theme.chooseBackground",
+      "theme.clearReasoningBackground",
+    ]) {
+      const handler = handlers.get(channel)!;
+      for (const invalid of [
+        { ...request, reasoningEffort: "unknown" },
+        { ...request, filePath: "C:/private/image.png" },
+        { ...request, v: 7 },
+      ]) {
+        expect(
+          await handler(trustedEvent({ senderId: 17 }), invalid),
+        ).toMatchObject({ ok: false });
+      }
+      expect(
+        await handler(trustedEvent({ senderId: 77 }), request),
+      ).toMatchObject({ ok: false, error: { code: "UNAUTHORIZED_RENDERER" } });
+    }
+    expect(controller.broadcast).not.toHaveBeenCalled();
+  });
   it("rejects an untrusted sender before dispatching an update request", async () => {
     const controller = controllerFixture();
     registerFixture(controller);
     const handler = handlers.get("update.request")!;
 
-    const result = await handler(trustedEvent({ senderId: 77 }), { v: 6 });
+    const result = await handler(trustedEvent({ senderId: 77 }), { v: 8 });
 
     expect(result).toEqual({
       ok: false,
@@ -58,7 +87,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("update.request")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 6 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 8 });
 
     expect(result).toEqual({
       ok: true,
@@ -79,7 +108,7 @@ describe("IPC public boundary", () => {
 
     const result = await handlers.get("update.install")!(
       trustedEvent({ senderId: 77 }),
-      { v: 6, mode: "now" },
+      { v: 8, mode: "now" },
     );
 
     expect(result).toEqual({
@@ -99,7 +128,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("session.launch")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 6 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 8 });
 
     expect(result).toEqual({
       ok: false,
@@ -121,7 +150,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("session.launch")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 6 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 8 });
 
     expect(result).toEqual(error("UNKNOWN", "error.unknown"));
     expect(controller.launchSession).toHaveBeenCalledOnce();
@@ -136,7 +165,7 @@ describe("IPC public boundary", () => {
     registerFixture(controller);
     const handler = handlers.get("session.launch")!;
 
-    const result = await handler(trustedEvent({ senderId: 17 }), { v: 6 });
+    const result = await handler(trustedEvent({ senderId: 17 }), { v: 8 });
 
     expect(result).toEqual(error("OPERATION_BUSY", "ipc.busy"));
     expect(controller.launchSession).toHaveBeenCalledOnce();

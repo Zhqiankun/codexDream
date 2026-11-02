@@ -277,6 +277,40 @@ describe("CodexStyle startup window lifecycle", () => {
     expect(state.checkAvailability).toHaveBeenCalledTimes(2);
   });
 
+  it("serves only allowlisted reasoning image slots without accepting arbitrary asset paths", async () => {
+    const controller = createController();
+    await controller.init();
+    const handler = state.protocolHandle.mock.calls[0][1] as (
+      request: Request,
+    ) => Promise<Response>;
+    const id = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(controller.themeService.asset).mockReturnValue(
+      Buffer.from("image"),
+    );
+    vi.mocked(controller.themeService.assetMime).mockReturnValue("image/png");
+    const response = await handler(
+      new Request(`app://theme-asset/${id}?v=2&effort=ultra`),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(controller.themeService.asset).toHaveBeenCalledWith(id, "ultra");
+    vi.mocked(controller.themeService.asset).mockClear();
+    for (const suffix of [
+      "?effort=unknown",
+      "?effort=ultra&effort=max",
+      "?v=1&v=2",
+      "?v=0",
+      "?effort=max&path=private",
+      "?effort=",
+    ]) {
+      expect(
+        (await handler(new Request(`app://theme-asset/${id}${suffix}`))).status,
+      ).toBe(404);
+    }
+    expect(controller.themeService.asset).not.toHaveBeenCalled();
+    controller.dispose();
+  });
+
   it("does not poll unsupported builds and clears polling on dispose", async () => {
     const unsupported = createController(false);
     await unsupported.init();
@@ -320,7 +354,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 6 },
+      data: { appVersion: "1.3.1", protocolVersion: 8 },
     });
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
@@ -356,7 +390,7 @@ describe("CodexStyle startup window lifecycle", () => {
     firstWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 6 },
+      data: { appVersion: "1.3.1", protocolVersion: 8 },
     });
     firstWindow.emitWebContents(
       "render-process-gone",
@@ -369,7 +403,7 @@ describe("CodexStyle startup window lifecycle", () => {
     secondWindow.emitWindow("ready-to-show");
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 6 },
+      data: { appVersion: "1.3.1", protocolVersion: 8 },
     });
     secondWindow.emitWebContents(
       "render-process-gone",
@@ -399,7 +433,7 @@ describe("CodexStyle startup window lifecycle", () => {
 
     expect(controller.rendererReady()).toEqual({
       ok: true,
-      data: { appVersion: "1.3.1", protocolVersion: 6 },
+      data: { appVersion: "1.3.1", protocolVersion: 8 },
     });
     expect(currentWindow.show).not.toHaveBeenCalled();
 

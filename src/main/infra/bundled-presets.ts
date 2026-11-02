@@ -3,20 +3,30 @@ import { join } from "node:path";
 import {
   isCompleteThemeArt,
   isCompleteThemeColors,
+  isCompleteThemeHomeCards,
   isCompleteThemeStyleConfig,
   isThemeAppearance,
+  isReasoningEffort,
   THEME_COLOR_KEYS,
   type BackgroundScope,
+  type BackgroundMode,
+  type ReasoningEffort,
   type ThemeAppearance,
   type ThemeArt,
   type ThemeColors,
+  type ThemeHomeCards,
   type ThemeStyleConfig,
 } from "../../contracts";
 import { readImageFileBounded, validateImage, type ImageInfo } from "./image";
+import {
+  MAX_BACKGROUND_SET_BYTES,
+  type ReasoningImageBytes,
+} from "./reasoning-images";
 
 export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v7";
 export const ADDITIONAL_BUNDLED_PRESET_PACK_ID =
   "user-wallpapers-2026-08-31-v8";
+export const MASCOT_BUNDLED_PRESET_PACK_ID = "mascot-reasoning-2026-11-02-v9";
 export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v6";
 export const FIFTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v5";
 export const FOURTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v4";
@@ -39,11 +49,17 @@ export interface BundledPresetTheme {
   art: ThemeArt;
   colors: ThemeColors;
   style: ThemeStyleConfig;
+  backgroundMode?: BackgroundMode;
+  homeCards?: ThemeHomeCards;
+  reasoningBackgrounds?: Partial<
+    Record<ReasoningEffort, { image: string; imageSha256: string }>
+  >;
 }
 
 export interface PreparedBundledPresetTheme extends BundledPresetTheme {
   imageBytes: Buffer;
   imageInfo: ImageInfo;
+  reasoningImages?: ReasoningImageBytes;
 }
 
 export interface PreparedBundledPresetPack {
@@ -93,6 +109,9 @@ const THEME_KEYS = new Set([
   "art",
   "colors",
   "style",
+  "backgroundMode",
+  "homeCards",
+  "reasoningBackgrounds",
 ]);
 const ART_KEYS = new Set(["focusX", "focusY", "safeArea", "taskMode"]);
 const COLOR_KEYS = new Set<string>(THEME_COLOR_KEYS);
@@ -126,6 +145,33 @@ export function createBundledPresetSource(
           const imageInfo = await validateImage(imageBytes, theme.image);
           if (imageInfo.sha256 !== theme.imageSha256)
             throw new Error("BUNDLED_PRESET_PACK_INVALID:image-hash");
+          const reasoningImages: ReasoningImageBytes = {};
+          let totalBytes = imageBytes.length;
+          // 正常背景可以引用 low 的同一发行资产；入库仍由 store 生成独立 UUID 文件。
+          for (const [effort, asset] of Object.entries(
+            theme.reasoningBackgrounds ?? {},
+          )) {
+            if (!isReasoningEffort(effort))
+              throw new Error("BUNDLED_PRESET_PACK_INVALID:reasoning-effort");
+            const bytes =
+              asset.image === theme.image
+                ? imageBytes
+                : await readImageFileBounded(join(root, asset.image));
+            const info =
+              asset.image === theme.image
+                ? imageInfo
+                : await validateImage(bytes, asset.image);
+            if (info.sha256 !== asset.imageSha256)
+              throw new Error(
+                "BUNDLED_PRESET_PACK_INVALID:reasoning-image-hash",
+              );
+            totalBytes += bytes.length;
+            if (totalBytes > MAX_BACKGROUND_SET_BYTES)
+              throw new Error(
+                "BUNDLED_PRESET_PACK_INVALID:background-set-size",
+              );
+            reasoningImages[effort] = bytes;
+          }
           themes.push({
             ...theme,
             previousImageSha256: [...theme.previousImageSha256],
@@ -138,6 +184,7 @@ export function createBundledPresetSource(
             },
             imageBytes,
             imageInfo,
+            ...(Object.keys(reasoningImages).length ? { reasoningImages } : {}),
           });
         }
         return {
@@ -288,6 +335,17 @@ function parseTheme(value: unknown): BundledPresetTheme {
     value.style.mode !== "configured"
   )
     throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-schema");
+  if (
+    (value.backgroundMode !== undefined &&
+      value.backgroundMode !== "normal" &&
+      value.backgroundMode !== "reasoning") ||
+    (value.homeCards !== undefined &&
+      !isCompleteThemeHomeCards(value.homeCards))
+  )
+    throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-configuration");
+  const reasoningBackgrounds = parseReasoningBackgrounds(
+    value.reasoningBackgrounds,
+  );
   return {
     presetId: value.presetId,
     themeId: value.themeId,
@@ -303,7 +361,39 @@ function parseTheme(value: unknown): BundledPresetTheme {
     art: { ...value.art },
     colors: { ...value.colors },
     style: { ...value.style, recipes: { ...value.style.recipes } },
+    ...(value.backgroundMode !== undefined
+      ? { backgroundMode: value.backgroundMode as BackgroundMode }
+      : {}),
+    ...(value.homeCards !== undefined
+      ? { homeCards: structuredClone(value.homeCards) as ThemeHomeCards }
+      : {}),
+    ...(reasoningBackgrounds ? { reasoningBackgrounds } : {}),
   };
+}
+
+function parseReasoningBackgrounds(
+  value: unknown,
+): BundledPresetTheme["reasoningBackgrounds"] {
+  if (value === undefined) return undefined;
+  if (!isRecord(value))
+    throw new Error("BUNDLED_PRESET_PACK_INVALID:reasoning-schema");
+  const result: NonNullable<BundledPresetTheme["reasoningBackgrounds"]> = {};
+  for (const [effort, asset] of Object.entries(value)) {
+    if (
+      !isReasoningEffort(effort) ||
+      !isRecord(asset) ||
+      hasUnknownKeys(asset, new Set(["image", "imageSha256"])) ||
+      typeof asset.image !== "string" ||
+      !IMAGE_PATTERN.test(asset.image) ||
+      asset.image.includes("..") ||
+      typeof asset.imageSha256 !== "string" ||
+      !SHA256_PATTERN.test(asset.imageSha256)
+    ) {
+      throw new Error("BUNDLED_PRESET_PACK_INVALID:reasoning-schema");
+    }
+    result[effort] = { image: asset.image, imageSha256: asset.imageSha256 };
+  }
+  return result;
 }
 
 function ensureUnique(values: string[], field: string): void {

@@ -174,6 +174,9 @@ test("starts the real Electron shell with native storage and completes a local w
           "绯刃夜权",
           "萤森猫语",
           "橄榄财趣",
+          "DeepSeek · 沧海鲸歌",
+          "Claude · 琥珀书庭",
+          "Gemini · 星穹双子",
         ]),
       );
 
@@ -211,7 +214,7 @@ test("starts the real Electron shell with native storage and completes a local w
         },
       },
     });
-    await expect(page.locator(".theme-swatch img")).toHaveCount(35);
+    await expect(page.locator(".theme-swatch img")).toHaveCount(38);
     const themeList = page.getByLabel("主题列表");
     const themeSearch = page.getByRole("searchbox", { name: "搜索主题" });
     const checkedTheme = await page.evaluate(async () => {
@@ -281,7 +284,7 @@ test("starts the real Electron shell with native storage and completes a local w
       themeList.getByRole("button", { name: /赤金信念/u }),
     ).toBeVisible();
     await page.getByRole("button", { name: "清空主题搜索" }).click();
-    await expect(themeList.getByRole("button")).toHaveCount(37);
+    await expect(themeList.getByRole("button")).toHaveCount(40);
     await expect(themeList.locator(".theme-row.active")).toContainText(
       checkedTheme.name,
     );
@@ -425,6 +428,9 @@ test("starts the real Electron shell with native storage and completes a local w
       })
       .fill("#654321");
     await page.getByRole("button", { name: "保存主题" }).click();
+    await expect(
+      page.getByText("主题已保存。当前没有可更新的受管 Codex 会话。"),
+    ).toBeVisible();
 
     await expect
       .poll(() =>
@@ -445,7 +451,7 @@ test("starts the real Electron shell with native storage and completes a local w
       globalThis.window.codexStyle.getSnapshot(),
     );
     expect(snapshot.ok).toBe(true);
-    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(38);
+    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(41);
     const createdDetail = await page.evaluate(async () => {
       const snapshot = await globalThis.window.codexStyle.getSnapshot();
       if (!snapshot.ok) return undefined;

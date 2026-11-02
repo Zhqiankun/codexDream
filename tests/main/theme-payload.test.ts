@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"app://codex/"}
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   generateConfiguredCss,
   readThemeConfiguration,
@@ -1253,6 +1253,191 @@ describe("theme payload", () => {
     expect(style?.textContent).not.toContain(
       "background-color: color-mix(in srgb, var(--ds-theme-color-background) 88%, transparent)",
     );
+  });
+
+  it("replaces the same owner's runtime without retaining old observers or pending colors", async () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    const NativeObserver = window.MutationObserver;
+    let observing = 0;
+    class CountedObserver extends NativeObserver {
+      private watching = false;
+
+      override observe(target: Node, options?: MutationObserverInit) {
+        if (!this.watching) observing++;
+        this.watching = true;
+        super.observe(target, options);
+      }
+
+      override disconnect() {
+        if (this.watching) observing--;
+        this.watching = false;
+        super.disconnect();
+      }
+    }
+    const observerDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "MutationObserver",
+    )!;
+    Object.defineProperty(window, "MutationObserver", {
+      configurable: true,
+      enumerable: observerDescriptor.enumerable,
+      writable: true,
+      value: CountedObserver,
+    });
+    const add = vi.spyOn(document, "addEventListener");
+    const remove = vi.spyOn(document, "removeEventListener");
+    const source = (color: string) =>
+      buildThemePayload(
+        marker,
+        `[data-ds-part="root"] { color: ${color}; }`,
+        "",
+      );
+    try {
+      expect(window.eval(source("#123456"))).toBe(true);
+      expect(observing).toBe(1);
+      const initialAdds = add.mock.calls.filter(
+        ([event]) => event === "codexstyle:replace-theme-runtime",
+      ).length;
+      const initialRemoves = remove.mock.calls.filter(
+        ([event]) => event === "codexstyle:replace-theme-runtime",
+      ).length;
+      const initialStyle = document.querySelector(
+        "style[data-codexstyle-style]",
+      );
+      document.querySelector("main")!.classList.add("native-update");
+      await Promise.resolve();
+      expect(window.eval(source("#abcdef"))).toBe(true);
+      expect(window.eval(source("#fedcba"))).toBe(true);
+      expect(observing).toBe(1);
+      expect(initialStyle?.isConnected).toBe(false);
+      expect(
+        add.mock.calls.filter(
+          ([event]) => event === "codexstyle:replace-theme-runtime",
+        ),
+      ).toHaveLength(initialAdds + 2);
+      expect(
+        remove.mock.calls.filter(
+          ([event]) => event === "codexstyle:replace-theme-runtime",
+        ),
+      ).toHaveLength(initialRemoves + 2);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      const styles = document.querySelectorAll("style[data-codexstyle-style]");
+      expect(styles).toHaveLength(1);
+      expect(styles[0].textContent).toContain("#fedcba");
+      expect(styles[0].textContent).not.toContain("#123456");
+    } finally {
+      document.dispatchEvent(
+        new CustomEvent("codexstyle:replace-theme-runtime", {
+          detail: { marker },
+        }),
+      );
+      Object.defineProperty(window, "MutationObserver", observerDescriptor);
+      add.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
+  it("clears retired instance markings even when a node leaves before the mutation batch", () => {
+    resetDocument();
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    const expression = buildThemePayload(
+      marker,
+      '[data-ds-part="root"] { color: #fff; }',
+      "",
+    );
+    expect(window.eval(expression)).toBe(true);
+    const detached = document.querySelector("header")!;
+    const shadowHost = document.createElement("div");
+    document.body.append(shadowHost);
+    shadowHost.attachShadow({ mode: "open" }).append(detached);
+    const foreign = document.createElement("header");
+    foreign.setAttribute("data-codexstyle-owner", "foreign");
+    document.querySelector("main")!.append(foreign);
+    expect(window.eval(expression)).toBe(true);
+    expect(detached.getAttribute("data-ds-part")).toBeNull();
+    expect(detached.getAttribute("data-codexstyle-owner")).toBeNull();
+    expect(foreign.getAttribute("data-codexstyle-owner")).toBe("foreign");
+    expect(foreign.getAttribute("data-ds-part")).toBeNull();
+  });
+
+  it("waits for an early document and removes its listener before a late readiness event", async () => {
+    resetDocument("");
+    const marker = "codexstyle-00000000-0000-4000-8000-000000000000";
+    const retire = () =>
+      document.dispatchEvent(
+        new CustomEvent("codexstyle:replace-theme-runtime", {
+          detail: { marker },
+        }),
+      );
+    retire();
+    const root = document.documentElement;
+    const readyState = vi
+      .spyOn(document, "readyState", "get")
+      .mockReturnValue("loading");
+    const payload = buildThemePayload(
+      marker,
+      '[data-ds-part="root"] { color: #fff; }',
+      "",
+    );
+    vi.useFakeTimers();
+    try {
+      root.remove();
+      const pending = window.eval(payload) as Promise<boolean>;
+      document.append(root);
+      document.dispatchEvent(new Event("DOMContentLoaded"));
+      expect(await pending).toBe(true);
+      expect(root.getAttribute("data-codexstyle-owner")).toBe(marker);
+      retire();
+      root.remove();
+      const timedOut = window.eval(payload) as Promise<boolean>;
+      await vi.advanceTimersByTimeAsync(4_000);
+      expect(await timedOut).toBe(false);
+      document.append(root);
+      document.dispatchEvent(new Event("DOMContentLoaded"));
+      expect(root.getAttribute("data-codexstyle-owner")).toBeNull();
+      expect(document.querySelector("style[data-codexstyle-style]")).toBeNull();
+    } finally {
+      if (!document.documentElement) document.append(root);
+      retire();
+      readyState.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("refuses an observing stylesheet whose previous runtime cannot be retired", () => {
+    resetDocument("");
+    const marker = "codexstyle-legacy-runtime-test";
+    document.documentElement.setAttribute("data-ds-part", "root");
+    document.documentElement.setAttribute("data-codexstyle-owner", marker);
+    document.head.innerHTML = `<style data-codexstyle-style="1" data-codexstyle-owner="${marker}" data-codexstyle-observing="${marker}">/* keep legacy style */</style>`;
+    expect(
+      window.eval(
+        buildThemePayload(marker, '[data-ds-part="root"] { color: #fff; }', ""),
+      ),
+    ).toBe(false);
+    expect(document.querySelectorAll("style")).toHaveLength(1);
+    expect(document.querySelector("style")!.textContent).toBe(
+      "/* keep legacy style */",
+    );
+  });
+
+  it("refuses a foreign root owner even when its part attribute is absent", () => {
+    resetDocument("");
+    document.documentElement.setAttribute("data-codexstyle-owner", "foreign");
+    expect(
+      window.eval(
+        buildThemePayload(
+          "codexstyle-test",
+          '[data-ds-part="root"] { color: #fff; }',
+          "",
+        ),
+      ),
+    ).toBe(false);
+    expect(document.documentElement.getAttribute("data-codexstyle-owner")).toBe(
+      "foreign",
+    );
+    expect(document.querySelector("style[data-codexstyle-style]")).toBeNull();
   });
 
   it("fails closed when the target already owns the root mapping", () => {

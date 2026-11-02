@@ -14,12 +14,14 @@ import {
 } from "react";
 import {
   resolveSidebarSurface,
+  resolveReasoningBackground,
   type CodexAssistantSnapshot,
   type ImportResult,
   type Result,
   type StudioRuntimeInfo,
   type ThemeDetail,
   type ThemePatch,
+  type ReasoningEffort,
   type ThemeSnapshot,
   type UpdateSnapshot,
 } from "../../contracts";
@@ -38,10 +40,11 @@ import {
 } from "../features/studio/StudioControls";
 import { SendIconGlyph } from "../features/studio/SendIconGlyph";
 import { isStudioThemeColor } from "../features/studio/theme-color-input";
+import { themeCommitMessage } from "../features/studio/theme-commit-feedback";
 
 const MAX_CSS_CHARACTERS = 262_144;
 const MAX_CSS_BYTES = 256 * 1024;
-const RENDERER_PROTOCOL_VERSION = 6;
+const RENDERER_PROTOCOL_VERSION = 8;
 const cssTextEncoder = new TextEncoder();
 const EMPTY_THEME_SUMMARIES: ThemeSnapshot["themes"] = [];
 
@@ -329,7 +332,7 @@ const errorMessages: Record<string, string> = {
   "error.unsafe_archive": "ZIP 未通过安全或格式校验。",
   "error.unsafe_css": "CSS 未通过安全样式校验。",
   "error.unsafe_image":
-    "图片不符合要求：请使用静态 PNG/JPG/WebP，文件不超过 10 MiB、单边不超过 16,384 px、总像素不超过 5,000 万，并确保文件可正常打开。",
+    "图片不符合要求：请使用静态 PNG/JPG/WebP，单张不超过 10 MiB、单边不超过 16,384 px、总像素不超过 5,000 万；正常背景和所有档位背景合计不超过 32 MiB，并确保文件可正常打开。",
   "error.incomplete_theme": "主题内容不完整，请补齐后再试。",
   "error.stale_revision": "主题已发生变化，请刷新后重试。",
   "error.theme_id_conflict": "主题 ID 与现有主题冲突。",
@@ -503,8 +506,11 @@ export function App() {
     window.setTimeout(() => setNotice(""), 4500);
   };
 
-  const refresh = async (libraryId?: string) => {
-    const next = unwrap(await bridge.getSnapshot(), report);
+  const refresh = async (
+    libraryId?: string,
+    onError: (message: string) => void = report,
+  ) => {
+    const next = unwrap(await bridge.getSnapshot(), onError);
     if (!next) return;
     setSnapshot(next);
     const id =
@@ -513,7 +519,7 @@ export function App() {
       next.themes.find((theme) => theme.selectedForNextLaunch)?.libraryId ??
       next.themes[0]?.libraryId;
     if (id) {
-      const detail = unwrap(await bridge.getTheme({ libraryId: id }), report);
+      const detail = unwrap(await bridge.getTheme({ libraryId: id }), onError);
       if (detail) adoptSelectedDetail(detail);
     } else {
       selectedLibraryIdRef.current = undefined;
@@ -558,6 +564,7 @@ export function App() {
   const run = async <T,>(
     operation: () => Promise<Result<T>>,
     onSuccess?: (data: T) => void,
+    onRefreshError?: (data: T) => void,
   ): Promise<T | undefined> => {
     setBusy(true);
     try {
@@ -565,7 +572,15 @@ export function App() {
       const data = unwrap(result, report);
       if (data !== undefined) {
         onSuccess?.(data);
-        await refresh(selectedLibraryIdRef.current);
+        try {
+          await refresh(
+            selectedLibraryIdRef.current,
+            onRefreshError ? () => onRefreshError(data) : report,
+          );
+        } catch (error) {
+          if (!onRefreshError) throw error;
+          onRefreshError(data);
+        }
       }
       return data;
     } catch {
@@ -1196,6 +1211,7 @@ interface StudioProps {
   run: <T>(
     operation: () => Promise<Result<T>>,
     onSuccess?: (data: T) => void,
+    onRefreshError?: (data: T) => void,
   ) => Promise<T | undefined>;
 }
 
@@ -1230,6 +1246,10 @@ function serializeThemeJson(detail: ThemeDetail): string {
       recipes: { ...detail.styleConfig.recipes },
     },
     backgroundScope: detail.backgroundScope,
+    backgroundMode: detail.backgroundMode ?? "normal",
+    ...(detail.json.reasoningBackgrounds
+      ? { reasoningBackgrounds: detail.json.reasoningBackgrounds }
+      : {}),
     sidebarOverlayOpacity: detail.sidebarOverlayOpacity,
     accent: detail.colors.accent,
   };
@@ -1246,6 +1266,7 @@ function buildThemePatch(draft: ThemeDetail): ThemePatch {
     ...(draft.styleConfig.mode === "advanced" ? { css: draft.css } : {}),
     themeId: draft.themeId,
     backgroundScope: draft.backgroundScope,
+    backgroundMode: draft.backgroundMode ?? "normal",
     sidebarOverlayOpacity: draft.sidebarOverlayOpacity,
     appearance: draft.appearance,
     art: draft.art,
@@ -1274,6 +1295,8 @@ function StudioView({
   const [draft, setDraft] = useState(detail);
   const [studioTab, setStudioTab] = useState<StudioTab>("design");
   const [previewPage, setPreviewPage] = useState<PreviewPage>("conversation");
+  // 预览档位只属于工作台；实际 Codex 档位由受管页面自己维护。
+  const [previewEffort, setPreviewEffort] = useState<ReasoningEffort>("medium");
   const [previewColorTarget, setPreviewColorTarget] =
     useState<PreviewColorTarget>();
   const [previewHoveredControl, setPreviewHoveredControl] =
@@ -1364,10 +1387,18 @@ function StudioView({
   const [themeJsonDirty, setThemeJsonDirty] = useState(false);
   const [themeJsonError, setThemeJsonError] = useState<string>();
   const [discardRequested, setDiscardRequested] = useState(false);
+  const retainedBackgroundDraftRef = useRef<ThemeDetail | undefined>(undefined);
   const previewStyleRef = useRef<HTMLStyleElement>(null);
   useEffect(() => {
-    setDraft(detail);
-    setThemeJsonSource(serializeThemeJson(detail));
+    const retained = retainedBackgroundDraftRef.current;
+    const next =
+      retained?.libraryId === detail.libraryId &&
+      retained.revision === detail.revision
+        ? retained
+        : detail;
+    retainedBackgroundDraftRef.current = undefined;
+    setDraft(next);
+    setThemeJsonSource(serializeThemeJson(next));
     setThemeJsonDirty(false);
     setThemeJsonError(undefined);
     setDiscardRequested(false);
@@ -1411,6 +1442,8 @@ function StudioView({
     cssChanged ||
     draft.themeId !== detail.themeId ||
     draft.backgroundScope !== detail.backgroundScope ||
+    (draft.backgroundMode ?? "normal") !==
+      (detail.backgroundMode ?? "normal") ||
     draft.sidebarOverlayOpacity !== detail.sidebarOverlayOpacity ||
     structuredChanged;
   const canDiscardChanges =
@@ -1455,6 +1488,7 @@ function StudioView({
   const persistAnd = async <T,>(
     action: (current: ThemeDetail) => Promise<Result<T>>,
     onSuccess?: (data: T) => void,
+    onRefreshError?: (data: T) => void,
   ) => {
     if (themeJsonDirty) {
       report("请先校验并应用 theme.json，或恢复当前配置。");
@@ -1482,33 +1516,65 @@ function StudioView({
           }),
         )
       : detail;
-    if (current) await run(() => action(current), onSuccess);
+    if (current) await run(() => action(current), onSuccess, onRefreshError);
   };
-  const chooseBackground = async () => {
+  const chooseBackground = async (reasoningEffort?: ReasoningEffort) => {
     if (themeJsonDirty) {
       report("请先校验并应用 theme.json，或恢复当前配置。");
       setStudioTab("theme-json");
       return;
     }
-    const selectedBackground = await run(() =>
-      bridge.chooseBackground({
-        libraryId: detail.libraryId,
-        expectedRevision: detail.revision,
-      }),
+    if (!canPersistDraft) {
+      report(persistenceDisabledReason ?? "请先修正主题设置后再选择图片。");
+      return;
+    }
+    const selectedBackground = await run(
+      () =>
+        bridge.chooseBackground({
+          libraryId: detail.libraryId,
+          expectedRevision: detail.revision,
+          ...(reasoningEffort ? { reasoningEffort } : {}),
+        }),
+      undefined,
+      () => report("图片已更新，列表刷新失败；请保存主题后重试刷新。"),
     );
     if (!selectedBackground) return;
     if (!changed) {
       applyDetail(selectedBackground);
       return;
     }
-    const updated = await run(() =>
-      bridge.patchDraft({
-        libraryId: selectedBackground.libraryId,
-        expectedRevision: selectedBackground.revision,
-        patch: draftPatch,
-      }),
+    const updated = await run(
+      () =>
+        bridge.patchDraft({
+          libraryId: selectedBackground.libraryId,
+          expectedRevision: selectedBackground.revision,
+          patch: draftPatch,
+        }),
+      undefined,
+      () => report("主题设置已保存，列表刷新失败；请稍后重试。"),
     );
     if (updated) applyDetail(updated);
+    else {
+      // 图片选择已持久化；后续字段校验失败时保留本地编辑，并以新 revision 重试。
+      const retained = { ...selectedBackground, ...draftPatch };
+      retainedBackgroundDraftRef.current = retained;
+      onDetailChanged(selectedBackground);
+      setDraft(retained);
+      setThemeJsonSource(serializeThemeJson(retained));
+    }
+  };
+  const clearReasoningBackground = async (reasoningEffort: ReasoningEffort) => {
+    if (themeJsonDirty) return;
+    // 清除独立图也沿用保存前的 revision 流程，保留尚未保存的模式与配色。
+    await persistAnd(
+      (current) =>
+        bridge.clearReasoningBackground({
+          libraryId: current.libraryId,
+          expectedRevision: current.revision,
+          reasoningEffort,
+        }),
+      applyDetail,
+    );
   };
   const chooseSendIcon = async () => {
     if (themeJsonDirty) {
@@ -1597,6 +1663,12 @@ function StudioView({
     draft.colors.panel,
     draft.sidebarOverlayOpacity,
   );
+  const previewBackgroundUrl = resolveReasoningBackground(
+    draft.backgroundMode ?? "normal",
+    draft.backgroundUrl,
+    draft.reasoningBackgroundUrls,
+    previewEffort,
+  );
   const previewStyle = {
     colorScheme: draft.appearance === "auto" ? "dark" : draft.appearance,
     "--preview-background": draft.colors.background,
@@ -1673,7 +1745,9 @@ function StudioView({
           <p className="eyebrow">主题编辑器</p>
           <h1>{draft.name || "未命名主题"}</h1>
           <p className="muted">
-            修改仅在保存并选择后影响下一次 CodexStyle 启动。
+            保存正在使用的主题后会立即更新当前受管 Codex
+            窗口（暂停时除外）；选择其他主题将在下次通过 CodexStyle 启动 Codex
+            时生效。
           </p>
         </div>
         <div className="heading-actions">
@@ -1756,11 +1830,20 @@ function StudioView({
             disabled={busy || !canPersistDraft}
             title={persistenceDisabledReason}
             onClick={() =>
-              void persistAnd((current) =>
-                bridge.commit({
-                  libraryId: current.libraryId,
-                  expectedRevision: current.revision,
-                }),
+              void persistAnd(
+                (current) =>
+                  bridge.commit({
+                    libraryId: current.libraryId,
+                    expectedRevision: current.revision,
+                  }),
+                ({ theme, liveApply }) => {
+                  applyDetail(theme);
+                  report(themeCommitMessage(liveApply));
+                },
+                ({ liveApply }) =>
+                  report(
+                    `${themeCommitMessage(liveApply)} 工作台状态刷新失败，请重新打开工作台。`,
+                  ),
               )
             }
           >
@@ -1821,6 +1904,7 @@ function StudioView({
           cssValid={cssValid}
           cssContractValid={cssContractValid}
           backgroundKey={backgroundKey}
+          previewEffort={previewEffort}
           tab={studioTab}
           themeJsonSource={themeJsonSource}
           themeJsonDirty={themeJsonDirty}
@@ -1828,7 +1912,11 @@ function StudioView({
           locateRequest={studioLocateRequest}
           onTabChange={setStudioTab}
           onDraftChange={setDraft}
-          onChooseBackground={() => void chooseBackground()}
+          onChooseBackground={(effort) => void chooseBackground(effort)}
+          onClearReasoningBackground={(effort) =>
+            void clearReasoningBackground(effort)
+          }
+          onPreviewEffortChange={setPreviewEffort}
           onChooseSendIcon={() => void chooseSendIcon()}
           onChooseHomeCardImage={(cardIndex) =>
             void chooseHomeCardImage(cardIndex)
@@ -1891,6 +1979,8 @@ function StudioView({
               data-style-mode={draft.styleConfig.mode}
               data-theme-appearance={draft.appearance}
               data-background-scope={draft.backgroundScope}
+              data-background-mode={draft.backgroundMode ?? "normal"}
+              data-preview-effort={previewEffort}
               data-safe-area={draft.art.safeArea}
               data-task-mode={draft.art.taskMode}
               data-recipe-sidebar={String(draft.styleConfig.recipes.sidebar)}
@@ -1913,10 +2003,10 @@ function StudioView({
               onBlurCapture={handlePreviewBlur}
               style={previewStyle}
             >
-              {draft.backgroundUrl && draft.backgroundScope === "window" && (
+              {previewBackgroundUrl && draft.backgroundScope === "window" && (
                 <img
                   className="mock-background"
-                  src={draft.backgroundUrl}
+                  src={previewBackgroundUrl}
                   alt=""
                   aria-hidden="true"
                   style={{
@@ -2036,11 +2126,11 @@ function StudioView({
                   data-ds-part="main"
                   {...previewControlAttributes("pageBackground", false)}
                 >
-                  {draft.backgroundUrl &&
+                  {previewBackgroundUrl &&
                     draft.backgroundScope === "content" && (
                       <img
                         className="mock-background"
-                        src={draft.backgroundUrl}
+                        src={previewBackgroundUrl}
                         alt=""
                         aria-hidden="true"
                         style={{
