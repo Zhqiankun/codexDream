@@ -6,6 +6,8 @@
 
 - 用户明确选择保留失败的 `v1.3.31` 标签，改发 `v1.3.32`。旧标签继续指向 `f73e323e69d6e7983ba6d52d6b942ad44bfbdc34`，没有移动或删除；新版本包含更新弹窗、离线历史、5 分钟检测及 `e2b7cd1` 的单用例超时修正。
 - package/lock、双语 README 与待发布 CHANGELOG 已同步为 1.3.32；尚未公开发行的 1.3.31 说明顺延至本次实际版本，失败经过仍保留在下方及旧标签提交中，避免将失败构建显示为已发行历史。本地与远端 v1.3.32 标签及同名 Release 均不存在，按新标签重新执行完整 Actions 检查、打包和发布。
+- 发布提交 `f50290202e3eaba0d1a3ab52eba3b962752061b9` 与注释标签 `v1.3.32` 已推送；[Release Actions 41395568064](https://github.com/Zhqiankun/codexDream/actions/runs/41395568064) 首次运行全部成功。main 369、renderer 110、acceptance 9、Electron 83 项通过，共 571 项；此前超时迁移用例本次耗时 4762ms 并通过，保留两次旧标签构建失败记录。干净 native 构建、正式包构建、包校验、说明提取与上传发布均成功。
+- [v1.3.32](https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.32) 于北京时间 2026-11-02 13:52:57 公开并确认为最新稳定版。安装包、ZIP、blockmap、latest.yml 和 SHA256SUMS 五类资产齐全；已下载两个文本文件并核对长度、SHA-256、四项文件摘要、更新版本/不可变 URL/大小/SHA-512 字段，在线中文 releaseNotes 与当前 CHANGELOG 精确一致。安装包实际 SHA-512 由同次 Actions 校验，本地记录为 `output/release-1.3.32/published/release-verification.json`；未下载或运行安装程序，当前工作台与受管 Codex 未重启。
 
 ## 2026-11-02 v1.3.31 发布准备
 
