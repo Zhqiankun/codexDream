@@ -2,11 +2,13 @@
 
 更新时间：2026-11-03
 
-## 2026-11-03 v1.3.33 发布准备
+## 2026-11-03 v1.3.33 发布完成
 
 - 用户明确授权提交、推送并发布，目标版本确认为 `v1.3.33`；随包 MCP 插件版本为 `0.1.2`。桌面 package/lock、双语 README 和 CHANGELOG 同步，发布说明明确工作台升级后需点击插件“安装 / 更新”并新建 Codex 任务。
-- 已确认本地、远端 `v1.3.33` 标签及同名 Release 不存在，远端 main 与本地起点 `5e2e569` 一致。复用本轮 107 项相关测试、类型/格式/lint/架构检查及生产构建证据；正式全量检查、干净 native 构建、打包、包校验和资产发布由标签触发的既有 Release Actions 完成。
-- 本次只提交功能、测试和发布元数据，临时诊断目录、隔离数据、日志及 `output/` 均留在本地。不会重启当前工作台、受管 Codex 或安装本机插件。
+- 发布前已确认本地、远端 `v1.3.33` 标签及同名 Release 不存在，远端 main 与本地起点 `5e2e569` 一致。复用本轮 107 项相关测试、类型/格式/lint/架构检查及生产构建证据；正式全量检查、干净 native 构建、打包、包校验和资产发布由标签触发的既有 Release Actions 完成。
+- 发布提交 `18951a8fba373da69d607ce7e637e5290255b82d` 及注释标签 `v1.3.33` 已推送；[Release Actions 41577890610](https://github.com/Zhqiankun/codexDream/actions/runs/41577890610) 首次执行全部成功。主进程 40 文件 / 395 项、renderer 110 项、acceptance 9 项、Electron 85 项通过，共 599 项；新增背景契约 8 项和真实 STDIO MCP 背景/取消专项 2 项均包含在内。无失败、重试或跳过记录；CI 未单独运行 `test:mcp` smoke，真实 STDIO 覆盖来自 Electron 测试。
+- [v1.3.33](https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.33) 于北京时间 2026-11-03 12:36:10 公开并确认为最新稳定版。安装包、ZIP、blockmap、latest.yml 和 SHA256SUMS 五类资产齐全；两个文本资产的长度/SHA-256、四项资产摘要、更新版本/不可变 URL/大小/SHA-512 字段均通过核对，在线中文更新内容及完整中英发布正文与 CHANGELOG 精确一致。安装包实际 SHA-512 由同次成功 Actions 校验；本地核对记录为 `output/release-1.3.33/published/release-verification.json`。
+- 本次只提交功能、测试和发布元数据，临时诊断目录、隔离数据、日志及 `output/` 均留在本地。未下载或运行安装程序，当前工作台、受管 Codex 和已安装 MCP 插件未重启或更换。
 
 ## 2026-11-03 MCP 背景模式与六档背景
 
