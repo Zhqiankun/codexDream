@@ -61,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.32`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.33`：
 
-- `CodexStyle-1.3.32-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.32-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.33-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.33-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.32` 新增下载前的更新内容弹窗，以及可离线查看日期、内容和当前版本标记的历史更新记录。自动检查改为每次检查完成后间隔 5 分钟，后台仍不自动下载。升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具；覆盖安装后重新打开工作台即可使用，已有主题和配置保留。
+`v1.3.33` 新增 MCP 草稿背景模式和六档图片工具，并提供版本检查与取消保护。升级前先通过 CodexStyle 结束它拥有的 Codex 会话，再退出工具；覆盖安装并重新打开工作台后，在 Assistant 卡片点击“安装 / 更新”，再新建 Codex 任务以加载插件 0.1.2。已有主题和配置保留。
 
 ## 运行要求
 
@@ -89,6 +89,8 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 5. 关闭从外部启动的 Codex 窗口，选择已保存主题，再点击**启动 Codex**。
 
 如需让 Codex 设计配色草稿，只需在 CodexStyle Assistant 卡片中点击一次**安装 / 更新**。CodexStyle 会注册随包本地 marketplace，并用插件自带的专用 Node.js 运行时安装固定插件。以后打开 CodexStyle 就会自动启动带认证的本机连接，不需要终端、外部 Node.js、端口或密钥设置。首次安装后请新建一个 Codex 任务，让 Codex 加载插件。
+
+Assistant 0.1.2 支持读取背景模式与各档图片状态、修改草稿的正常／按档位模式，以及为六档背景打开原生选图窗口或清除指定图片。模式切换保留图片，修改后回工作台预览并保存。此能力需要 CodexStyle 1.3.33 及以上工作台和 0.1.2 及以上插件。选图不传递文件路径或图片内容给 Codex，取消或超时后的未提交结果会作废。
 
 需要保留全部当前字段时使用**导出主题 ZIP**。未编辑的正式导入包可以原样导出，一旦编辑便不能再重建原始正式包；CodexStyle 不再为 v1.0.x 至 v1.2.x 客户端生成有损降级 ZIP。
 

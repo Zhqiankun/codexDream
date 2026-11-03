@@ -460,6 +460,103 @@ describe("AppController operation gate", () => {
     );
     expect(appQuit).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["ready", 7, "READY_THEME_IMMUTABLE"],
+    ["draft", 8, "STALE_REVISION"],
+  ] as const)(
+    "rejects assistant background writes to %s revision %s inside the gate",
+    async (status, revision, code) => {
+      const fixture = controllerFixture();
+      fixture.themeService.get.mockReturnValue({
+        ok: true,
+        data: { status, revision },
+      });
+      expect(
+        await fixture.controller.setAssistantBackgroundMode(
+          "draft-id",
+          7,
+          "reasoning",
+        ),
+      ).toMatchObject({ ok: false, error: { code } });
+      expect(
+        await fixture.controller.chooseAssistantReasoningBackground(
+          "draft-id",
+          7,
+          "low",
+        ),
+      ).toMatchObject({ ok: false, error: { code } });
+      expect(
+        await fixture.controller.clearAssistantReasoningBackground(
+          "draft-id",
+          7,
+          "low",
+        ),
+      ).toMatchObject({ ok: false, error: { code } });
+      expect(fixture.themeService.patch).not.toHaveBeenCalled();
+      expect(fixture.themeService.chooseBackground).not.toHaveBeenCalled();
+      expect(
+        fixture.themeService.clearReasoningBackground,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps the gate until a cancelled assistant picker actually returns", async () => {
+    const fixture = controllerFixture();
+    fixture.themeService.get.mockReturnValue({
+      ok: true,
+      data: { status: "draft", revision: 7 },
+    });
+    vi.spyOn(fixture.controller, "openStudio").mockResolvedValue();
+    let finishPicker!: () => void;
+    fixture.themeService.chooseBackground.mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        finishPicker = resolve;
+      });
+      return {
+        ok: false,
+        error: { code: "CANCELLED", messageKey: "dialog.cancelled" },
+      };
+    });
+    const cancellation = new AbortController();
+    const selected = fixture.controller.chooseAssistantReasoningBackground(
+      "draft-id",
+      7,
+      "low",
+      cancellation.signal,
+    );
+    await vi.waitFor(() =>
+      expect(fixture.themeService.chooseBackground).toHaveBeenCalledOnce(),
+    );
+    cancellation.abort();
+    expect(
+      await fixture.controller.setAssistantBackgroundMode(
+        "draft-id",
+        7,
+        "normal",
+      ),
+    ).toMatchObject({ ok: false, error: { code: "OPERATION_BUSY" } });
+    expect(fixture.themeService.patch).not.toHaveBeenCalled();
+    finishPicker();
+    expect(await selected).toMatchObject({
+      ok: false,
+      error: { code: "CANCELLED" },
+    });
+    fixture.themeService.patch.mockResolvedValue({
+      ok: true,
+      data: { revision: 8 },
+    });
+    expect(
+      await fixture.controller.setAssistantBackgroundMode(
+        "draft-id",
+        7,
+        "normal",
+      ),
+    ).toMatchObject({ ok: true });
+    expect(fixture.themeService.patch).toHaveBeenCalledWith("draft-id", 7, {
+      backgroundMode: "normal",
+    });
+  });
 });
 
 function controllerFixture(
@@ -503,6 +600,10 @@ function controllerFixture(
   const themeService = {
     commit: vi.fn(),
     delete: vi.fn(),
+    get: vi.fn(),
+    patch: vi.fn(),
+    chooseBackground: vi.fn(),
+    clearReasoningBackground: vi.fn(),
     setPaused: vi.fn().mockResolvedValue({ ok: true }),
   };
   const store = {

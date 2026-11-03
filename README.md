@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.32` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.33` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.32-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.32-x64.zip` — portable archive.
+- `CodexStyle-1.3.33-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.33-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.32` shows release notes before you confirm an update download and adds offline version history with dates and the current version marked. Automatic checks now run five minutes after each check finishes; background checks never download updates. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy and reopen CodexStyle; saved themes and settings are retained.
+`v1.3.33` adds MCP tools for draft background modes and six reasoning backgrounds, with revision checks and cancellation protection. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, choose **Install / update** in its Assistant card, then open a new Codex task to load plugin 0.1.2. Saved themes and settings are retained.
 
 ## Requirements
 
@@ -89,6 +89,8 @@ The release is currently unsigned. Windows SmartScreen may show an unknown-publi
 5. Close externally launched Codex windows, select the saved theme, and choose **Launch Codex**.
 
 To let Codex design a color draft, choose **Install / update** once in the CodexStyle Assistant card. CodexStyle registers the bundled local marketplace and installs the fixed plugin with its private Node.js runtime. After that, opening CodexStyle automatically starts the authenticated local connection; no terminal, external Node.js, port, or token setup is required. Open a new Codex task after the first installation so Codex can load the plugin.
+
+Assistant 0.1.2 reads background modes and per-effort image status, changes a draft's normal/reasoning mode, and opens a native picker or clears an image for any of the six editable reasoning efforts. Switching modes preserves images; review and save the draft in Studio. These tools require CodexStyle 1.3.33 or later and plugin 0.1.2 or later. Image paths and contents are never returned to Codex, and cancelled or timed-out selections are discarded before commit.
 
 Use **Export theme ZIP** to preserve all current theme fields. An untouched imported formal package can be rebuilt with its original formal contents intact; editing it disables original-formal export. CodexStyle no longer creates lossy ZIPs for v1.0.x–v1.2.x clients.
 

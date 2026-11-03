@@ -9,11 +9,14 @@
       "tools": {
         "create_theme_draft": { "approval_mode": "prompt" },
         "update_theme_draft": { "approval_mode": "prompt" },
+        "set_background_mode": { "approval_mode": "prompt" },
+        "choose_reasoning_background": { "approval_mode": "prompt" },
+        "clear_reasoning_background": { "approval_mode": "prompt" },
         "select_theme": { "approval_mode": "prompt" }
       },
       "env_vars": ["LOCALAPPDATA", "USERPROFILE", "PATH"],
       "startup_timeout_sec": 10,
-      "tool_timeout_sec": 30
+      "tool_timeout_sec": 150
     }
   }
 }

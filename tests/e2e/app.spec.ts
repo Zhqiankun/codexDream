@@ -111,10 +111,13 @@ test("starts the real Electron shell with native storage and completes a local w
     );
     const mcpTools = await mcpClient.listTools();
     expect(mcpTools.tools.map((tool) => tool.name).sort()).toEqual([
+      "choose_reasoning_background",
+      "clear_reasoning_background",
       "create_theme_draft",
       "get_theme",
       "list_themes",
       "select_theme",
+      "set_background_mode",
       "status",
       "update_theme_draft",
       "validate_palette",

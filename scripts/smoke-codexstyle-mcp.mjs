@@ -32,10 +32,13 @@ try {
   const tools = await client.listTools();
   const names = tools.tools.map((tool) => tool.name).sort();
   const expected = [
+    "choose_reasoning_background",
+    "clear_reasoning_background",
     "create_theme_draft",
     "get_theme",
     "list_themes",
     "select_theme",
+    "set_background_mode",
     "status",
     "update_theme_draft",
     "validate_palette",

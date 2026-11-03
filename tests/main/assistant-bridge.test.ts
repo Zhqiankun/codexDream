@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { request as httpRequest } from "node:http";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CODEX_ASSISTANT_PROTOCOL_VERSION,
   CodexAssistantEndpointSchema,
+  type CodexAssistantResponse,
   type Result,
   type ThemeDetail,
   type ThemeSnapshot,
@@ -158,6 +160,92 @@ describe("Codex assistant loopback bridge", () => {
     );
     expect(oversized.status).toBe(413);
   });
+
+  it.each(["disconnect", "stop"] as const)(
+    "aborts a pending handler after an HTTP %s",
+    async (action) => {
+      const managed = await createManagedRoot();
+      cleanup.push(managed.cleanup);
+      const store = SecureManagedStore.open(managed.root);
+      cleanup.push(() => store.close());
+      store.ensureLayout();
+      const assistant = new CodexAssistantService(fakeOperations());
+      const bridge = new CodexAssistantBridge(store, assistant);
+      cleanup.push(() => bridge.stop());
+      await bridge.start();
+      const descriptor = CodexAssistantEndpointSchema.parse(
+        JSON.parse(
+          store.readFile(MANAGED_FILES.assistantEndpoint)!.toString("utf8"),
+        ),
+      );
+      let receivedSignal: AbortSignal | undefined;
+      let finishHandler: (() => void) | undefined;
+      const aborted = vi.fn();
+      const handle = vi.spyOn(assistant, "handle").mockImplementation(
+        (request, signal) =>
+          new Promise<CodexAssistantResponse>((resolve) => {
+            receivedSignal = signal;
+            finishHandler = () =>
+              resolve({
+                v: CODEX_ASSISTANT_PROTOCOL_VERSION,
+                id: request.id,
+                ok: false,
+                error: {
+                  code: "UNKNOWN",
+                  message: "cancelled pending request",
+                },
+              });
+            signal?.addEventListener(
+              "abort",
+              () => {
+                aborted();
+                finishHandler?.();
+              },
+              { once: true },
+            );
+          }),
+      );
+      const body = JSON.stringify({
+        v: CODEX_ASSISTANT_PROTOCOL_VERSION,
+        id: randomUUID(),
+        method: "status",
+        params: {},
+      });
+      const client = httpRequest({
+        hostname: "127.0.0.1",
+        port: descriptor.port,
+        path: "/v1/rpc",
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${descriptor.token}`,
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(body),
+        },
+      });
+      // A deliberate disconnect may surface ECONNRESET on the HTTP client.
+      client.on("error", () => undefined);
+      client.on("response", (response) => response.resume());
+      cleanup.push(() => {
+        client.destroy();
+        finishHandler?.();
+      });
+      client.end(body);
+
+      await vi.waitFor(() => expect(handle).toHaveBeenCalledOnce());
+      expect(receivedSignal).toBeInstanceOf(AbortSignal);
+      // The complete request body alone must not cancel a live picker.
+      expect(receivedSignal?.aborted).toBe(false);
+      if (action === "disconnect") client.destroy();
+      else bridge.stop();
+
+      await vi.waitFor(() => expect(aborted).toHaveBeenCalledOnce());
+      expect(receivedSignal?.aborted).toBe(true);
+      if (action === "stop") {
+        expect(bridge.snapshot().state).toBe("unavailable");
+        expect(store.readFile(MANAGED_FILES.assistantEndpoint)).toBeUndefined();
+      }
+    },
+  );
 });
 
 function fakeOperations() {
@@ -189,6 +277,9 @@ function fakeOperations() {
     createDraft: unsupported,
     createDraftFrom: unsupported,
     patchDraft: unsupported,
+    setBackgroundMode: unsupported,
+    chooseReasoningBackground: unsupported,
+    clearReasoningBackground: unsupported,
     selectTheme: async (): Promise<Result<ThemeSnapshot>> => ({
       ok: false,
       error: { code: "UNKNOWN", messageKey: "unsupported" },

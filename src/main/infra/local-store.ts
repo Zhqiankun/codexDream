@@ -527,6 +527,7 @@ export class LocalThemeStore {
     effort: ReasoningEffort,
     data?: Buffer,
     fileName?: string,
+    signal?: AbortSignal,
   ): Promise<ThemeRecord> {
     const theme = this.require(libraryId);
     if (theme.revision !== expectedRevision) throw new Error("STALE_REVISION");
@@ -535,35 +536,40 @@ export class LocalThemeStore {
     await this.reasoningImages.validate(theme);
     const info =
       data && fileName ? await validateImage(data, fileName) : undefined;
-    return this.mutateWithCheckpoint(libraryId, async () => {
-      const images = this.reasoningImages.get(theme);
-      theme.reasoningBackgrounds = { ...theme.reasoningBackgrounds };
-      if (info && data) {
-        // stage 会分配新文件；此临时名字只提供经过解码验证的扩展名。
-        theme.reasoningBackgrounds[effort] = {
-          file: `${randomUUID()}.${info.extension}`,
-          mime: info.mime,
-          sha256: info.sha256,
-          bytes: info.bytes,
-        };
-        images[effort] = data;
-      } else {
-        delete theme.reasoningBackgrounds[effort];
-        delete images[effort];
-      }
-      await this.reasoningImages.stage(theme, images);
-      theme.status = "draft";
-      theme.validation.package = "draft";
-      theme.revision += 1;
-      theme.updatedAt = new Date().toISOString();
-      if (theme.importedFormal) {
-        theme.importedFormal.edited = true;
-        theme.packageFormat = "simplified";
-      }
-      if (this.index.lastKnownGoodLibraryId === libraryId)
-        this.index.lastKnownGoodLibraryId = undefined;
-      return theme;
-    });
+    if (signal?.aborted) throw new Error("CANCELLED");
+    return this.mutateWithCheckpoint(
+      libraryId,
+      async () => {
+        const images = this.reasoningImages.get(theme);
+        theme.reasoningBackgrounds = { ...theme.reasoningBackgrounds };
+        if (info && data) {
+          // stage 会分配新文件；此临时名字只提供经过解码验证的扩展名。
+          theme.reasoningBackgrounds[effort] = {
+            file: `${randomUUID()}.${info.extension}`,
+            mime: info.mime,
+            sha256: info.sha256,
+            bytes: info.bytes,
+          };
+          images[effort] = data;
+        } else {
+          delete theme.reasoningBackgrounds[effort];
+          delete images[effort];
+        }
+        await this.reasoningImages.stage(theme, images);
+        theme.status = "draft";
+        theme.validation.package = "draft";
+        theme.revision += 1;
+        theme.updatedAt = new Date().toISOString();
+        if (theme.importedFormal) {
+          theme.importedFormal.edited = true;
+          theme.packageFormat = "simplified";
+        }
+        if (this.index.lastKnownGoodLibraryId === libraryId)
+          this.index.lastKnownGoodLibraryId = undefined;
+        return theme;
+      },
+      signal,
+    );
   }
 
   async commit(
@@ -1116,6 +1122,7 @@ export class LocalThemeStore {
   private async mutateWithCheckpoint<T>(
     libraryId: string,
     operation: () => T | Promise<T>,
+    signal?: AbortSignal,
   ): Promise<T> {
     const before = this.captureState();
     let stagedCheckpointFile: string | undefined;
@@ -1128,7 +1135,7 @@ export class LocalThemeStore {
       }
       const result = await operation();
       persistAttempted = true;
-      await this.persist();
+      await this.persist(signal);
       return result;
     } catch (error) {
       this.restoreState(before);
@@ -1897,7 +1904,7 @@ export class LocalThemeStore {
     await this.commit(libraryId, withImage.revision);
   }
 
-  private async persist(): Promise<void> {
+  private async persist(signal?: AbortSignal): Promise<void> {
     for (const record of reasoningRecords(this.index))
       if (!validReasoningImages(record))
         throw new Error("UNSAFE_IMAGE:reasoning-metadata-or-total-size");
@@ -1905,6 +1912,8 @@ export class LocalThemeStore {
     const payloadBuffer = Buffer.from(payload, "utf8");
     const release = await this.acquireLock();
     try {
+      // 索引原子写是提交点；解码、暂存或等待锁期间取消时由外层事务清理暂存。
+      if (signal?.aborted) throw new Error("CANCELLED");
       const previous = this.managedStore.readFile(MANAGED_FILES.index);
       if (previous)
         this.managedStore.writeFileAtomic(MANAGED_FILES.backup, previous);

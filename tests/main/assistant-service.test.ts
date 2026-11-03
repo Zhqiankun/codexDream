@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CODEX_ASSISTANT_PROTOCOL_VERSION,
+  readThemeConfiguration,
+  type CodexAssistantRequest,
+  type Result,
+  type ThemeDetail,
   type ThemeSnapshot,
 } from "../../src/contracts";
-import { CodexAssistantService } from "../../src/main/assistant/assistant-service";
+import {
+  CodexAssistantService,
+  type CodexAssistantOperations,
+} from "../../src/main/assistant/assistant-service";
 import { ThemeService } from "../../src/main/app/theme-service";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
 import { createManagedRoot } from "../fixtures/managed-root";
@@ -36,6 +43,12 @@ describe("Codex assistant service", () => {
         themes.patch(libraryId, expectedRevision, patch),
       selectTheme: (libraryId, expectedRevision) =>
         themes.select(libraryId, expectedRevision),
+      setBackgroundMode: (libraryId, expectedRevision, mode) =>
+        themes.patch(libraryId, expectedRevision, { backgroundMode: mode }),
+      chooseReasoningBackground: (libraryId, expectedRevision, effort) =>
+        themes.chooseBackground(libraryId, expectedRevision, effort),
+      clearReasoningBackground: (libraryId, expectedRevision, effort) =>
+        themes.clearReasoningBackground(libraryId, expectedRevision, effort),
     });
     const source = store.listRecords()[0];
 
@@ -139,6 +152,12 @@ describe("Codex assistant service", () => {
         themes.patch(libraryId, expectedRevision, patch),
       selectTheme: (libraryId, expectedRevision) =>
         themes.select(libraryId, expectedRevision),
+      setBackgroundMode: (libraryId, expectedRevision, mode) =>
+        themes.patch(libraryId, expectedRevision, { backgroundMode: mode }),
+      chooseReasoningBackground: (libraryId, expectedRevision, effort) =>
+        themes.chooseBackground(libraryId, expectedRevision, effort),
+      clearReasoningBackground: (libraryId, expectedRevision, effort) =>
+        themes.clearReasoningBackground(libraryId, expectedRevision, effort),
     });
     const draft = await store.createDraft("Not ready");
     const rejected = await assistant.handle({
@@ -167,6 +186,228 @@ describe("Codex assistant service", () => {
     });
   });
 });
+
+describe("Codex assistant reasoning backgrounds", () => {
+  it("reports all nine efforts as metadata without exposing image locations or bytes", async () => {
+    const detail = backgroundThemeDetail();
+    detail.backgroundMode = "reasoning";
+    detail.reasoningBackgroundUrls = {
+      none: "app://theme-asset/private-none.png",
+      high: "app://theme-asset/private-high.png",
+      persistent: "app://theme-asset/private-persistent.png",
+    };
+    detail.backgroundUrl = "app://theme-asset/private-normal.png";
+    detail.json = { reasoningBackgrounds: { high: "C:\\private\\high.png" } };
+    detail.homeCards[0].imageDataUrl = "data:image/png;base64,cHJpdmF0ZQ==";
+    detail.styleConfig.sendIconDataUrl = "data:image/png;base64,c2VjcmV0";
+    const { assistant, operations } = backgroundAssistant(detail);
+
+    const response = await assistant.handle({
+      v: CODEX_ASSISTANT_PROTOCOL_VERSION,
+      id: randomUUID(),
+      method: "get_theme",
+      params: { libraryId: detail.libraryId },
+    });
+
+    expect(response).toMatchObject({
+      ok: true,
+      data: {
+        backgroundMode: "reasoning",
+        reasoningBackgrounds: {
+          none: { hasImage: true, editable: false },
+          minimal: { hasImage: false, editable: false },
+          low: { hasImage: false, editable: true },
+          medium: { hasImage: false, editable: true },
+          high: { hasImage: true, editable: true },
+          xhigh: { hasImage: false, editable: true },
+          max: { hasImage: false, editable: true },
+          ultra: { hasImage: false, editable: true },
+          persistent: { hasImage: true, editable: false },
+        },
+      },
+    });
+    if (!response.ok) throw new Error("Expected readable theme metadata");
+    const data = response.data as Record<string, unknown>;
+    expect(Object.keys(data.reasoningBackgrounds as object)).toHaveLength(9);
+    expect(data).not.toHaveProperty("reasoningBackgroundUrls");
+    expect(data).not.toHaveProperty("backgroundUrl");
+    expect(data).not.toHaveProperty("json");
+    expect(JSON.stringify(data)).not.toMatch(
+      /app:\/\/|C:\\\\private|data:image/,
+    );
+    expect(operations.setBackgroundMode).not.toHaveBeenCalled();
+    expect(operations.chooseReasoningBackground).not.toHaveBeenCalled();
+    expect(operations.clearReasoningBackground).not.toHaveBeenCalled();
+  });
+
+  const actions = [
+    ["set_background_mode", "setBackgroundMode"],
+    ["choose_reasoning_background", "chooseReasoningBackground"],
+    ["clear_reasoning_background", "clearReasoningBackground"],
+  ] as const;
+
+  it.each(actions)(
+    "%s rejects saved themes before invoking a mutation or picker",
+    async (method, operation) => {
+      const detail = backgroundThemeDetail();
+      detail.status = "ready";
+      const { assistant, operations } = backgroundAssistant(detail);
+
+      const response = await assistant.handle(
+        backgroundRequest(method, detail),
+      );
+
+      expect(response).toMatchObject({
+        ok: false,
+        error: { code: "READY_THEME_IMMUTABLE" },
+      });
+      expect(operations[operation]).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(actions)(
+    "%s rejects stale revisions before invoking a mutation or picker",
+    async (method, operation) => {
+      const detail = backgroundThemeDetail();
+      const { assistant, operations } = backgroundAssistant(detail);
+      const request = backgroundRequest(method, detail);
+      request.params.expectedRevision--;
+
+      const response = await assistant.handle(request);
+
+      expect(response).toMatchObject({
+        ok: false,
+        error: { code: "STALE_REVISION" },
+      });
+      expect(operations[operation]).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(actions)(
+    "%s forwards the current draft target and returns updated metadata",
+    async (method, operation) => {
+      const detail = backgroundThemeDetail();
+      const { assistant, operations } = backgroundAssistant(detail);
+      const abortController = new AbortController();
+
+      const response = await assistant.handle(
+        backgroundRequest(method, detail),
+        abortController.signal,
+      );
+
+      expect(operations[operation]).toHaveBeenCalledOnce();
+      expect(operations[operation].mock.calls[0].slice(0, 3)).toEqual([
+        detail.libraryId,
+        detail.revision,
+        method === "set_background_mode" ? "reasoning" : "high",
+      ]);
+      if (method === "choose_reasoning_background") {
+        expect(operations.chooseReasoningBackground.mock.calls[0][3]).toBe(
+          abortController.signal,
+        );
+      }
+      expect(response).toMatchObject({
+        ok: true,
+        data: { libraryId: detail.libraryId, revision: detail.revision + 1 },
+      });
+    },
+  );
+});
+
+function backgroundRequest(
+  method:
+    | "set_background_mode"
+    | "choose_reasoning_background"
+    | "clear_reasoning_background",
+  detail: ThemeDetail,
+): Extract<
+  CodexAssistantRequest,
+  {
+    method:
+      | "set_background_mode"
+      | "choose_reasoning_background"
+      | "clear_reasoning_background";
+  }
+> {
+  const target = {
+    libraryId: detail.libraryId,
+    expectedRevision: detail.revision,
+  };
+  const base = { v: CODEX_ASSISTANT_PROTOCOL_VERSION, id: randomUUID() };
+  return method === "set_background_mode"
+    ? { ...base, method, params: { ...target, mode: "reasoning" } }
+    : { ...base, method, params: { ...target, reasoningEffort: "high" } };
+}
+
+function backgroundAssistant(detail: ThemeDetail) {
+  const unsupported = async (): Promise<Result<ThemeDetail>> => ({
+    ok: false,
+    error: { code: "UNKNOWN", messageKey: "unsupported" },
+  });
+  const updated = { ...detail, revision: detail.revision + 1 };
+  const operations = {
+    appVersion: "1.3.12",
+    snapshot: (): ThemeSnapshot => ({
+      themes: [],
+      paused: false,
+      session: sessionSnapshot(),
+      update: updateSnapshot(),
+    }),
+    getTheme: (): Result<ThemeDetail> => ({ ok: true, data: detail }),
+    createDraft: unsupported,
+    createDraftFrom: unsupported,
+    patchDraft: unsupported,
+    selectTheme: async (): Promise<Result<ThemeSnapshot>> => ({
+      ok: false,
+      error: { code: "UNKNOWN", messageKey: "unsupported" },
+    }),
+    setBackgroundMode: vi.fn<CodexAssistantOperations["setBackgroundMode"]>(),
+    chooseReasoningBackground:
+      vi.fn<CodexAssistantOperations["chooseReasoningBackground"]>(),
+    clearReasoningBackground:
+      vi.fn<CodexAssistantOperations["clearReasoningBackground"]>(),
+  } satisfies CodexAssistantOperations;
+  operations.setBackgroundMode.mockResolvedValue({ ok: true, data: updated });
+  operations.chooseReasoningBackground.mockResolvedValue({
+    ok: true,
+    data: updated,
+  });
+  operations.clearReasoningBackground.mockResolvedValue({
+    ok: true,
+    data: updated,
+  });
+  return { assistant: new CodexAssistantService(operations), operations };
+}
+
+function backgroundThemeDetail(): ThemeDetail {
+  return {
+    ...readThemeConfiguration({}),
+    libraryId: randomUUID(),
+    name: "Reasoning draft",
+    status: "draft",
+    revision: 4,
+    updatedAt: "2026-11-03T00:00:00.000Z",
+    accent: "#ffffff",
+    backgroundColor: "#000000",
+    hasBackground: false,
+    selectedForNextLaunch: false,
+    signed: false,
+    packageFormat: "simplified",
+    canDiscardChanges: false,
+    themeId: "reasoning-draft",
+    description: "",
+    css: "",
+    backgroundScope: "window",
+    sidebarOverlayOpacity: 75,
+    json: {},
+    validation: {
+      css: "empty",
+      image: "missing",
+      package: "draft",
+      warnings: [],
+    },
+  };
+}
 
 function sessionSnapshot(): ThemeSnapshot["session"] {
   return {

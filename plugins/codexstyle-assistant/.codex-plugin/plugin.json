@@ -1,7 +1,7 @@
 {
   "name": "codexstyle-assistant",
-  "version": "0.1.1",
-  "description": "Connect Codex to CodexStyle for safe theme discovery and palette drafting.",
+  "version": "0.1.2",
+  "description": "Connect Codex to CodexStyle for safe theme discovery, palette and background drafting.",
   "author": {
     "name": "CodexStyle",
     "url": "https://github.com/Zhqiankun/codexDream"
@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "CodexStyle Assistant",
     "shortDescription": "Generate safe CodexStyle theme drafts with Codex.",
-    "longDescription": "Read the local CodexStyle theme library, validate complete color systems, derive non-destructive drafts, and select reviewed themes for the next Codex launch.",
+    "longDescription": "Read the local CodexStyle theme library, validate complete color systems, configure draft background modes and six reasoning backgrounds through a native picker, and select reviewed themes for the next Codex launch.",
     "developerName": "CodexStyle",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],

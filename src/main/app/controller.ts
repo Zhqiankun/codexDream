@@ -23,6 +23,8 @@ import type { ThemeRecord } from "../domain/theme";
 import {
   PROTOCOL_VERSION,
   REASONING_EFFORTS,
+  type BackgroundMode,
+  type CodexAssistantEditableReasoningEffort,
   type ReasoningEffort,
   type CodexAssistantPluginInstallResult,
   type ErrorCode,
@@ -146,6 +148,26 @@ export class AppController {
         this.patchDraft(libraryId, expectedRevision, patch),
       selectTheme: (libraryId, expectedRevision) =>
         this.selectThemeForNextLaunch(libraryId, expectedRevision),
+      setBackgroundMode: (libraryId, expectedRevision, mode) =>
+        this.setAssistantBackgroundMode(libraryId, expectedRevision, mode),
+      chooseReasoningBackground: (
+        libraryId,
+        expectedRevision,
+        effort,
+        signal,
+      ) =>
+        this.chooseAssistantReasoningBackground(
+          libraryId,
+          expectedRevision,
+          effort,
+          signal,
+        ),
+      clearReasoningBackground: (libraryId, expectedRevision, effort) =>
+        this.clearAssistantReasoningBackground(
+          libraryId,
+          expectedRevision,
+          effort,
+        ),
     });
     this.assistantBridge = new CodexAssistantBridge(
       this.store.managedStore,
@@ -417,6 +439,74 @@ export class AppController {
         reasoningEffort,
       ),
     );
+  }
+
+  setAssistantBackgroundMode(
+    libraryId: string,
+    expectedRevision: number,
+    mode: BackgroundMode,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(() => {
+      const current = this.assistantDraft(libraryId, expectedRevision);
+      if (!current.ok) return current;
+      return this.themeService.patch(libraryId, expectedRevision, {
+        backgroundMode: mode,
+      });
+    });
+  }
+
+  chooseAssistantReasoningBackground(
+    libraryId: string,
+    expectedRevision: number,
+    effort: CodexAssistantEditableReasoningEffort,
+    signal?: AbortSignal,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(async () => {
+      const current = this.assistantDraft(libraryId, expectedRevision);
+      if (!current.ok) return current;
+      if (signal?.aborted) return resultError("CANCELLED", "dialog.cancelled");
+      await this.openStudio();
+      // 选择框和后续解码始终占用同一 gate；客户端取消不能提前释放写锁。
+      return this.themeService.chooseBackground(
+        libraryId,
+        expectedRevision,
+        effort,
+        signal,
+        () => {
+          const latest = this.assistantDraft(libraryId, expectedRevision);
+          if (!latest.ok) throw new Error(latest.error.code);
+        },
+      );
+    });
+  }
+
+  clearAssistantReasoningBackground(
+    libraryId: string,
+    expectedRevision: number,
+    effort: CodexAssistantEditableReasoningEffort,
+  ): Promise<Result<ThemeDetail>> {
+    return this.runSideEffect(() => {
+      const current = this.assistantDraft(libraryId, expectedRevision);
+      if (!current.ok) return current;
+      return this.themeService.clearReasoningBackground(
+        libraryId,
+        expectedRevision,
+        effort,
+      );
+    });
+  }
+
+  private assistantDraft(
+    libraryId: string,
+    expectedRevision: number,
+  ): Result<ThemeDetail> {
+    const current = this.themeService.get(libraryId);
+    if (!current.ok) return current;
+    if (current.data.status !== "draft")
+      return resultError("READY_THEME_IMMUTABLE", "theme.readyImmutable");
+    if (current.data.revision !== expectedRevision)
+      return resultError("STALE_REVISION", "theme.staleRevision");
+    return current;
   }
 
   // 只在 store 已完成 ready 复验后组装资源；renderer 不能提供路径或图片字节。

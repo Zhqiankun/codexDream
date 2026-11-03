@@ -7,18 +7,23 @@ import { z } from "zod";
 import {
   CODEX_ASSISTANT_PROTOCOL_VERSION,
   CodexAssistantEndpointSchema,
+  CodexAssistantSetBackgroundModeParamsSchema,
+  CodexAssistantChooseReasoningBackgroundParamsSchema,
+  CodexAssistantClearReasoningBackgroundParamsSchema,
   ThemeColorsSchema,
+  type CodexAssistantRequest,
   type CodexAssistantResponse,
 } from "../../../../src/contracts/index.js";
 
 const REQUEST_TIMEOUT_MS = 10_000;
+const IMAGE_PICKER_TIMEOUT_MS = 120_000;
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 
 const server = new McpServer(
-  { name: "codexstyle", version: "0.1.1" },
+  { name: "codexstyle", version: "0.1.2" },
   {
     instructions:
-      "Use CodexStyle tools to read themes and create reviewed color drafts. Never overwrite a saved theme: create a derived draft first. Call validate_palette before update_theme_draft. Only call select_theme when the user explicitly asks to select an already saved theme. Commit, delete, import, export, and Codex launch actions are intentionally unavailable.",
+      "Use CodexStyle tools to read themes and create reviewed color and background drafts. Never overwrite a saved theme: create a derived draft first. Call validate_palette before changing colors with update_theme_draft. Use set_background_mode and the reasoning background tools for draft backgrounds; choose_reasoning_background opens a native file picker for the user, never accepts paths or image bytes. Only call select_theme when the user explicitly asks to select an already saved theme. Commit, delete, import, export, and Codex launch actions are intentionally unavailable.",
   },
 );
 
@@ -58,7 +63,8 @@ server.registerTool(
   "get_theme",
   {
     title: "读取 CodexStyle 主题",
-    description: "读取一个主题的 29 项颜色、画面参数、组件样式与验证状态。",
+    description:
+      "读取主题的 29 项颜色、背景模式、各档图片是否存在及可编辑状态、画面参数和验证状态，不返回图片内容或路径。",
     inputSchema: z.object({ libraryId: z.string().uuid() }).strict(),
     annotations: {
       readOnlyHint: true,
@@ -151,6 +157,60 @@ server.registerTool(
 );
 
 server.registerTool(
+  "set_background_mode",
+  {
+    title: "设置草稿背景模式",
+    description:
+      "将草稿背景模式设为 normal（正常）或 reasoning（按档位切换），保留全部已配置图片。已保存主题会被拒绝。",
+    inputSchema: CodexAssistantSetBackgroundModeParamsSchema,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async (params, { signal }) =>
+    toolResult(await callBridge("set_background_mode", params, signal)),
+);
+
+server.registerTool(
+  "choose_reasoning_background",
+  {
+    title: "选择草稿档位背景",
+    description:
+      "打开 CodexStyle 原生文件窗口，由用户为草稿的 low/medium/high/xhigh/max/ultra 中一档选择图片。请先告知用户需要在窗口中选图；不接收文件路径、URL 或图片字节。取消或超时后尚未提交的选图作废；窗口关闭前其他写操作仍受操作锁保护。",
+    inputSchema: CodexAssistantChooseReasoningBackgroundParamsSchema,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async (params, { signal }) =>
+    toolResult(await callBridge("choose_reasoning_background", params, signal)),
+);
+
+server.registerTool(
+  "clear_reasoning_background",
+  {
+    title: "清除草稿档位背景",
+    description:
+      "清除草稿六档中的指定图片，其余图片和背景模式保持不变。仅当用户要求清除此档背景时调用；已保存主题会被拒绝。",
+    inputSchema: CodexAssistantClearReasoningBackgroundParamsSchema,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async (params, { signal }) =>
+    toolResult(await callBridge("clear_reasoning_background", params, signal)),
+);
+
+server.registerTool(
   "select_theme",
   {
     title: "选择 CodexStyle 主题",
@@ -178,18 +238,21 @@ server.registerTool(
 await server.connect(new StdioServerTransport());
 
 async function callBridge(
-  method:
-    | "status"
-    | "list_themes"
-    | "get_theme"
-    | "validate_palette"
-    | "create_theme_draft"
-    | "update_theme_draft"
-    | "select_theme",
+  method: CodexAssistantRequest["method"],
   params: Record<string, unknown>,
+  requestSignal?: AbortSignal,
 ): Promise<CodexAssistantResponse> {
   const endpoint = await readEndpoint();
   const requestId = randomUUID();
+  // 原生选图需要人工交互；MCP 取消也必须关闭 HTTP，使主进程丢弃迟到结果。
+  const timeoutSignal = AbortSignal.timeout(
+    method === "choose_reasoning_background"
+      ? IMAGE_PICKER_TIMEOUT_MS
+      : REQUEST_TIMEOUT_MS,
+  );
+  const signal = requestSignal
+    ? AbortSignal.any([requestSignal, timeoutSignal])
+    : timeoutSignal;
   let response: Response;
   try {
     response = await fetch(`http://127.0.0.1:${endpoint.port}/v1/rpc`, {
@@ -204,9 +267,16 @@ async function callBridge(
         method,
         params,
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal,
     });
   } catch {
+    if (signal.aborted) {
+      throw new Error(
+        method === "choose_reasoning_background"
+          ? "选图请求已取消或超时，尚未提交的选图已作废。请关闭仍打开的选图窗口，重新读取草稿后再操作。"
+          : "CodexStyle 请求已取消或超时，请重新读取主题状态后再操作。",
+      );
+    }
     throw new Error("无法连接 CodexStyle。请先启动 CodexStyle，再重试此工具。");
   }
   const declaredLength = Number(response.headers.get("content-length") ?? 0);

@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.33 — 2026-11-03
+
+### English
+
+- Updated CodexStyle Assistant to 0.1.2 with background-mode and per-effort image status in theme details. Added tools to switch a draft between normal and reasoning backgrounds, choose an image through the native file picker, and clear an image for any of the six editable reasoning efforts.
+- Background changes require a draft and its current revision. Switching modes preserves images; saved themes must first be copied into a separate draft. Image paths and contents are not returned to Codex, and drafts still need review and saving in Studio.
+- Cancelled, timed-out, or disconnected image selections are discarded before commit. The operation lock remains held until the native picker finishes, and staged images are rolled back when a selection is cancelled. Existing palette, draft, and theme-selection tools remain compatible.
+
+### 简体中文
+
+- CodexStyle Assistant 升级至 0.1.2：主题详情可读取背景模式和各档图片状态，新增草稿背景模式切换、六档原生选图与指定档位图片清除工具。
+- 背景修改要求草稿和当前版本号，切换模式保留所有图片；已保存主题须先派生独立草稿。图片路径和内容不返回给 Codex，修改后仍在工作台预览并保存。
+- 选图取消、超时或连接断开后，未提交的结果会作废；原生窗口结束前保持操作锁，取消时回滚暂存图片。原有配色、草稿和主题选择工具继续兼容。
+
+> 升级前通过 CodexStyle 结束它拥有的 Codex 会话并退出工具。安装 v1.3.33 后，重新打开工作台，在 CodexStyle Assistant 卡片点击“安装 / 更新”，再新建 Codex 任务以加载插件 0.1.2。已有主题和配置保留。
+
 ## v1.3.32 — 2026-11-02
 
 ### English

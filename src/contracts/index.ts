@@ -32,6 +32,7 @@ export type ErrorCode =
   | "OPERATION_BUSY"
   | "PAUSED"
   | "STALE_REVISION"
+  | "READY_THEME_IMMUTABLE"
   | "NOT_FOUND"
   | "INCOMPLETE_THEME"
   | "UNSAFE_ARCHIVE"
@@ -332,7 +333,58 @@ const AssistantRequestBase = {
 };
 const AssistantEmptyParams = z.object({}).strict();
 
+// 助手只编辑工作台公开的六档；旧主题其他档位保留为只读元数据。
+export const CODEX_ASSISTANT_EDITABLE_REASONING_EFFORTS = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const satisfies readonly ReasoningEffort[];
+export type CodexAssistantEditableReasoningEffort =
+  (typeof CODEX_ASSISTANT_EDITABLE_REASONING_EFFORTS)[number];
+const AssistantDraftParams = {
+  libraryId: z.string().uuid(),
+  expectedRevision: z.number().int().nonnegative(),
+};
+export const CodexAssistantSetBackgroundModeParamsSchema = z
+  .object({
+    ...AssistantDraftParams,
+    mode: z.enum(["normal", "reasoning"]),
+  })
+  .strict();
+export const CodexAssistantChooseReasoningBackgroundParamsSchema = z
+  .object({
+    ...AssistantDraftParams,
+    reasoningEffort: z.enum(CODEX_ASSISTANT_EDITABLE_REASONING_EFFORTS),
+  })
+  .strict();
+export const CodexAssistantClearReasoningBackgroundParamsSchema =
+  CodexAssistantChooseReasoningBackgroundParamsSchema;
+
 export const CodexAssistantRequestSchema = z.discriminatedUnion("method", [
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("set_background_mode"),
+      params: CodexAssistantSetBackgroundModeParamsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("choose_reasoning_background"),
+      params: CodexAssistantChooseReasoningBackgroundParamsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("clear_reasoning_background"),
+      params: CodexAssistantClearReasoningBackgroundParamsSchema,
+    })
+    .strict(),
   z
     .object({
       ...AssistantRequestBase,
@@ -413,6 +465,8 @@ export type CodexAssistantErrorCode =
   | "READY_THEME_IMMUTABLE"
   | "PALETTE_CONTRAST_FAILED"
   | "INCOMPLETE_THEME"
+  | "CANCELLED"
+  | "UNSAFE_IMAGE"
   | "UNKNOWN";
 
 export type CodexAssistantResponse =

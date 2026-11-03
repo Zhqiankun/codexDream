@@ -247,7 +247,7 @@ const assistantPlugin = source(
 );
 requireMarkers(assistantPlugin, "assistant-plugin", [
   '"name": "codexstyle-assistant"',
-  '"version": "0.1.1"',
+  '"version": "0.1.2"',
   '"skills": "./skills/"',
   '"mcpServers": "./.mcp.json"',
 ]);

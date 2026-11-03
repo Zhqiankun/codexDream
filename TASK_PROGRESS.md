@@ -1,6 +1,23 @@
 # CodexStyle 任务进度
 
-更新时间：2026-11-02
+更新时间：2026-11-03
+
+## 2026-11-03 v1.3.33 发布准备
+
+- 用户明确授权提交、推送并发布，目标版本确认为 `v1.3.33`；随包 MCP 插件版本为 `0.1.2`。桌面 package/lock、双语 README 和 CHANGELOG 同步，发布说明明确工作台升级后需点击插件“安装 / 更新”并新建 Codex 任务。
+- 已确认本地、远端 `v1.3.33` 标签及同名 Release 不存在，远端 main 与本地起点 `5e2e569` 一致。复用本轮 107 项相关测试、类型/格式/lint/架构检查及生产构建证据；正式全量检查、干净 native 构建、打包、包校验和资产发布由标签触发的既有 Release Actions 完成。
+- 本次只提交功能、测试和发布元数据，临时诊断目录、隔离数据、日志及 `output/` 均留在本地。不会重启当前工作台、受管 Codex 或安装本机插件。
+
+## 2026-11-03 MCP 背景模式与六档背景
+
+- 按用户授权补齐 MCP 背景能力；插件从 0.1.1 升为 0.1.2，既有七项工具保持兼容，新增 `set_background_mode`、`choose_reasoning_background`、`clear_reasoning_background`。`get_theme` 和写操作结果返回 `backgroundMode` 及九档 `{ hasImage, editable }`；六档可配置，`none/minimal/persistent` 仅兼容读取，不返回图片路径、URL 或字节。
+- 三项写操作只允许当前 revision 的 draft，操作锁内再次核对状态；原生选图和清除复用 controller、ThemeService、图片校验和受管存储事务。模式切换保留所有图片，选图不隐式切模式，不增加保存、删除、选择、启动或热应用权限。
+- MCP 取消信号贯穿 SDK、HTTP bridge、选图、图片校验及索引提交点；客户端取消、超时、断连和桥接关闭时，未提交选图作废，暂存图片/checkpoint 回滚。操作锁保持至原生窗口结束。选图 HTTP 预算 120 秒，插件工具预算 150 秒；普通请求仍为 10 秒。取消和不安全图片返回具名错误。
+- 修改集中于 `src/contracts/index.ts`、既有 assistant/controller/theme-service/local-store 链、插件源码/Skill/清单及构建产物；没有新增生产模块、通用抽象、依赖或存储迁移。需求、架构、双语 README、工具清单 smoke 与架构检查同步更新。
+- 验证：插件按随包 Node.js 22.22.0 构建、插件独立 TypeScript 检查、项目 TypeScript、相关 ESLint/Prettier、架构和 diff 检查通过；electron-vite main/preload/renderer 生产构建通过。主进程 7 文件 / 104 项相关测试通过，覆盖 ready/stale、六档 schema、九档脱敏、真实 HTTP 断连/stop、operation gate、异步校验取消、暂存回滚与重载；原有共享存储用例同时通过。
+- 独立 QA 使用隔离 Electron、真实随包 STDIO MCP、HTTP bridge、controller 与 native 存储完成新增 2 项专项（45.4 秒），逐档核对图片协议实际字节，并验证 SDK 取消、1 秒 SDK 超时与 STDIO 断连时迟到结果不写入、窗口未结束前写锁不释放。既有 `app.spec.ts` 再回归 1 项通过（16.8 秒），合计 107 项相关测试通过；证据为 `test-results/assistant-background-initial/.last-run.json` 与 `test-results/assistant-background-app-regression/.last-run.json`。
+- 独立只读工程审查未发现阻断缺陷或必改遗漏，核对六档入参、draft/revision 双层校验、共享 gate、取消链、回滚及错误脱敏；插件生成文件也与最终源码重新构建结果逐字节一致。
+- 验证限制：系统原生文件窗口由测试替身返回所选文件，未人工操作真实选图窗口，也未实际等待固定 120 秒期限。正式 CodexStyle 和已安装插件未重启、重装或变更，用户主题未改动；代码尚未提交、推送或发布。实际使用需部署包含此扩展的新版工作台，再从工作台安装/更新插件并新建 Codex 任务；当前公开 1.3.32 不包含此后台扩展。
 
 ## 2026-11-02 改发 v1.3.32
 

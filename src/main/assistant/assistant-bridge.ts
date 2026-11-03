@@ -24,6 +24,7 @@ export class CodexAssistantBridge {
   private token?: string;
   private lastSeenAt?: string;
   private state: CodexAssistantSnapshot["state"] = "unavailable";
+  private readonly pendingRequests = new Set<AbortController>();
 
   constructor(
     private readonly store: SecureManagedStore,
@@ -45,6 +46,7 @@ export class CodexAssistantBridge {
     const token = randomBytes(32).toString("hex");
     const server = createServer((request, response) => {
       void this.handle(request, response).catch(() => {
+        if (response.destroyed) return;
         if (!response.headersSent)
           this.sendJson(response, 500, {
             v: CODEX_ASSISTANT_PROTOCOL_VERSION,
@@ -92,6 +94,8 @@ export class CodexAssistantBridge {
   }
 
   stop(): void {
+    // 关闭桥接先撤销尚未提交的选图；等待原生窗口的 operation gate 仍由原操作持有。
+    for (const controller of this.pendingRequests) controller.abort();
     this.server?.close();
     this.server = undefined;
     this.token = undefined;
@@ -132,24 +136,40 @@ export class CodexAssistantBridge {
       return;
     }
 
-    let payload: unknown;
+    const controller = new AbortController();
+    const onClose = () => {
+      if (!response.writableEnded) controller.abort();
+    };
+    this.pendingRequests.add(controller);
+    response.once("close", onClose);
+    if (response.destroyed) controller.abort();
     try {
-      payload = JSON.parse((await readBody(request)).toString("utf8"));
-    } catch (error) {
-      if (error instanceof RequestTooLargeError) {
-        this.sendJson(response, 413, { error: "request_too_large" });
+      let payload: unknown;
+      try {
+        payload = JSON.parse((await readBody(request)).toString("utf8"));
+      } catch (error) {
+        if (response.destroyed) return;
+        if (error instanceof RequestTooLargeError) {
+          this.sendJson(response, 413, { error: "request_too_large" });
+          return;
+        }
+        this.sendJson(response, 400, invalidRequest());
         return;
       }
-      this.sendJson(response, 400, invalidRequest());
-      return;
+      // 正文读取也可能跨越 stop；不能在桥接关闭后新启动一个选图操作。
+      if (controller.signal.aborted) return;
+      const parsed = CodexAssistantRequestSchema.safeParse(payload);
+      if (!parsed.success) {
+        this.sendJson(response, 400, invalidRequest(requestId(payload)));
+        return;
+      }
+      this.touch();
+      const result = await this.service.handle(parsed.data, controller.signal);
+      if (!response.destroyed) this.sendJson(response, 200, result);
+    } finally {
+      response.off("close", onClose);
+      this.pendingRequests.delete(controller);
     }
-    const parsed = CodexAssistantRequestSchema.safeParse(payload);
-    if (!parsed.success) {
-      this.sendJson(response, 400, invalidRequest(requestId(payload)));
-      return;
-    }
-    this.touch();
-    this.sendJson(response, 200, await this.service.handle(parsed.data));
   }
 
   private authorized(header: string | undefined): boolean {

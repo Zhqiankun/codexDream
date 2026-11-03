@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
@@ -10,6 +10,7 @@ import {
 } from "../../src/contracts";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
 import { createManagedRoot } from "../fixtures/managed-root";
+import * as imageValidation from "../../src/main/infra/image";
 
 const { showOpenDialog, showSaveDialog } = vi.hoisted(() => ({
   showOpenDialog: vi.fn(),
@@ -27,6 +28,7 @@ describe("ThemeService", () => {
   const managedCleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     showOpenDialog.mockReset();
     showSaveDialog.mockReset();
     await Promise.all(
@@ -152,5 +154,82 @@ describe("ThemeService", () => {
     expect(metadata.format).toBe("webp");
     expect(metadata.width).toBe(480);
     expect(metadata.height).toBe(270);
+  });
+
+  it("discards a late native image selection after cancellation", async () => {
+    let finish!: (value: unknown) => void;
+    showOpenDialog.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const store = { setReasoningBackground: vi.fn() };
+    const service = new ThemeService(
+      store as never,
+      () => ({}) as never,
+      () => ({}) as never,
+    );
+    const cancellation = new AbortController();
+    const pending = service.chooseBackground(
+      "draft-id",
+      7,
+      "low",
+      cancellation.signal,
+    );
+    cancellation.abort();
+    finish({ canceled: false, filePaths: ["C:/never-read.png"] });
+    expect(await pending).toMatchObject({
+      ok: false,
+      error: { code: "CANCELLED" },
+    });
+    expect(store.setReasoningBackground).not.toHaveBeenCalled();
+  });
+
+  it("does not write when cancellation arrives during asynchronous image validation", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "codexstyle-cancel-image-"));
+    temporaryDirectories.push(directory);
+    const imagePath = join(directory, "background.png");
+    const bytes = await sharp({
+      create: { width: 16, height: 16, channels: 3, background: "#112233" },
+    })
+      .png()
+      .toBuffer();
+    await writeFile(imagePath, bytes);
+    const info = await imageValidation.validateImage(bytes, imagePath);
+    let finish!: () => void;
+    const validation = vi
+      .spyOn(imageValidation, "validateImage")
+      .mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        return info;
+      });
+    showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: [imagePath],
+    });
+    const store = { setReasoningBackground: vi.fn() };
+    const service = new ThemeService(
+      store as never,
+      () => ({}) as never,
+      () => ({}) as never,
+    );
+    const cancellation = new AbortController();
+    const pending = service.chooseBackground(
+      "draft-id",
+      7,
+      "low",
+      cancellation.signal,
+    );
+    await vi.waitFor(() => expect(validation).toHaveBeenCalledOnce());
+    cancellation.abort();
+    finish();
+    expect(await pending).toMatchObject({
+      ok: false,
+      error: { code: "CANCELLED" },
+    });
+    expect(store.setReasoningBackground).not.toHaveBeenCalled();
   });
 });

@@ -192,6 +192,54 @@ describe("reasoning background durable lifecycle", () => {
     await expect(store.readyForInjection(record.libraryId)).rejects.toThrow();
   });
 
+  it("rolls back staged images and checkpoints when image selection is cancelled before commit", async () => {
+    const { managed, store, record, red, blue } = await fixture();
+    const before = store.managedStore.readFile(MANAGED_FILES.index);
+    const beforeRevision = record.revision;
+    const files = (await readdir(join(managed.root, "themes"))).sort();
+    const cancellation = new AbortController();
+    const originalWrite = store.managedStore.writeFileAtomic.bind(
+      store.managedStore,
+    );
+    const write = vi
+      .spyOn(store.managedStore, "writeFileAtomic")
+      .mockImplementation((file, bytes) => {
+        originalWrite(file, bytes);
+        // 在真实暂存之后取消，验证提交点之前仍能回滚全部图片与 checkpoint。
+        if (file.directory === "themes") cancellation.abort();
+      });
+    await expect(
+      store.setReasoningBackground(
+        record.libraryId,
+        beforeRevision,
+        "max",
+        blue,
+        "replacement.png",
+        cancellation.signal,
+      ),
+    ).rejects.toThrow("CANCELLED");
+    write.mockRestore();
+    expect(cancellation.signal.aborted).toBe(true);
+    expect(store.managedStore.readFile(MANAGED_FILES.index)).toEqual(before);
+    expect((await readdir(join(managed.root, "themes"))).sort()).toEqual(files);
+    expect(store.get(record.libraryId)?.revision).toBe(beforeRevision);
+    expect(store.getReasoningBackgrounds(record.libraryId)).toEqual({
+      max: red,
+      ultra: blue,
+    });
+    const reloaded = new LocalThemeStore(managed.root);
+    await reloaded.init();
+    expect(reloaded.get(record.libraryId)?.revision).toBe(beforeRevision);
+    expect(
+      reloaded.getDetail(record.libraryId, "app://theme-asset")
+        ?.canDiscardChanges,
+    ).toBe(false);
+    expect(reloaded.getReasoningBackgrounds(record.libraryId)).toEqual({
+      max: red,
+      ultra: blue,
+    });
+  });
+
   it("round-trips mode and all declared image bytes through ZIP and managed import", async () => {
     const { managed, store, record, red, blue } = await fixture();
     const zip = join(managed.localAppData, "reasoning.zip");

@@ -116,18 +116,24 @@ export class ThemeService {
     libraryId: string,
     expectedRevision: number,
     reasoningEffort?: ReasoningEffort,
+    signal?: AbortSignal,
+    assertWritable?: () => void,
   ): Promise<Result<ThemeDetail>> {
+    if (signal?.aborted) return this.error("CANCELLED", "dialog.cancelled");
     const window = this.mainWindow();
     if (!window) return this.error("UNKNOWN", "window.unavailable");
     const selected = await dialog.showOpenDialog(window, {
       properties: ["openFile"],
       filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] }],
     });
-    if (selected.canceled || !selected.filePaths[0])
+    if (signal?.aborted || selected.canceled || !selected.filePaths[0])
       return this.error("CANCELLED", "dialog.cancelled");
     try {
       const data = await readImageFileBounded(selected.filePaths[0]);
       const image = await validateImage(data, selected.filePaths[0]);
+      // 外部请求可能在原生选择或异步解码期间取消；提交前复验权限与取消状态。
+      if (signal?.aborted) return this.error("CANCELLED", "dialog.cancelled");
+      assertWritable?.();
       const record = reasoningEffort
         ? await this.store.setReasoningBackground(
             libraryId,
@@ -135,6 +141,7 @@ export class ThemeService {
             reasoningEffort,
             data,
             selected.filePaths[0],
+            signal,
           )
         : await this.store.setBackground(
             libraryId,
@@ -506,6 +513,7 @@ export class ThemeService {
     const allowed = new Set([
       "IPC_INVALID",
       "STALE_REVISION",
+      "READY_THEME_IMMUTABLE",
       "NOT_FOUND",
       "INCOMPLETE_THEME",
       "UNSAFE_ARCHIVE",

@@ -99,6 +99,8 @@ plugins/codexstyle-assistant/          Codex 插件、STDIO MCP 与主题设计 
 
 CodexStyle Assistant 归属独立本机集成边界：主进程只在字面 `127.0.0.1` 随机端口提供版本化 RPC，并把端口与每次启动轮换的 bearer token 写入 native secure-store 的 `assistant/endpoint.json`；浏览器 Origin、非回环访问、错误路径/方法/content-type、超限正文与错误 token 一律拒绝。随应用打包的 `codexstyle-assistant` 插件通过 STDIO MCP 读取该端点，不直接读取主题库、背景字节或用户 CSS。公开工具仅允许查询、完整二十九色校验、从已有主题派生独立草稿、更新草稿和显式选择已保存主题；已保存主题不可被 MCP 覆盖，保存、删除、导入、导出和启动 Codex 不对插件开放。Skill 在用户没有明确指定颜色或视觉方向时才采用“现代奢华美学，浓郁而克制的配色，深色基调搭配少量高亮点缀，宝石色调，高级材质，丝绒、漆面、玻璃与金属细节，精致光影，强烈但优雅的明暗对比，高端品牌广告质感，简洁构图，大量留白，华丽但不俗艳”作为默认方向；用户明确要求始终优先。
 
+MCP 背景扩展沿用 RPC v1，保持既有七项工具兼容，新增 `set_background_mode(libraryId, expectedRevision, mode)`、`choose_reasoning_background(libraryId, expectedRevision, reasoningEffort)` 和 `clear_reasoning_background(libraryId, expectedRevision, reasoningEffort)`。详情仅返回模式与档位图片状态，不返回图片引用或内容；服务层先校验草稿/revision，再复用 controller 的 operation gate、具名选图/清除和 ThemeService。选图请求的取消信号须从 MCP SDK 传到 HTTP，并由 bridge 在客户端断连或关闭时中止；controller 在选择窗口返回及异步图片校验后、提交前复验取消状态。取消不提前释放正在等待原生窗口的操作锁，也不重试迟到写入。插件版本随功能升级，既有运行中的插件和桌面需更新后才可使用新工具；不增设独立存储、保存、删除、启动或热应用入口。
+
 ## Native secure-store 架构契约
 
 ### 边界与依赖
