@@ -231,6 +231,7 @@ test("MCP configures draft background mode and six wallpapers through the real a
     "create_theme_draft",
     "get_theme",
     "list_themes",
+    "replace_and_save_theme_backgrounds",
     "select_theme",
     "set_background_mode",
     "status",

@@ -6,6 +6,7 @@ import {
   CodexAssistantChooseReasoningBackgroundParamsSchema,
   CodexAssistantClearReasoningBackgroundParamsSchema,
   CodexAssistantRequestSchema,
+  CodexAssistantReplaceAndSaveBackgroundsParamsSchema,
   CodexAssistantSetBackgroundModeParamsSchema,
 } from "../../src/contracts";
 
@@ -30,6 +31,77 @@ const backgroundRequests = [
 ];
 
 describe("Codex assistant background contract", () => {
+  it("accepts one or seven local image slots only through the explicit save tool", () => {
+    const images = Object.fromEntries(
+      ["normal", ...editableEfforts].map((slot) => [
+        slot,
+        `E:\\wallpapers\\${slot}.png`,
+      ]),
+    );
+    for (const replacement of [{ low: "E:/壁纸/小龙.webp" }, images]) {
+      expect(
+        CodexAssistantRequestSchema.safeParse({
+          v: CODEX_ASSISTANT_PROTOCOL_VERSION,
+          id: randomUUID(),
+          method: "replace_and_save_theme_backgrounds",
+          params: { ...target, images: replacement },
+        }).success,
+      ).toBe(true);
+    }
+    for (const invalidImages of [
+      {},
+      { low: null },
+      { persistent: "E:/wallpapers/old.png" },
+      { normal: "E:/wallpapers/new.png", other: "E:/wallpapers/new.png" },
+    ]) {
+      expect(
+        CodexAssistantReplaceAndSaveBackgroundsParamsSchema.safeParse({
+          ...target,
+          images: invalidImages,
+        }).success,
+      ).toBe(false);
+    }
+    for (const extra of [
+      { mode: "normal" },
+      { css: "private" },
+      { save: false },
+    ]) {
+      expect(
+        CodexAssistantReplaceAndSaveBackgroundsParamsSchema.safeParse({
+          ...target,
+          images,
+          ...extra,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it.each([
+    "image.png",
+    "C:image.png",
+    "C:/../private/image.png",
+    "C:/folder/./image.png",
+    "https://example.test/image.png",
+    "file:///C:/image.png",
+    "\\\\server\\share\\image.png",
+    "\\\\?\\C:\\image.png",
+    "\\\\.\\pipe\\image.png",
+    "C:/image.png:stream.png",
+    "C:/folder/NUL.png",
+    "C:/COM1/file.png",
+    "C:/folder /image.png",
+    "C:/image.png.",
+    "C:/image.svg",
+    "C:/bad\u0000.png",
+  ])("rejects non-local, ambiguous or non-image input %s", (filePath) => {
+    expect(
+      CodexAssistantReplaceAndSaveBackgroundsParamsSchema.safeParse({
+        ...target,
+        images: { normal: filePath },
+      }).success,
+    ).toBe(false);
+  });
+
   it("exposes exactly the six editable reasoning efforts", () => {
     expect(CODEX_ASSISTANT_EDITABLE_REASONING_EFFORTS).toEqual(editableEfforts);
     for (const schema of [

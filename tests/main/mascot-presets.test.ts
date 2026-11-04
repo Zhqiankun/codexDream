@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createBundledPresetSource,
   MASCOT_BUNDLED_PRESET_PACK_ID,
+  REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
 } from "../../src/main/infra/bundled-presets";
 import { LocalThemeStore } from "../../src/main/infra/local-store";
 import {
@@ -16,7 +17,12 @@ const source = () =>
     resolve("resources/presets", MASCOT_BUNDLED_PRESET_PACK_ID),
     MASCOT_BUNDLED_PRESET_PACK_ID,
   );
-const efforts = ["low", "medium", "high", "xhigh", "max", "ultra"];
+const redesignedSource = () =>
+  createBundledPresetSource(
+    resolve("resources/presets", REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID),
+    REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
+  );
+const efforts = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
 // 每个场景完整解码 18 张发行图片；事务场景还会验证受管副本和重启读取。
 const presetTestTimeout = 30_000;
 const cleanup: Array<() => Promise<void>> = [];
@@ -26,6 +32,163 @@ afterEach(async () => {
 });
 
 describe("mascot reasoning preset pack", () => {
+  it("installs four redesigned themes with all 24 verified stages in a fresh library", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const pack = await redesignedSource().load();
+    expect(pack.themes).toHaveLength(4);
+    expect(pack.replacesPackIds).toEqual([MASCOT_BUNDLED_PRESET_PACK_ID]);
+    expect(pack.introducedThemeIds).toHaveLength(1);
+    const store = new LocalThemeStore(managed.root, [
+      { packId: pack.packId, load: async () => pack },
+    ]);
+    await store.init();
+    expect(store.listRecords()).toHaveLength(6);
+    for (const expected of pack.themes) {
+      const theme = store
+        .listRecords()
+        .find((item) => item.themeId === expected.themeId)!;
+      expect(theme.name).toBe(expected.name);
+      expect(
+        Object.keys(store.getReasoningBackgrounds(theme.libraryId)),
+      ).toEqual(efforts);
+      for (const effort of efforts)
+        expect(
+          store
+            .getReasoningBackgrounds(theme.libraryId)
+            [effort]!.equals(expected.reasoningImages![effort]!),
+        ).toBe(true);
+      expect(
+        store
+          .getBackground(theme.libraryId)!
+          .equals(expected.reasoningImages!.low!),
+      ).toBe(true);
+      expect(
+        new Set(
+          Object.values(expected.reasoningBackgrounds!).map(
+            (asset) => asset.imageSha256,
+          ),
+        ).size,
+      ).toBe(6);
+    }
+    store.managedStore.close();
+  }, 60_000);
+
+  it("upgrades actual v9 assets in place, adds GPT once, and retains selection and recovery references", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const legacy = new LocalThemeStore(managed.root, [source()]);
+    await legacy.init();
+    const originals = legacy
+      .listRecords()
+      .filter((item) => item.json.backgroundMode === "reasoning")
+      .map((item) => structuredClone(item));
+    await legacy.select(originals[0].libraryId, originals[0].revision);
+    await legacy.markLastKnownGood(
+      originals[0].libraryId,
+      originals[0].fingerprint!,
+    );
+    legacy.managedStore.close();
+    const pack = await redesignedSource().load();
+    for (const original of originals) {
+      const expected = pack.themes.find(
+        (item) => item.themeId === original.themeId,
+      )!;
+      expect(expected.previousFingerprints).toContain(original.fingerprint);
+      expect(expected.previousImageSha256).toContain(original.backgroundSha256);
+    }
+    const next = { packId: pack.packId, load: vi.fn(async () => pack) };
+    const store = new LocalThemeStore(managed.root, [next]);
+    await store.init();
+    expect(store.listRecords()).toHaveLength(6);
+    for (const original of originals) {
+      const updated = store.get(original.libraryId)!;
+      const expected = pack.themes.find(
+        (item) => item.themeId === original.themeId,
+      )!;
+      expect(updated).toMatchObject({
+        themeId: original.themeId,
+        name: original.name,
+        revision: original.revision + 1,
+      });
+      expect(
+        store.getBackground(updated.libraryId)!.equals(expected.imageBytes),
+      ).toBe(true);
+      for (const effort of efforts)
+        expect(
+          store
+            .getReasoningBackgrounds(updated.libraryId)
+            [effort]!.equals(expected.reasoningImages![effort]!),
+        ).toBe(true);
+      for (const oldFile of [
+        original.backgroundFile!,
+        ...Object.values(original.reasoningBackgrounds!).map(
+          (asset) => asset.file,
+        ),
+      ]) {
+        expect(
+          store.managedStore.readFile(managedThemeFile(oldFile)),
+        ).toBeUndefined();
+      }
+    }
+    const after = store.managedStore.readFile(MANAGED_FILES.index)!;
+    expect(JSON.parse(after.toString())).toMatchObject({
+      selectedLibraryId: originals[0].libraryId,
+      lastKnownGoodLibraryId: originals[0].libraryId,
+    });
+    store.managedStore.close();
+    next.load.mockClear();
+    const reopened = new LocalThemeStore(managed.root, [next]);
+    await reopened.init();
+    expect(next.load).not.toHaveBeenCalled();
+    expect(reopened.managedStore.readFile(MANAGED_FILES.index)).toEqual(after);
+    expect(reopened.listRecords()).toHaveLength(6);
+    reopened.managedStore.close();
+  }, 60_000);
+
+  it("keeps edited ready themes, draft checkpoints, and deleted v9 themes untouched", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const legacy = new LocalThemeStore(managed.root, [source()]);
+    await legacy.init();
+    const originals = legacy
+      .listRecords()
+      .filter((item) => item.json.backgroundMode === "reasoning");
+    const edited = await legacy.patch(
+      originals[0].libraryId,
+      originals[0].revision,
+      { name: "User's saved mascot" },
+    );
+    await legacy.commit(edited.libraryId, edited.revision);
+    await legacy.patch(originals[1].libraryId, originals[1].revision, {
+      name: "User's draft mascot",
+    });
+    await legacy.delete(originals[2].libraryId, originals[2].revision);
+    const preserved = [
+      structuredClone(legacy.get(originals[0].libraryId)),
+      structuredClone(legacy.get(originals[1].libraryId)),
+    ];
+    expect(preserved[0]!.status).toBe("ready");
+    const before = JSON.parse(
+      legacy.managedStore.readFile(MANAGED_FILES.index)!.toString(),
+    );
+    expect(before.checkpoints).toHaveLength(1);
+    legacy.managedStore.close();
+    const store = new LocalThemeStore(managed.root, [redesignedSource()]);
+    await store.init();
+    expect(store.listRecords()).toHaveLength(5);
+    expect(store.get(originals[0].libraryId)).toEqual(preserved[0]);
+    expect(store.get(originals[1].libraryId)).toEqual(preserved[1]);
+    expect(
+      store.listRecords().some((item) => item.themeId === originals[2].themeId),
+    ).toBe(false);
+    const after = JSON.parse(
+      store.managedStore.readFile(MANAGED_FILES.index)!.toString(),
+    );
+    expect(after.checkpoints).toEqual(before.checkpoints);
+    store.managedStore.close();
+  }, 60_000);
+
   it(
     "loads three six-stage themes with verified hashes and low normal backgrounds",
     async () => {

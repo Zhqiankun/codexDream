@@ -1,7 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { dialog, type BrowserWindow } from "electron";
 import sharp from "sharp";
+import { basename } from "node:path";
 import type {
+  CodexAssistantBackgroundSaveResult,
+  CodexAssistantReplaceAndSaveBackgroundsParams,
   ExportResult,
   ImportResult,
   Result,
@@ -11,13 +14,21 @@ import type {
   ReasoningEffort,
 } from "../../contracts";
 import {
+  CodexAssistantReplaceAndSaveBackgroundsParamsSchema,
   isThemeHomeCardImageDataUrl,
   isThemeIconDataUrl,
   readThemeConfiguration,
 } from "../../contracts";
 import type { ThemeRecord } from "../domain/theme";
-import { LocalThemeStore } from "../infra/local-store";
-import { readImageFileBounded, validateImage } from "../infra/image";
+import {
+  LocalThemeStore,
+  type BackgroundImageReplacements,
+} from "../infra/local-store";
+import {
+  readAssistantImageFileBounded,
+  readImageFileBounded,
+  validateImage,
+} from "../infra/image";
 import type { ReasoningImageBytes } from "../infra/reasoning-images";
 import {
   importSummary,
@@ -106,6 +117,63 @@ export class ThemeService {
       return {
         ok: true,
         data: this.store.getDetail(record.libraryId, "app://theme-asset")!,
+      };
+    } catch (error) {
+      return this.fromError(error);
+    }
+  }
+
+  async replaceAndSaveBackgrounds(
+    params: CodexAssistantReplaceAndSaveBackgroundsParams,
+    signal?: AbortSignal,
+  ): Promise<Result<Omit<CodexAssistantBackgroundSaveResult, "liveApply">>> {
+    try {
+      const parsed =
+        CodexAssistantReplaceAndSaveBackgroundsParamsSchema.safeParse(params);
+      if (!parsed.success)
+        return this.error("IPC_INVALID", "assistant.invalidBackgrounds");
+      const { libraryId, expectedRevision, images } = parsed.data;
+      this.store.assertReadyForBackgroundSave(libraryId, expectedRevision);
+      if (signal?.aborted) throw new Error("CANCELLED");
+      const replacements: BackgroundImageReplacements = {};
+      for (const [slot, path] of Object.entries(images)) {
+        if (!path) continue;
+        const data = await readAssistantImageFileBounded(
+          path,
+          this.store.root,
+          signal,
+        );
+        replacements[slot as keyof BackgroundImageReplacements] = {
+          data,
+          fileName: basename(path),
+        };
+      }
+      const record = await this.store.replaceAndSaveBackgrounds(
+        libraryId,
+        expectedRevision,
+        replacements,
+        signal,
+      );
+      const replacedImages: CodexAssistantBackgroundSaveResult["replacedImages"] =
+        {};
+      for (const slot of Object.keys(replacements) as Array<
+        keyof BackgroundImageReplacements
+      >) {
+        const info =
+          slot === "normal"
+            ? {
+                sha256: record.backgroundSha256!,
+                bytes: record.backgroundBytes!,
+              }
+            : record.reasoningBackgrounds![slot]!;
+        replacedImages[slot] = { sha256: info.sha256, bytes: info.bytes };
+      }
+      return {
+        ok: true,
+        data: {
+          theme: this.store.getDetail(libraryId, "app://theme-asset")!,
+          replacedImages,
+        },
       };
     } catch (error) {
       return this.fromError(error);

@@ -283,6 +283,88 @@ describe("AppController operation gate", () => {
     expect(fixture.themeService.delete).not.toHaveBeenCalled();
   });
 
+  it("keeps batch save successful when live apply fails, including cancellation after commit", async () => {
+    const fixture = controllerFixture();
+    const abort = new AbortController();
+    const params = {
+      libraryId: "saved-theme",
+      expectedRevision: 3,
+      images: { normal: "C:\\images\\new.png" },
+    };
+    const saved = {
+      theme: { libraryId: params.libraryId, revision: 4 },
+      replacedImages: { normal: { sha256: "a".repeat(64), bytes: 250 } },
+    };
+    fixture.themeService.replaceAndSaveBackgrounds.mockImplementation(
+      async () => {
+        abort.abort();
+        return { ok: true, data: saved };
+      },
+    );
+    fixture.session.applySavedTheme.mockRejectedValue(
+      new Error("injection failed"),
+    );
+    expect(
+      await fixture.controller.replaceAndSaveAssistantBackgrounds(
+        params,
+        abort.signal,
+      ),
+    ).toEqual({
+      ok: true,
+      data: { ...saved, liveApply: { status: "failed", reason: "injection" } },
+    });
+    expect(fixture.themeService.replaceAndSaveBackgrounds).toHaveBeenCalledWith(
+      params,
+      abort.signal,
+    );
+    expect(
+      fixture.themeService.replaceAndSaveBackgrounds.mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(fixture.session.applySavedTheme.mock.invocationCallOrder[0]);
+  });
+
+  it("holds the batch save gate until canceled decoding returns and never applies a failed save", async () => {
+    const fixture = controllerFixture();
+    const abort = new AbortController();
+    let finish!: () => void;
+    fixture.themeService.replaceAndSaveBackgrounds.mockImplementation(
+      async () => {
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        return {
+          ok: false,
+          error: { code: "CANCELLED", messageKey: "cancelled" },
+        };
+      },
+    );
+    const params = {
+      libraryId: "saved-theme",
+      expectedRevision: 3,
+      images: { normal: "C:\\images\\new.png" },
+    };
+    const pending = fixture.controller.replaceAndSaveAssistantBackgrounds(
+      params,
+      abort.signal,
+    );
+    await vi.waitFor(() =>
+      expect(
+        fixture.themeService.replaceAndSaveBackgrounds,
+      ).toHaveBeenCalledOnce(),
+    );
+    abort.abort();
+    expect(
+      await fixture.controller.commitTheme(params.libraryId, 3),
+    ).toMatchObject({ ok: false, error: { code: "OPERATION_BUSY" } });
+    finish();
+    expect(await pending).toMatchObject({
+      ok: false,
+      error: { code: "CANCELLED" },
+    });
+    expect(fixture.session.applySavedTheme).not.toHaveBeenCalled();
+    expect(fixture.themeService.commit).not.toHaveBeenCalled();
+  });
+
   it("commits first and reads the saved theme for live application independently of selection", async () => {
     const fixture = controllerFixture();
     const libraryId = "11111111-1111-4111-8111-111111111111";
@@ -681,6 +763,7 @@ function controllerFixture(
     patch: vi.fn(),
     chooseBackground: vi.fn(),
     clearReasoningBackground: vi.fn(),
+    replaceAndSaveBackgrounds: vi.fn(),
     setPaused: vi.fn().mockResolvedValue({ ok: true }),
   };
   const store = {

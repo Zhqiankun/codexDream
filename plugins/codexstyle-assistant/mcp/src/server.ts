@@ -10,20 +10,21 @@ import {
   CodexAssistantSetBackgroundModeParamsSchema,
   CodexAssistantChooseReasoningBackgroundParamsSchema,
   CodexAssistantClearReasoningBackgroundParamsSchema,
+  CodexAssistantReplaceAndSaveBackgroundsParamsSchema,
   ThemeColorsSchema,
   type CodexAssistantRequest,
   type CodexAssistantResponse,
 } from "../../../../src/contracts/index.js";
 
 const REQUEST_TIMEOUT_MS = 10_000;
-const IMAGE_PICKER_TIMEOUT_MS = 120_000;
+const IMAGE_OPERATION_TIMEOUT_MS = 120_000;
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 
 const server = new McpServer(
-  { name: "codexstyle", version: "0.1.2" },
+  { name: "codexstyle", version: "0.1.3" },
   {
     instructions:
-      "Use CodexStyle tools to read themes and create reviewed color and background drafts. Never overwrite a saved theme: create a derived draft first. Call validate_palette before changing colors with update_theme_draft. Use set_background_mode and the reasoning background tools for draft backgrounds; choose_reasoning_background opens a native file picker for the user, never accepts paths or image bytes. Only call select_theme when the user explicitly asks to select an already saved theme. Commit, delete, import, export, and Codex launch actions are intentionally unavailable.",
+      "Use CodexStyle tools to read themes and create reviewed color and background drafts. Color and existing draft-background tools require a separate draft and never overwrite a saved theme. Call validate_palette before changing colors with update_theme_draft. choose_reasoning_background opens a native file picker and never accepts paths or image bytes. The sole saved-theme mutation is replace_and_save_theme_backgrounds: when the user authorizes replacing backgrounds on an existing saved theme, supply current libraryId/revision and absolute local image paths for one or more normal/low/medium/high/xhigh/max/ultra slots. It directly replaces and saves those images together, preserves omitted slots and all non-background settings, and reports saved-theme metadata, image hashes and live-apply status separately. It cannot change background mode, read arbitrary files, delete themes, import/export themes or launch Codex. Re-read the theme after cancellation, timeout or stale revision before deciding whether to retry. Only call select_theme when the user explicitly asks to select an already saved theme.",
   },
 );
 
@@ -211,6 +212,26 @@ server.registerTool(
 );
 
 server.registerTool(
+  "replace_and_save_theme_backgrounds",
+  {
+    title: "批量替换并保存主题背景",
+    description:
+      "按用户授权直接更新并保存已有 ready 主题的背景。images 至少提供 normal/low/medium/high/xhigh/max/ultra 中一项绝对本地 PNG、JPEG 或 WebP 路径；省略的图片、背景模式及全部其他设置保持不变。主进程受限读取并一次提交，返回脱敏主题、各替换槽位的 SHA-256/字节数及独立的即时应用结果。此具名动作是唯一直接保存已有主题的工具，不接受 URL、图片字节、模式修改或通用文件读写。",
+    inputSchema: CodexAssistantReplaceAndSaveBackgroundsParamsSchema,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async (params, { signal }) =>
+    toolResult(
+      await callBridge("replace_and_save_theme_backgrounds", params, signal),
+    ),
+);
+
+server.registerTool(
   "select_theme",
   {
     title: "选择 CodexStyle 主题",
@@ -244,10 +265,11 @@ async function callBridge(
 ): Promise<CodexAssistantResponse> {
   const endpoint = await readEndpoint();
   const requestId = randomUUID();
-  // 原生选图需要人工交互；MCP 取消也必须关闭 HTTP，使主进程丢弃迟到结果。
+  // 选图交互和批量媒体校验共享有界长预算；取消继续传入主进程提交边界。
   const timeoutSignal = AbortSignal.timeout(
-    method === "choose_reasoning_background"
-      ? IMAGE_PICKER_TIMEOUT_MS
+    method === "choose_reasoning_background" ||
+      method === "replace_and_save_theme_backgrounds"
+      ? IMAGE_OPERATION_TIMEOUT_MS
       : REQUEST_TIMEOUT_MS,
   );
   const signal = requestSignal

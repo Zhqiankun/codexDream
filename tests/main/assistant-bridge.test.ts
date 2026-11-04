@@ -249,7 +249,9 @@ describe("Codex assistant loopback bridge", () => {
 });
 
 function fakeOperations() {
-  const unsupported = async (): Promise<Result<ThemeDetail>> => ({
+  const unsupported = async (): Promise<
+    Extract<Result<never>, { ok: false }>
+  > => ({
     ok: false,
     error: { code: "UNKNOWN", messageKey: "unsupported" },
   });
@@ -280,6 +282,7 @@ function fakeOperations() {
     setBackgroundMode: unsupported,
     chooseReasoningBackground: unsupported,
     clearReasoningBackground: unsupported,
+    replaceAndSaveBackgrounds: unsupported,
     selectTheme: async (): Promise<Result<ThemeSnapshot>> => ({
       ok: false,
       error: { code: "UNKNOWN", messageKey: "unsupported" },

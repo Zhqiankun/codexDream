@@ -49,6 +49,8 @@ describe("Codex assistant service", () => {
         themes.chooseBackground(libraryId, expectedRevision, effort),
       clearReasoningBackground: (libraryId, expectedRevision, effort) =>
         themes.clearReasoningBackground(libraryId, expectedRevision, effort),
+      replaceAndSaveBackgrounds:
+        vi.fn<CodexAssistantOperations["replaceAndSaveBackgrounds"]>(),
     });
     const source = store.listRecords()[0];
 
@@ -158,6 +160,8 @@ describe("Codex assistant service", () => {
         themes.chooseBackground(libraryId, expectedRevision, effort),
       clearReasoningBackground: (libraryId, expectedRevision, effort) =>
         themes.clearReasoningBackground(libraryId, expectedRevision, effort),
+      replaceAndSaveBackgrounds:
+        vi.fn<CodexAssistantOperations["replaceAndSaveBackgrounds"]>(),
     });
     const draft = await store.createDraft("Not ready");
     const rejected = await assistant.handle({
@@ -188,6 +192,56 @@ describe("Codex assistant service", () => {
 });
 
 describe("Codex assistant reasoning backgrounds", () => {
+  it("routes explicit batch saves and returns hashes and live-apply status without paths or asset URLs", async () => {
+    const detail = backgroundThemeDetail();
+    detail.status = "ready";
+    detail.backgroundUrl = "app://theme-asset/private.png";
+    detail.reasoningBackgroundUrls = {
+      low: "app://theme-asset/private-low.png",
+    };
+    detail.json = { image: "C:\\private\\managed.png" };
+    const { assistant, operations } = backgroundAssistant(detail);
+    const hashes = { normal: { sha256: "a".repeat(64), bytes: 900 } };
+    operations.replaceAndSaveBackgrounds.mockResolvedValue({
+      ok: true,
+      data: {
+        theme: detail,
+        replacedImages: hashes,
+        liveApply: { status: "failed", reason: "verification" },
+      },
+    });
+    const abort = new AbortController();
+    const params = {
+      libraryId: detail.libraryId,
+      expectedRevision: detail.revision,
+      images: { normal: "C:\\private\\source.png" },
+    };
+    const result = await assistant.handle(
+      {
+        v: CODEX_ASSISTANT_PROTOCOL_VERSION,
+        id: randomUUID(),
+        method: "replace_and_save_theme_backgrounds",
+        params,
+      },
+      abort.signal,
+    );
+    expect(operations.replaceAndSaveBackgrounds).toHaveBeenCalledWith(
+      params,
+      abort.signal,
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        theme: { libraryId: detail.libraryId, status: "ready" },
+        replacedImages: hashes,
+        liveApply: { status: "failed", reason: "verification" },
+      },
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /app:\/\/|private|source\.png|managed\.png/,
+    );
+  });
+
   it("reports all nine efforts as metadata without exposing image locations or bytes", async () => {
     const detail = backgroundThemeDetail();
     detail.backgroundMode = "reasoning";
@@ -366,6 +420,8 @@ function backgroundAssistant(detail: ThemeDetail) {
       vi.fn<CodexAssistantOperations["chooseReasoningBackground"]>(),
     clearReasoningBackground:
       vi.fn<CodexAssistantOperations["clearReasoningBackground"]>(),
+    replaceAndSaveBackgrounds:
+      vi.fn<CodexAssistantOperations["replaceAndSaveBackgrounds"]>(),
   } satisfies CodexAssistantOperations;
   operations.setBackgroundMode.mockResolvedValue({ ok: true, data: updated });
   operations.chooseReasoningBackground.mockResolvedValue({

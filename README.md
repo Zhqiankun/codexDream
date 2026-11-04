@@ -46,8 +46,8 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 ## Highlights
 
 - Live 16:9 previews for the Codex home and conversation views. Hover a configurable region to identify it, then click to open, scroll to, and focus its matching Studio control.
-- Thirty-five bundled wallpaper presets plus twenty-nine independent colors, including selected conversation tabs, home titles/cards, command/edit/thinking summaries, composer text, selection text, message surfaces, and the surrounding workspace. Each of the four home suggestion cards can also use its own color or local image. Bundled presets are appended once and never overwrite an existing local theme.
-- An optional local CodexStyle Assistant plugin can inspect the theme library, validate a complete palette, and create a separate draft for review. It never overwrites a saved theme; when no color or visual direction is given, its bundled skill uses the project’s restrained modern-luxury direction.
+- Thirty-nine bundled wallpaper presets, including four character themes with six reasoning backgrounds each, plus twenty-nine independent colors for selected conversation tabs, home titles/cards, command/edit/thinking summaries, composer text, selection text, message surfaces, and the surrounding workspace. Each of the four home suggestion cards can also use its own color or local image. Untouched bundled presets can receive matching background upgrades; user edits and deleted presets are preserved.
+- An optional local CodexStyle Assistant plugin can inspect the theme library, validate a complete palette, and create a separate draft for review. When explicitly requested, its dedicated batch replace-and-save tool updates an existing theme's backgrounds while retaining its other settings. When no color or visual direction is given, its bundled skill uses the project’s restrained modern-luxury direction.
 - Validated background-image and custom-icon imports with clear size and format guidance.
 - Local theme library with lossless current-theme ZIP export. Historical ten-, twelve-, and eighteen-color ZIPs remain importable, while the lossy legacy export option has been removed.
 - Background-aware library thumbnails, with the next-launch theme control placed above the editor for quicker selection.
@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.34` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.35` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.34-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.34-x64.zip` — portable archive.
+- `CodexStyle-1.3.35-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.35-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.34` restores compatibility with Codex 26.1029.7803.0 and adds partial compatibility: unavailable shell styling does not block other effects, and unrecognized reasoning controls fall back to the normal background. Exit Codex and CodexStyle before upgrading, install over the existing copy, then reopen Studio and launch Codex through it. Saved themes and settings are retained. Assistant remains at 0.1.2; this compatibility update does not require reinstalling the plugin.
+`v1.3.35` adds 24 redesigned wallpapers for GPT, Claude, DeepSeek, and Gemini, upgrades eligible bundled backgrounds together, and fixes top and bottom white edges in Codex 26.1029.7803.0 while retaining older class formats. Assistant 0.1.3 adds batch background replacement and saving without a file picker. Exit Codex and CodexStyle before upgrading, install over the existing copy, then reopen Studio and launch Codex through it. Existing theme settings and selection are retained; user-edited themes are not automatically overwritten. Choose **Install / update** in the Assistant card, then open a new Codex task to load the new tools.
 
 ## Requirements
 
@@ -91,6 +91,8 @@ The release is currently unsigned. Windows SmartScreen may show an unknown-publi
 To let Codex design a color draft, choose **Install / update** once in the CodexStyle Assistant card. CodexStyle registers the bundled local marketplace and installs the fixed plugin with its private Node.js runtime. After that, opening CodexStyle automatically starts the authenticated local connection; no terminal, external Node.js, port, or token setup is required. Open a new Codex task after the first installation so Codex can load the plugin.
 
 Assistant 0.1.2 reads background modes and per-effort image status, changes a draft's normal/reasoning mode, and opens a native picker or clears an image for any of the six editable reasoning efforts. Switching modes preserves images; review and save the draft in Studio. These tools require CodexStyle 1.3.33 or later and plugin 0.1.2 or later. Image paths and contents are never returned to Codex, and cancelled or timed-out selections are discarded before commit.
+
+Assistant 0.1.3 adds `replace_and_save_theme_backgrounds` to replace and save one to seven backgrounds from local PNG, JPEG, or WebP paths without opening a file picker. It accepts only saved themes without other pending edits. Omitted slots, colors, and the next-launch selection are preserved. Specify the target theme and images explicitly; revision checks, full image validation, and one atomic commit protect the original images if the update fails. This tool requires Studio 1.3.35 or later and returns save status, image digests, and a separate live-apply result, without returning file paths or image contents.
 
 Use **Export theme ZIP** to preserve all current theme fields. An untouched imported formal package can be rebuilt with its original formal contents intact; editing it disables original-formal export. CodexStyle no longer creates lossy ZIPs for v1.0.x–v1.2.x clients.
 

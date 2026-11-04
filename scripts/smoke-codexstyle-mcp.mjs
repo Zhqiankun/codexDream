@@ -37,6 +37,7 @@ try {
     "create_theme_draft",
     "get_theme",
     "list_themes",
+    "replace_and_save_theme_backgrounds",
     "select_theme",
     "set_background_mode",
     "status",
@@ -45,6 +46,30 @@ try {
   ];
   if (JSON.stringify(names) !== JSON.stringify(expected))
     throw new Error(`Unexpected MCP tools: ${names.join(", ")}`);
+  const backgroundSaveTool = tools.tools.find(
+    (tool) => tool.name === "replace_and_save_theme_backgrounds",
+  );
+  const backgroundSaveSchema = backgroundSaveTool?.inputSchema;
+  const imageSchema = backgroundSaveSchema?.properties?.images;
+  if (
+    backgroundSaveSchema?.additionalProperties !== false ||
+    JSON.stringify(backgroundSaveSchema.required) !==
+      JSON.stringify(["libraryId", "expectedRevision", "images"]) ||
+    imageSchema?.additionalProperties !== false ||
+    JSON.stringify(Object.keys(imageSchema?.properties ?? {}).sort()) !==
+      JSON.stringify([
+        "high",
+        "low",
+        "max",
+        "medium",
+        "normal",
+        "ultra",
+        "xhigh",
+      ])
+  )
+    throw new Error(
+      "Saved-background MCP schema does not match its bounded contract",
+    );
   const status = await client.callTool({ name: "status", arguments: {} });
   if (status.isError)
     throw new Error("CodexStyle status tool returned an error");

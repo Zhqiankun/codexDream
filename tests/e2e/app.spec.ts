@@ -116,6 +116,7 @@ test("starts the real Electron shell with native storage and completes a local w
       "create_theme_draft",
       "get_theme",
       "list_themes",
+      "replace_and_save_theme_backgrounds",
       "select_theme",
       "set_background_mode",
       "status",
@@ -180,8 +181,97 @@ test("starts the real Electron shell with native storage and completes a local w
           "DeepSeek · 沧海鲸歌",
           "Claude · 琥珀书庭",
           "Gemini · 星穹双子",
+          "白龙 · 思考进阶",
         ]),
       );
+
+    const redesignedCatalog = JSON.parse(
+      await readFile(
+        resolve(
+          projectRoot,
+          "resources/presets/mascot-redesign-2026-11-04-v10/catalog.json",
+        ),
+        "utf8",
+      ),
+    ) as {
+      themes: Array<{
+        name: string;
+        themeId: string;
+        imageSha256: string;
+        reasoningBackgrounds: Record<string, { imageSha256: string }>;
+      }>;
+    };
+    const installedMascots = await page.evaluate(
+      async (names) => {
+        const snapshot = await window.codexStyle.getSnapshot();
+        if (!snapshot.ok) throw new Error("Theme library unavailable");
+        const themes = [];
+        for (const name of names) {
+          const matches = snapshot.data.themes.filter(
+            (theme) => theme.name === name,
+          );
+          if (matches.length !== 1)
+            throw new Error("Mascot missing or duplicated");
+          const detail = await window.codexStyle.getTheme({
+            libraryId: matches[0].libraryId,
+          });
+          if (!detail.ok) throw new Error("Mascot detail unavailable");
+          themes.push({
+            name,
+            themeId: detail.data.themeId,
+            status: detail.data.status,
+            backgroundMode: detail.data.backgroundMode,
+            backgroundUrl: detail.data.backgroundUrl,
+            reasoningBackgroundUrls: detail.data.reasoningBackgroundUrls,
+          });
+        }
+        return { total: snapshot.data.themes.length, themes };
+      },
+      redesignedCatalog.themes.map((theme) => theme.name),
+    );
+    // 39 个图片主题加两个基础主题；v10 必须替换旧三套，而不是再追加副本。
+    expect(installedMascots.total).toBe(41);
+    for (const [index, installed] of installedMascots.themes.entries()) {
+      const expected = redesignedCatalog.themes[index];
+      expect(installed).toMatchObject({
+        name: expected.name,
+        themeId: expected.themeId,
+        status: "ready",
+        backgroundMode: "reasoning",
+      });
+      expect(
+        Object.keys(installed.reasoningBackgroundUrls ?? {}).sort(),
+      ).toEqual(["low", "medium", "high", "xhigh", "max", "ultra"].sort());
+      // 从真实协议读取普通背景和六档，证明主进程首次安装后全部图片可用。
+      const hashes = await application.evaluate(
+        async ({ net }, urls) => {
+          const hashes: Record<string, string> = {};
+          for (const [effort, url] of Object.entries(urls)) {
+            if (!url) throw new Error("Mascot image URL missing");
+            const response = await net.fetch(url);
+            if (!response.ok) throw new Error("Mascot image protocol failed");
+            const digest = await crypto.subtle.digest(
+              "SHA-256",
+              await response.arrayBuffer(),
+            );
+            hashes[effort] = Buffer.from(digest).toString("hex");
+          }
+          return hashes;
+        },
+        {
+          normal: installed.backgroundUrl,
+          ...installed.reasoningBackgroundUrls,
+        },
+      );
+      expect(hashes).toEqual({
+        normal: expected.imageSha256,
+        ...Object.fromEntries(
+          Object.entries(expected.reasoningBackgrounds).map(
+            ([effort, image]) => [effort, image.imageSha256],
+          ),
+        ),
+      });
+    }
 
     const preset = await page.evaluate(async () => {
       const snapshot = await globalThis.window.codexStyle.getSnapshot();
@@ -217,7 +307,7 @@ test("starts the real Electron shell with native storage and completes a local w
         },
       },
     });
-    await expect(page.locator(".theme-swatch img")).toHaveCount(38);
+    await expect(page.locator(".theme-swatch img")).toHaveCount(39);
     const themeList = page.getByLabel("主题列表");
     const themeSearch = page.getByRole("searchbox", { name: "搜索主题" });
     const checkedTheme = await page.evaluate(async () => {
@@ -287,7 +377,7 @@ test("starts the real Electron shell with native storage and completes a local w
       themeList.getByRole("button", { name: /赤金信念/u }),
     ).toBeVisible();
     await page.getByRole("button", { name: "清空主题搜索" }).click();
-    await expect(themeList.getByRole("button")).toHaveCount(40);
+    await expect(themeList.getByRole("button")).toHaveCount(41);
     await expect(themeList.locator(".theme-row.active")).toContainText(
       checkedTheme.name,
     );
@@ -454,7 +544,7 @@ test("starts the real Electron shell with native storage and completes a local w
       globalThis.window.codexStyle.getSnapshot(),
     );
     expect(snapshot.ok).toBe(true);
-    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(41);
+    if (snapshot.ok) expect(snapshot.data.themes).toHaveLength(42);
     const createdDetail = await page.evaluate(async () => {
       const snapshot = await globalThis.window.codexStyle.getSnapshot();
       if (!snapshot.ok) return undefined;

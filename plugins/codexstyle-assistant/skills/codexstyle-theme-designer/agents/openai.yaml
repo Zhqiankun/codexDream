@@ -1,6 +1,6 @@
 interface:
   display_name: "CodexStyle Theme Designer"
-  short_description: "Design CodexStyle colors and draft backgrounds"
+  short_description: "Design themes and replace authorized saved backgrounds"
   brand_color: "#F5B94C"
   default_prompt: "Use $codexstyle-theme-designer to create a polished color draft from my selected CodexStyle theme."
 
@@ -8,7 +8,7 @@ dependencies:
   tools:
     - type: "mcp"
       value: "codexstyle"
-      description: "Read themes, validate palettes, and configure safe color and background drafts"
+      description: "Read themes, validate palettes, configure drafts, and replace explicitly authorized saved-theme backgrounds"
       transport: "stdio"
 
 policy:

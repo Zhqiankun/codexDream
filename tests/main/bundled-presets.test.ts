@@ -587,10 +587,17 @@ describe("bundled image theme presets", () => {
         expect(migratedTheme).toMatchObject({
           libraryId: predecessor.libraryId,
           revision: predecessor.revision + 1,
-          backgroundFile: predecessor.backgroundFile,
           sidebarOverlayOpacity: 20,
           status: "ready",
         });
+        expect(migratedTheme.backgroundFile).not.toBe(
+          predecessor.backgroundFile,
+        );
+        expect(
+          upgraded.managedStore.readFile(
+            managedThemeFile(predecessor.backgroundFile!),
+          ),
+        ).toBeUndefined();
         expect(migratedConfiguration.colors.background).toMatch(/, 0\.2\)$/u);
         expect(migratedConfiguration.colors.panel).toMatch(/, 0\.2\)$/u);
         expect(migratedConfiguration.colors.line).toMatch(/, 0\.2\)$/u);
@@ -765,15 +772,20 @@ describe("bundled image theme presets", () => {
       libraryId: original.libraryId,
       revision: original.revision + 1,
       name: "Replaced Image",
-      backgroundFile: original.backgroundFile,
       backgroundSha256: newInfo.sha256,
       backgroundBytes: newInfo.bytes,
     });
+    expect(migrated.backgroundFile).not.toBe(original.backgroundFile);
+    expect(
+      upgraded.managedStore.readFile(
+        managedThemeFile(original.backgroundFile!),
+      ),
+    ).toBeUndefined();
     expect(upgraded.getBackground(original.libraryId)).toEqual(newBytes);
     upgraded.managedStore.close();
   });
 
-  it("restores an overwritten preset image when the pack transaction fails", async () => {
+  it("preserves the old preset image when the copy-on-write pack transaction fails", async () => {
     const managed = await createManagedRoot();
     cleanup.push(managed.cleanup);
     const prepared = await createBundledPresetSource(presetRoot).load();

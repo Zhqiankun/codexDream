@@ -7,6 +7,8 @@ import {
   type CodexAssistantErrorCode,
   type CodexAssistantRequest,
   type CodexAssistantResponse,
+  type CodexAssistantBackgroundSaveResult,
+  type CodexAssistantReplaceAndSaveBackgroundsParams,
   type Result,
   type ThemeDetail,
   type ThemePatch,
@@ -48,6 +50,10 @@ export interface CodexAssistantOperations {
     expectedRevision: number,
     reasoningEffort: CodexAssistantEditableReasoningEffort,
   ): Promise<Result<ThemeDetail>>;
+  replaceAndSaveBackgrounds(
+    params: CodexAssistantReplaceAndSaveBackgroundsParams,
+    signal?: AbortSignal,
+  ): Promise<Result<CodexAssistantBackgroundSaveResult>>;
 }
 
 export class CodexAssistantService {
@@ -154,6 +160,19 @@ export class CodexAssistantService {
         return result.ok
           ? this.success(request.id, {
               selectedLibraryId: result.data.selectedLibraryId,
+            })
+          : this.failureFromResult(request.id, result);
+      }
+      case "replace_and_save_theme_backgrounds": {
+        const result = await this.operations.replaceAndSaveBackgrounds(
+          request.params,
+          signal,
+        );
+        return result.ok
+          ? this.success(request.id, {
+              theme: assistantTheme(result.data.theme),
+              replacedImages: result.data.replacedImages,
+              liveApply: result.data.liveApply,
             })
           : this.failureFromResult(request.id, result);
       }

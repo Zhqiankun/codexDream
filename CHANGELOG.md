@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.35 — 2026-11-04
+
+### English
+
+- Assistant 0.1.3 adds an explicit batch replace-and-save tool for local background images. It updates a saved theme's normal and six reasoning slots without a file picker, retaining its identity and other settings. Revision checks, complete image validation, and one atomic save protect against partial updates; save and live-apply results are reported separately.
+- Redesigned the GPT white dragon, Claude scholar, DeepSeek ocean, and Gemini catgirl themes with 24 new wallpapers across six reasoning efforts. Each character grows from a small, cute form into an elaborate final form, with distinct poses between stages. The normal background uses the Low image; existing palettes and reading settings are retained.
+- Bundled presets now upgrade their normal and reasoning backgrounds together. Untouched matching presets keep their library identity and selection; edited themes, drafts, checkpoints, and previously deleted presets are preserved. New images are staged separately and committed together, with rollback if writing or committing fails.
+- Fixed white edges at the top of conversations and around the bottom input area in Store Codex 26.1029.7803.0. Explicit compatibility lists retain the known utility, underscore, and hyphen class formats without depending on build hashes, while preserving message-card and composer boundaries.
+
+### 简体中文
+
+- Assistant 0.1.3 新增明确的“批量换图并保存”工具，可直接用本地图片更新已保存主题的普通背景和六档背景，无需打开选图窗口，保留原主题身份及其他设置。版本核对、完整图片校验与一次原子保存避免部分更新；保存和即时应用分别返回结果。
+- 重绘 GPT 白龙、Claude 大学者、DeepSeek 海洋和 Gemini 猫娘四套主题，共 24 张六档背景。每个角色从小萌物逐步成长为华丽终态，各档动作有所区分；正常背景使用轻度图，保留原配色与阅读设置。
+- 内置主题升级时，普通背景与档位图片作为一个整体更新。未编辑且精确匹配旧版基线的主题保留库 ID 和当前选择；用户编辑、草稿、恢复点以及已删除的主题保持原样。新图独立暂存后统一提交，写入或提交失败时回滚。
+- 修复 Store Codex 26.1029.7803.0 对话顶部及底部输入区周围的白边。通过明确的兼容数组保留已确认的旧 utility、下划线和连字符类名格式，不绑定构建哈希，同时保留消息卡片与输入区域的结构边界。
+
+> 升级前退出当前 Codex 和 CodexStyle，覆盖安装后重新打开工作台，并通过工作台启动 Codex。已有主题配置和当前选择保留；符合升级条件的内置背景更新，用户修改过的主题不自动覆盖。使用新换图工具需升级工作台到 1.3.35，再在 Assistant 卡片中点击“安装 / 更新”并新建 Codex 任务以加载 0.1.3 插件。
+
 ## v1.3.34 — 2026-11-04
 
 ### English

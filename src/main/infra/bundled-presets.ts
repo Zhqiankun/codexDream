@@ -27,6 +27,8 @@ export const DEFAULT_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v7";
 export const ADDITIONAL_BUNDLED_PRESET_PACK_ID =
   "user-wallpapers-2026-08-31-v8";
 export const MASCOT_BUNDLED_PRESET_PACK_ID = "mascot-reasoning-2026-11-02-v9";
+export const REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID =
+  "mascot-redesign-2026-11-04-v10";
 export const PREVIOUS_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v6";
 export const FIFTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v5";
 export const FOURTH_BUNDLED_PRESET_PACK_ID = "user-wallpapers-2026-08-30-v4";

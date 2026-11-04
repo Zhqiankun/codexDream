@@ -7,6 +7,7 @@ import {
   DEFAULT_THEME_ART,
   DEFAULT_THEME_COLORS,
   DEFAULT_THEME_HOME_CARDS,
+  CODEX_ASSISTANT_EDITABLE_REASONING_EFFORTS,
   cloneThemeConfiguration,
   cloneThemeHomeCards,
   createDefaultThemeHomeCards,
@@ -20,6 +21,7 @@ import {
   readThemeConfiguration,
   writeThemeConfiguration,
   type BackgroundScope,
+  type CodexAssistantBackgroundSlot,
   type ThemeConfiguration,
   type ThemePatch,
   type ThemeSnapshot,
@@ -84,6 +86,10 @@ interface PreparedBackground {
   sha256: string;
   bytes: number;
 }
+
+export type BackgroundImageReplacements = Partial<
+  Record<CodexAssistantBackgroundSlot, { data: Buffer; fileName: string }>
+>;
 
 interface PreparedCheckpoint {
   checkpoint: ThemeCheckpoint;
@@ -570,6 +576,158 @@ export class LocalThemeStore {
       },
       signal,
     );
+  }
+
+  assertReadyForBackgroundSave(
+    libraryId: string,
+    expectedRevision: number,
+  ): void {
+    const theme = this.require(libraryId);
+    if (theme.revision !== expectedRevision) throw new Error("STALE_REVISION");
+    if (theme.status !== "ready" || this.checkpointFor(libraryId))
+      throw new Error("INCOMPLETE_THEME:background-save-requires-ready");
+  }
+
+  async replaceAndSaveBackgrounds(
+    libraryId: string,
+    expectedRevision: number,
+    replacements: BackgroundImageReplacements,
+    signal?: AbortSignal,
+  ): Promise<ThemeRecord> {
+    this.assertReadyForBackgroundSave(libraryId, expectedRevision);
+    if (signal?.aborted) throw new Error("CANCELLED");
+    const previous = this.require(libraryId);
+    await this.validateThemePayload(previous);
+    const next = cloneThemeRecord(previous);
+    const changedReasoning: ReasoningImageBytes = {};
+    const changedAssets: NonNullable<ThemeRecord["reasoningBackgrounds"]> = {};
+    let normal: { data: Buffer; file: string } | undefined;
+    const slots = Object.entries(replacements);
+    if (slots.length === 0 || slots.length > 7)
+      throw new Error("UNSAFE_IMAGE:background-slots");
+    for (const [slot, input] of slots) {
+      if (signal?.aborted) throw new Error("CANCELLED");
+      if (
+        !input ||
+        (slot !== "normal" &&
+          !CODEX_ASSISTANT_EDITABLE_REASONING_EFFORTS.some(
+            (effort) => effort === slot,
+          ))
+      )
+        throw new Error("UNSAFE_IMAGE:background-slot");
+      const info = await validateImage(input.data, input.fileName);
+      if (signal?.aborted) throw new Error("CANCELLED");
+      const file = this.allocateManagedImageFile(info.extension);
+      if (slot === "normal") {
+        normal = { data: input.data, file };
+        next.backgroundFile = file;
+        next.backgroundMime = info.mime;
+        next.backgroundSha256 = info.sha256;
+        next.backgroundBytes = info.bytes;
+        next.json = { ...next.json, image: file };
+      } else {
+        const effort = slot as ReasoningEffort;
+        changedReasoning[effort] = input.data;
+        changedAssets[effort] = {
+          file,
+          mime: info.mime,
+          sha256: info.sha256,
+          bytes: info.bytes,
+        };
+      }
+    }
+    if (Object.keys(changedAssets).length) {
+      next.reasoningBackgrounds = {
+        ...next.reasoningBackgrounds,
+        ...changedAssets,
+      };
+      next.json = {
+        ...next.json,
+        reasoningBackgrounds: reasoningReferences(next),
+      };
+    }
+    if (!validReasoningImages(next))
+      throw new Error("UNSAFE_IMAGE:background-set-too-large");
+    // 解码期间目标可能已更新；controller 的 gate 外也不允许提交迟到的 revision。
+    this.assertReadyForBackgroundSave(libraryId, expectedRevision);
+    if (signal?.aborted) throw new Error("CANCELLED");
+    const before = this.captureState();
+    const oldNormal = this.backgrounds.get(libraryId);
+    let normalWriteAttempted = false;
+    let persistAttempted = false;
+    try {
+      if (normal) {
+        normalWriteAttempted = true;
+        this.managedStore.writeFileAtomic(
+          managedThemeFile(normal.file),
+          normal.data,
+        );
+        if (
+          !this.managedStore
+            .readFile(managedThemeFile(normal.file))
+            ?.equals(normal.data)
+        )
+          throw new Error("STORE_TAMPERED:background-write");
+      }
+      if (Object.keys(changedAssets).length) {
+        // 只暂存指定槽位，省略的兼容档位继续引用原文件，不产生无意义的副本。
+        const staged = cloneThemeRecord(next);
+        staged.reasoningBackgrounds = changedAssets;
+        await this.reasoningImages.stage(staged, changedReasoning);
+        next.reasoningBackgrounds = {
+          ...next.reasoningBackgrounds,
+          ...staged.reasoningBackgrounds,
+        };
+        next.json = {
+          ...next.json,
+          reasoningBackgrounds: reasoningReferences(next),
+        };
+      }
+      if (signal?.aborted) throw new Error("CANCELLED");
+      next.revision = expectedRevision + 1;
+      next.updatedAt = new Date().toISOString();
+      if (next.importedFormal) {
+        next.importedFormal.edited = true;
+        next.packageFormat = "simplified";
+      }
+      next.fingerprint = this.fingerprint(next);
+      this.index.themes[this.index.themes.indexOf(previous)] = next;
+      if (normal) this.backgrounds.set(libraryId, Buffer.from(normal.data));
+      if (this.index.lastKnownGoodLibraryId === libraryId)
+        this.index.lastKnownGoodLibraryId = undefined;
+      persistAttempted = true;
+      await this.persist(signal);
+      if (normal && previous.backgroundFile)
+        this.removeExpectedManagedFile(
+          managedThemeFile(previous.backgroundFile),
+        );
+      return next;
+    } catch (error) {
+      try {
+        // 清理旧图也可能失败；先恢复旧字节，再恢复索引，始终保留可读取的引用。
+        if (
+          normal &&
+          previous.backgroundFile &&
+          oldNormal &&
+          !this.managedStore
+            .readFile(managedThemeFile(previous.backgroundFile))
+            ?.equals(oldNormal)
+        )
+          this.managedStore.writeFileAtomic(
+            managedThemeFile(previous.backgroundFile),
+            oldNormal,
+          );
+        this.restoreState(before);
+        if (persistAttempted) await this.restorePersistedIndex(before.index);
+        if (normalWriteAttempted && normal)
+          this.removeManagedFileIfPresent(managedThemeFile(normal.file));
+      } catch (rollbackError) {
+        throw new Error("STORE_TAMPERED:background-set-rollback", {
+          cause: rollbackError,
+        });
+      }
+      throw error;
+    }
   }
 
   async commit(
@@ -1550,7 +1708,7 @@ export class LocalThemeStore {
 
     const before = this.captureState();
     const stagedFiles: string[] = [];
-    const overwrittenFiles: Array<{ fileName: string; bytes: Buffer }> = [];
+    const retiredFiles: Array<{ fileName: string; bytes: Buffer }> = [];
     const replacesInstalledPack = pack.replacesPackIds.some((packId) =>
       this.index.installedPresetPacks.includes(packId),
     );
@@ -1565,51 +1723,43 @@ export class LocalThemeStore {
           if (pack.packId === MASCOT_BUNDLED_PRESET_PACK_ID) continue;
           if (!replacesInstalledPack)
             throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-id-conflict");
-          if (this.canUpgradeBundledPreset(existing, preset)) {
-            if (existing.backgroundSha256 !== preset.imageInfo.sha256) {
-              if (
-                !existing.backgroundFile ||
-                !existing.backgroundFile.endsWith(
-                  "." + preset.imageInfo.extension,
-                )
-              )
-                throw new Error(
-                  "BUNDLED_PRESET_PACK_INVALID:upgrade-image-extension",
-                );
-              const file = managedThemeFile(existing.backgroundFile);
-              const previousBytes = this.managedStore.readFile(file);
-              if (!previousBytes)
-                throw new Error("STORE_TAMPERED:preset-upgrade-image");
-              overwrittenFiles.push({
-                fileName: existing.backgroundFile,
-                bytes: Buffer.from(previousBytes),
-              });
-              this.managedStore.writeFileAtomic(file, preset.imageBytes);
-              const written = this.managedStore.readFile(file);
-              if (!written || !written.equals(preset.imageBytes))
-                throw new Error("STORE_TAMPERED:preset-file-write");
-              this.backgrounds.set(existing.libraryId, Buffer.from(written));
-            }
-            this.upgradeBundledPreset(existing, preset);
-          }
-          continue;
+          if (!this.canUpgradeBundledPreset(existing, preset)) continue;
         }
         // A missing theme in an already-installed predecessor pack represents
         // an explicit user deletion and must never be revived by an upgrade.
         if (
+          !existing &&
           replacesInstalledPack &&
           !pack.introducedThemeIds.includes(preset.themeId)
         )
           continue;
 
         const record = await this.createBundledPresetRecord(preset);
-        const duplicate = this.index.themes.find(
-          (theme) =>
-            theme.status === "ready" &&
-            theme.fingerprint === record.fingerprint &&
-            this.fingerprint(theme) === record.fingerprint,
-        );
+        const duplicate =
+          !existing &&
+          this.index.themes.find(
+            (theme) =>
+              theme.status === "ready" &&
+              theme.fingerprint === record.fingerprint &&
+              this.fingerprint(theme) === record.fingerprint,
+          );
         if (duplicate) continue;
+        if (existing) {
+          if (!existing.backgroundFile)
+            throw new Error("BUNDLED_PRESET_PACK_INVALID:upgrade-image");
+          const previousBytes = this.managedStore.readFile(
+            managedThemeFile(existing.backgroundFile),
+          );
+          if (!previousBytes)
+            throw new Error("STORE_TAMPERED:preset-upgrade-image");
+          retiredFiles.push({
+            fileName: existing.backgroundFile,
+            bytes: Buffer.from(previousBytes),
+          });
+          // 新图始终使用独立 UUID；既有选择和恢复关联继续指向同一个主题。
+          record.libraryId = existing.libraryId;
+          record.revision = existing.revision + 1;
+        }
         if (!isThemeRecord(record))
           throw new Error("BUNDLED_PRESET_PACK_INVALID:theme-record");
 
@@ -1624,25 +1774,35 @@ export class LocalThemeStore {
         this.backgrounds.set(record.libraryId, Buffer.from(written));
         await this.reasoningImages.stage(record, preset.reasoningImages ?? {});
         record.fingerprint = this.fingerprint(record);
-        this.index.themes.push(record);
+        if (existing)
+          this.index.themes[this.index.themes.indexOf(existing)] = record;
+        else this.index.themes.push(record);
       }
 
       this.index.installedPresetPacks.push(pack.packId);
       persistAttempted = true;
       await this.persist();
+      // 普通背景与六档一起完成索引提交后，才回收不再引用的旧普通背景。
+      const referenced = new Set(
+        reasoningRecords(this.index).map((record) => record.backgroundFile),
+      );
+      for (const retired of retiredFiles)
+        if (!referenced.has(retired.fileName))
+          this.removeExpectedManagedFile(managedThemeFile(retired.fileName));
     } catch (error) {
-      this.restoreState(before);
       try {
+        // 提交后的清理也可能失败，先恢复旧资产再恢复引用，避免悬空索引。
+        for (const previous of retiredFiles) {
+          const file = managedThemeFile(previous.fileName);
+          if (!this.managedStore.readFile(file)?.equals(previous.bytes))
+            this.managedStore.writeFileAtomic(file, previous.bytes);
+          if (!this.managedStore.readFile(file)?.equals(previous.bytes))
+            throw new Error("STORE_TAMPERED:preset-file-restore");
+        }
+        this.restoreState(before);
         if (persistAttempted) await this.restorePersistedIndex(before.index);
         for (const fileName of stagedFiles)
           this.removeManagedFileIfPresent(managedThemeFile(fileName));
-        for (const previous of overwrittenFiles) {
-          const file = managedThemeFile(previous.fileName);
-          this.managedStore.writeFileAtomic(file, previous.bytes);
-          const restored = this.managedStore.readFile(file);
-          if (!restored || !restored.equals(previous.bytes))
-            throw new Error("STORE_TAMPERED:preset-file-restore");
-        }
       } catch (rollbackError) {
         throw new Error("STORE_TAMPERED:preset-pack-rollback", {
           cause: rollbackError,
@@ -1670,47 +1830,6 @@ export class LocalThemeStore {
         (checkpoint) => checkpoint.libraryId === record.libraryId,
       )
     );
-  }
-
-  private upgradeBundledPreset(
-    record: ThemeRecord,
-    preset: PreparedBundledPresetTheme,
-  ): void {
-    if (!record.backgroundFile)
-      throw new Error("BUNDLED_PRESET_PACK_INVALID:upgrade-image");
-    const configuration = this.bundledPresetConfiguration(preset);
-    const css = this.bundledPresetCss(configuration);
-    record.name = preset.name;
-    record.description = preset.description;
-    record.css = css;
-    record.backgroundScope = preset.backgroundScope;
-    record.sidebarOverlayOpacity = preset.sidebarOverlayOpacity;
-    record.backgroundMime = preset.imageInfo.mime;
-    record.backgroundSha256 = preset.imageInfo.sha256;
-    record.backgroundBytes = preset.imageInfo.bytes;
-    record.json = writeThemeConfiguration(
-      {
-        schemaVersion: 1,
-        id: preset.themeId,
-        name: preset.name,
-        description: preset.description,
-        image: record.backgroundFile,
-        backgroundScope: preset.backgroundScope,
-        sidebarOverlayOpacity: preset.sidebarOverlayOpacity,
-      },
-      configuration,
-    );
-    record.revision += 1;
-    record.updatedAt = new Date().toISOString();
-    record.validation = {
-      css: "valid",
-      image: "valid",
-      package: "ready",
-      warnings: [],
-    };
-    record.fingerprint = this.fingerprint(record);
-    if (!isThemeRecord(record))
-      throw new Error("BUNDLED_PRESET_PACK_INVALID:upgraded-theme-record");
   }
 
   private async createBundledPresetRecord(

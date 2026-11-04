@@ -40,6 +40,13 @@ const presetCatalogSpecs = [
     packId: "mascot-reasoning-2026-11-02-v9",
     themeCount: 3,
   },
+  {
+    label: "v10 redesigned mascot preset catalog",
+    entry: "resources/presets/mascot-redesign-2026-11-04-v10/catalog.json",
+    directory: "resources/presets/mascot-redesign-2026-11-04-v10",
+    packId: "mascot-redesign-2026-11-04-v10",
+    themeCount: 4,
+  },
 ];
 const presetCatalogs = presetCatalogSpecs.map((spec) => {
   const bytes = readFileSync(resolve(root, spec.entry));
@@ -47,10 +54,12 @@ const presetCatalogs = presetCatalogSpecs.map((spec) => {
   const themes = Array.isArray(catalog.themes) ? catalog.themes : [];
   return { ...spec, bytes, catalog, themes };
 });
-const [presetCatalogV7, presetCatalogV8, presetCatalogV9] = presetCatalogs;
+const [presetCatalogV7, presetCatalogV8, presetCatalogV9, presetCatalogV10] =
+  presetCatalogs;
 const presetDocumentation = [
   "resources/presets/user-wallpapers-2026-08-31-v8/SOURCES.md",
   "resources/presets/mascot-reasoning-2026-11-02-v9/SOURCES.md",
+  "resources/presets/mascot-redesign-2026-11-04-v10/SOURCES.md",
 ];
 const presetAssets = presetCatalogs
   .flatMap((catalog) =>
@@ -125,8 +134,8 @@ if (
       isRecord(theme) ? theme.themeId : undefined,
     ),
   ) ||
-  presetAssets.length !== 53 ||
-  new Set(presetAssets.map((asset) => asset.entry)).size !== 53
+  presetAssets.length !== 77 ||
+  new Set(presetAssets.map((asset) => asset.entry)).size !== 77
 ) {
   console.error("Package verification failed; v8 preset catalog is invalid.");
   process.exit(1);
@@ -142,29 +151,43 @@ if (
     presetCatalogV9.catalog.introducedThemeIds,
     presetCatalogV9.themes.map((theme) => theme.themeId),
   ) ||
-  presetCatalogV9.themes.some(
-    (theme) =>
-      theme.backgroundMode !== "reasoning" ||
-      !isRecord(theme.reasoningBackgrounds) ||
-      !haveSameStringSet(Object.keys(theme.reasoningBackgrounds), [
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max",
-        "ultra",
-      ]) ||
-      Object.values(theme.reasoningBackgrounds).some(
-        (asset) =>
-          !isRecord(asset) ||
-          !/^[a-z0-9][a-z0-9.-]{0,79}\.png$/u.test(asset.image) ||
-          !/^[a-f0-9]{64}$/u.test(asset.imageSha256),
-      ) ||
-      theme.image !== theme.reasoningBackgrounds.low.image ||
-      theme.imageSha256 !== theme.reasoningBackgrounds.low.imageSha256,
-  )
+  !presetCatalogV9.themes.every(hasValidReasoningPreset)
 ) {
   console.error("Package verification failed; v9 mascot catalog is invalid.");
+  process.exit(1);
+}
+const introducedMascotId = "e7f74c6f-1fa0-4c18-a83e-32ee26247e39";
+if (
+  presetCatalogV10.catalog.schemaVersion !== 4 ||
+  presetCatalogV10.catalog.packId !== presetCatalogV10.packId ||
+  !haveSameStringSet(presetCatalogV10.catalog.replacesPackIds, [
+    presetCatalogV9.packId,
+  ]) ||
+  !haveSameStringSet(presetCatalogV10.catalog.introducedThemeIds, [
+    introducedMascotId,
+  ]) ||
+  presetCatalogV10.themes.length !== presetCatalogV10.themeCount ||
+  !hasValidPresetThemes(presetCatalogV10.themes) ||
+  !presetCatalogV10.themes.every(hasValidReasoningPreset) ||
+  !haveSameStringSet(
+    presetCatalogV10.themes.map((theme) => theme.themeId),
+    [
+      ...presetCatalogV9.themes.map((theme) => theme.themeId),
+      introducedMascotId,
+    ],
+  ) ||
+  presetCatalogV10.themes.some((theme) => {
+    const previous = presetCatalogV9.themes.find(
+      (entry) => entry.themeId === theme.themeId,
+    );
+    return previous
+      ? !haveSameStringSet(theme.previousImageSha256, [previous.imageSha256]) ||
+          theme.previousFingerprints.length !== 1
+      : theme.previousImageSha256.length !== 0 ||
+          theme.previousFingerprints.length !== 0;
+  })
+) {
+  console.error("Package verification failed; v10 mascot catalog is invalid.");
   process.exit(1);
 }
 if (
@@ -555,6 +578,29 @@ function hasValidPresetThemes(themes) {
       theme.previousFingerprints.every((fingerprint) =>
         /^[a-f0-9]{64}$/u.test(fingerprint),
       ),
+  );
+}
+
+function hasValidReasoningPreset(theme) {
+  return (
+    theme.backgroundMode === "reasoning" &&
+    isRecord(theme.reasoningBackgrounds) &&
+    haveSameStringSet(Object.keys(theme.reasoningBackgrounds), [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra",
+    ]) &&
+    Object.values(theme.reasoningBackgrounds).every(
+      (asset) =>
+        isRecord(asset) &&
+        /^[a-z0-9][a-z0-9.-]{0,79}\.png$/u.test(asset.image) &&
+        /^[a-f0-9]{64}$/u.test(asset.imageSha256),
+    ) &&
+    theme.image === theme.reasoningBackgrounds.low.image &&
+    theme.imageSha256 === theme.reasoningBackgrounds.low.imageSha256
   );
 }
 

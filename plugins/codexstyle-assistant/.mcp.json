@@ -12,6 +12,7 @@
         "set_background_mode": { "approval_mode": "prompt" },
         "choose_reasoning_background": { "approval_mode": "prompt" },
         "clear_reasoning_background": { "approval_mode": "prompt" },
+        "replace_and_save_theme_backgrounds": { "approval_mode": "prompt" },
         "select_theme": { "approval_mode": "prompt" }
       },
       "env_vars": ["LOCALAPPDATA", "USERPROFILE", "PATH"],

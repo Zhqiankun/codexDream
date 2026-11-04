@@ -25,6 +25,8 @@ import {
   REASONING_EFFORTS,
   type BackgroundMode,
   type CodexAssistantEditableReasoningEffort,
+  type CodexAssistantBackgroundSaveResult,
+  type CodexAssistantReplaceAndSaveBackgroundsParams,
   type ReasoningEffort,
   type CodexAssistantPluginInstallResult,
   type ErrorCode,
@@ -50,6 +52,7 @@ import type { MainLogger } from "../infra/main-logger";
 import {
   ADDITIONAL_BUNDLED_PRESET_PACK_ID,
   MASCOT_BUNDLED_PRESET_PACK_ID,
+  REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
   createBundledPresetSource,
 } from "../infra/bundled-presets";
 import { CodexAssistantBridge } from "../assistant/assistant-bridge";
@@ -115,6 +118,10 @@ export class AppController {
         join(presetRoot, MASCOT_BUNDLED_PRESET_PACK_ID),
         MASCOT_BUNDLED_PRESET_PACK_ID,
       ),
+      createBundledPresetSource(
+        join(presetRoot, REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID),
+        REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
+      ),
     ]);
     this.session = new CodexSessionService(
       this.platform,
@@ -171,6 +178,8 @@ export class AppController {
           expectedRevision,
           effort,
         ),
+      replaceAndSaveBackgrounds: (params, signal) =>
+        this.replaceAndSaveAssistantBackgrounds(params, signal),
     });
     this.assistantBridge = new CodexAssistantBridge(
       this.store.managedStore,
@@ -512,6 +521,22 @@ export class AppController {
     return current;
   }
 
+  replaceAndSaveAssistantBackgrounds(
+    params: CodexAssistantReplaceAndSaveBackgroundsParams,
+    signal?: AbortSignal,
+  ): Promise<Result<CodexAssistantBackgroundSaveResult>> {
+    return this.runSideEffect<CodexAssistantBackgroundSaveResult>(async () => {
+      const saved = await this.themeService.replaceAndSaveBackgrounds(
+        params,
+        signal,
+      );
+      if (!saved.ok) return saved;
+      // 保存成功后不再检查取消状态，断连不能把已提交主题描述为未保存。
+      const liveApply = await this.applySavedTheme(params.libraryId);
+      return { ok: true, data: { ...saved.data, liveApply } };
+    });
+  }
+
   // 只在 store 已完成 ready 复验后组装资源；renderer 不能提供路径或图片字节。
   private readyThemePayload(
     record: ThemeRecord,
@@ -570,23 +595,28 @@ export class AppController {
       const saved = await this.themeService.commit(libraryId, expectedRevision);
       if (!saved.ok) return saved;
 
-      // 同一 operation gate 内先提交再应用；即使窗口更新失败，也返回已经保存的主题。
-      let liveApply: ThemeLiveApplyResult;
-      try {
-        liveApply = await this.session.applySavedTheme(libraryId, async () => {
-          const record = await this.store.readyForInjection(libraryId);
-          if (!record) return undefined;
-          return this.readyThemePayload(record);
-        });
-      } catch {
-        liveApply = { status: "failed", reason: "injection" };
-      }
-      if (liveApply.status === "failed")
-        this.logger?.warn("theme.liveApply.failed", {
-          reason: liveApply.reason,
-        });
+      const liveApply = await this.applySavedTheme(libraryId);
       return { ok: true, data: { theme: saved.data, liveApply } };
     });
+  }
+
+  private async applySavedTheme(
+    libraryId: string,
+  ): Promise<ThemeLiveApplyResult> {
+    // 同一 operation gate 内先提交再应用；即使窗口更新失败，也返回已经保存的主题。
+    let liveApply: ThemeLiveApplyResult;
+    try {
+      liveApply = await this.session.applySavedTheme(libraryId, async () => {
+        const record = await this.store.readyForInjection(libraryId);
+        if (!record) return undefined;
+        return this.readyThemePayload(record);
+      });
+    } catch {
+      liveApply = { status: "failed", reason: "injection" };
+    }
+    if (liveApply.status === "failed")
+      this.logger?.warn("theme.liveApply.failed", { reason: liveApply.reason });
+    return liveApply;
   }
 
   deleteTheme(

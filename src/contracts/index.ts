@@ -379,7 +379,68 @@ export const CodexAssistantChooseReasoningBackgroundParamsSchema = z
 export const CodexAssistantClearReasoningBackgroundParamsSchema =
   CodexAssistantChooseReasoningBackgroundParamsSchema;
 
+// 专用换图入口只接收本机盘符下的图片；路径不进入 renderer 或主题配置。
+const AssistantLocalImagePathSchema = z
+  .string()
+  .min(1)
+  .max(4096)
+  .refine((value) => {
+    if (!/^[a-z]:[\\/]/iu.test(value)) return false;
+    const segments = value.slice(3).split(/[\\/]/u);
+    return (
+      segments.length > 0 &&
+      segments.every(
+        (segment) =>
+          segment.length > 0 &&
+          segment !== "." &&
+          segment !== ".." &&
+          !/[<>:"|?*\u0000-\u001f]/u.test(segment) &&
+          !/[. ]$/u.test(segment) &&
+          !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(segment),
+      ) &&
+      /\.(?:png|jpe?g|webp)$/iu.test(value)
+    );
+  }, "Expected an absolute local PNG, JPEG or WebP file path");
+
+export const CodexAssistantReplaceAndSaveBackgroundsParamsSchema = z
+  .object({
+    ...AssistantDraftParams,
+    images: z
+      .object({
+        normal: AssistantLocalImagePathSchema.optional(),
+        low: AssistantLocalImagePathSchema.optional(),
+        medium: AssistantLocalImagePathSchema.optional(),
+        high: AssistantLocalImagePathSchema.optional(),
+        xhigh: AssistantLocalImagePathSchema.optional(),
+        max: AssistantLocalImagePathSchema.optional(),
+        ultra: AssistantLocalImagePathSchema.optional(),
+      })
+      .strict()
+      .refine((images) => Object.values(images).some(Boolean)),
+  })
+  .strict();
+export type CodexAssistantReplaceAndSaveBackgroundsParams = z.infer<
+  typeof CodexAssistantReplaceAndSaveBackgroundsParamsSchema
+>;
+export type CodexAssistantBackgroundSlot =
+  | "normal"
+  | CodexAssistantEditableReasoningEffort;
+export interface CodexAssistantBackgroundSaveResult {
+  theme: ThemeDetail;
+  replacedImages: Partial<
+    Record<CodexAssistantBackgroundSlot, { sha256: string; bytes: number }>
+  >;
+  liveApply: ThemeLiveApplyResult;
+}
+
 export const CodexAssistantRequestSchema = z.discriminatedUnion("method", [
+  z
+    .object({
+      ...AssistantRequestBase,
+      method: z.literal("replace_and_save_theme_backgrounds"),
+      params: CodexAssistantReplaceAndSaveBackgroundsParamsSchema,
+    })
+    .strict(),
   z
     .object({
       ...AssistantRequestBase,

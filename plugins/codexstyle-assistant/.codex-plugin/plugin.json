@@ -1,7 +1,7 @@
 {
   "name": "codexstyle-assistant",
-  "version": "0.1.2",
-  "description": "Connect Codex to CodexStyle for safe theme discovery, palette and background drafting.",
+  "version": "0.1.3",
+  "description": "Connect Codex to CodexStyle for theme discovery, palette drafts and authorized saved-background replacement.",
   "author": {
     "name": "CodexStyle",
     "url": "https://github.com/Zhqiankun/codexDream"
@@ -13,8 +13,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "CodexStyle Assistant",
-    "shortDescription": "Generate safe CodexStyle theme drafts with Codex.",
-    "longDescription": "Read the local CodexStyle theme library, validate complete color systems, configure draft background modes and six reasoning backgrounds through a native picker, and select reviewed themes for the next Codex launch.",
+    "shortDescription": "Design themes and replace saved backgrounds with Codex.",
+    "longDescription": "Read the local CodexStyle theme library, validate complete color systems, configure draft background modes and six reasoning backgrounds through a native picker, or replace and save explicitly authorized image slots on an existing saved theme from absolute local image paths. Other settings remain unchanged. Select reviewed themes for the next Codex launch.",
     "developerName": "CodexStyle",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
@@ -22,7 +22,8 @@
     "defaultPrompt": [
       "基于当前 CodexStyle 主题生成一套现代奢华配色草稿。",
       "检查当前主题的文字对比度并新建一个改进草稿。",
-      "列出 CodexStyle 主题并选择我指定的已保存主题。"
+      "列出 CodexStyle 主题并选择我指定的已保存主题。",
+      "用我指定的本地图片替换原主题的背景并保存，保留配色和其他设置。"
     ],
     "brandColor": "#F5B94C"
   },

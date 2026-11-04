@@ -1,0 +1,456 @@
+{
+  "schemaVersion": 4,
+  "packId": "mascot-redesign-2026-11-04-v10",
+  "replacesPackIds": ["mascot-reasoning-2026-11-02-v9"],
+  "introducedThemeIds": ["e7f74c6f-1fa0-4c18-a83e-32ee26247e39"],
+  "themes": [
+    {
+      "presetId": "gpt-reasoning",
+      "themeId": "e7f74c6f-1fa0-4c18-a83e-32ee26247e39",
+      "name": "白龙 · 思考进阶",
+      "description": "白龙娘随思考强度逐步觉醒；深夜黑底、银白文字与薰衣草紫交互，少量淡金点缀。人物置右、左侧留白，配套分档背景。",
+      "image": "gpt-low.png",
+      "imageSha256": "cabb8bd1e0f999cf35f9193051b5fb2fb2e2144bde03b6e5ca1fb35ac5932f59",
+      "previousImageSha256": [],
+      "previousFingerprints": [],
+      "backgroundScope": "window",
+      "sidebarOverlayOpacity": 0,
+      "appearance": "dark",
+      "art": {
+        "focusX": 0.83,
+        "focusY": 0.7,
+        "safeArea": "left",
+        "taskMode": "full"
+      },
+      "colors": {
+        "background": "rgba(6, 7, 14, 0)",
+        "panel": "rgba(13, 13, 25, 0.72)",
+        "sidebarText": "#e9e5f7",
+        "threadTabBackground": "rgba(24, 20, 37, 0.92)",
+        "threadTabText": "#d9c7ff",
+        "homeTitleText": "#faf6ff",
+        "homeCardBackground": "rgba(16, 16, 29, 0.90)",
+        "homeCardText": "#efebfa",
+        "panelAlt": "rgba(15, 14, 27, 0.94)",
+        "composerText": "#f4efff",
+        "assistantPanel": "rgba(16, 15, 29, 0.86)",
+        "assistantMessageText": "#eeebf7",
+        "userMessageText": "#f4efff",
+        "changeCardBackground": "rgba(19, 17, 33, 0.94)",
+        "changeCardText": "#e9e5f7",
+        "activityBackground": "#141020",
+        "activityText": "#ded3f5",
+        "activityMuted": "#b0a3c7",
+        "topBarBackground": "rgba(9, 9, 18, 0.70)",
+        "topBarText": "#d9cfee",
+        "accent": "#c7a7ff",
+        "accentText": "#211530",
+        "accentAlt": "#e2d2ff",
+        "secondary": "#dcc799",
+        "highlight": "#bda1ef",
+        "selectionText": "#181021",
+        "text": "#eeebf7",
+        "muted": "#a9a0bd",
+        "line": "rgba(187, 161, 233, 0.22)"
+      },
+      "style": {
+        "mode": "configured",
+        "recipes": {
+          "sidebar": true,
+          "composer": true,
+          "message": true,
+          "dialog": true
+        },
+        "sendIcon": "native",
+        "blur": 10,
+        "radius": 8,
+        "borderWidth": 1,
+        "shadow": "strong"
+      },
+      "backgroundMode": "reasoning",
+      "homeCards": [
+        {
+          "mode": "color",
+          "color": "rgba(21, 13, 5, 0.88)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(21, 13, 5, 0.88)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(21, 13, 5, 0.88)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(21, 13, 5, 0.88)"
+        }
+      ],
+      "reasoningBackgrounds": {
+        "low": {
+          "image": "gpt-low.png",
+          "imageSha256": "cabb8bd1e0f999cf35f9193051b5fb2fb2e2144bde03b6e5ca1fb35ac5932f59"
+        },
+        "medium": {
+          "image": "gpt-medium.png",
+          "imageSha256": "c1db849e6d2b5319770cb8946aa86f628fcbac5706ddd3d4c018d2b488c474cc"
+        },
+        "high": {
+          "image": "gpt-high.png",
+          "imageSha256": "21977cdfb381b39d3d97d6fc4adbf552d4966930c09f1cd789bf717e0b614f7b"
+        },
+        "xhigh": {
+          "image": "gpt-xhigh.png",
+          "imageSha256": "410907bc5aa627f31f1da2d74ceb5ada7bccceef0bb296d5c80f6fc8364ed624"
+        },
+        "max": {
+          "image": "gpt-max.png",
+          "imageSha256": "10933275da4bffa9b4ffbc630666f11e4c41e0164d823ae1ab2ed4e8bc074cc6"
+        },
+        "ultra": {
+          "image": "gpt-ultra.png",
+          "imageSha256": "9933d83d2ea082ab529bb27c5079970ae729e870ad00f5b4448bf4be3d5e4f91"
+        }
+      }
+    },
+    {
+      "presetId": "deepseek-reasoning",
+      "themeId": "bc6baa2d-eff3-436b-9cda-1e8f98d33a9a",
+      "name": "DeepSeek · 沧海鲸歌",
+      "description": "深海蓝与银白水光，鲸影随轻度至 Ultra 六档逐步展开。人物完整置右，左侧留作阅读区。",
+      "image": "deepseek-low.png",
+      "imageSha256": "1c32ffa38ea375ec7423f2c13b47bd39d5ff732f4eef8bfe91a83d4e05dbb44c",
+      "previousImageSha256": [
+        "d204bb95c2cc786ae0aa292c396e55dd059369753e3cf8271b1d62050fccbb36"
+      ],
+      "previousFingerprints": [
+        "81b0f4ccd6bb489ea8f6cc40e1f2459b587d0d31dfd80556194fe4e77e8a8164"
+      ],
+      "backgroundScope": "window",
+      "sidebarOverlayOpacity": 0,
+      "appearance": "dark",
+      "art": {
+        "focusX": 0.83,
+        "focusY": 0.5,
+        "safeArea": "left",
+        "taskMode": "full"
+      },
+      "colors": {
+        "background": "rgba(8, 20, 35, 0)",
+        "panel": "rgba(9, 24, 41, 0.82)",
+        "sidebarText": "#DDEDFB",
+        "threadTabBackground": "rgba(20, 45, 65, 0.94)",
+        "threadTabText": "#BCEBFA",
+        "homeTitleText": "#F3FBFF",
+        "homeCardBackground": "rgba(13, 31, 49, 0.94)",
+        "homeCardText": "#E2F1FF",
+        "panelAlt": "rgba(12, 29, 47, 0.95)",
+        "composerText": "#F2F8FF",
+        "assistantPanel": "rgba(8, 23, 40, 0.74)",
+        "assistantMessageText": "#E7F2FD",
+        "userMessageText": "#F2F8FF",
+        "changeCardBackground": "rgba(13, 32, 52, 0.95)",
+        "changeCardText": "#E2F1FE",
+        "activityBackground": "#10273E",
+        "activityText": "#C8E9F6",
+        "activityMuted": "#A8C4D6",
+        "topBarBackground": "rgba(7, 19, 34, 0.86)",
+        "topBarText": "#C5DDED",
+        "accent": "#79D8ED",
+        "accentText": "#082B3D",
+        "accentAlt": "#B6ECF8",
+        "secondary": "#C9DCFB",
+        "highlight": "#7AC6E8",
+        "selectionText": "#071E30",
+        "text": "#EAF4FF",
+        "muted": "#B0C4D9",
+        "line": "rgba(124, 190, 221, 0.24)"
+      },
+      "style": {
+        "mode": "configured",
+        "recipes": {
+          "sidebar": true,
+          "composer": true,
+          "message": true,
+          "dialog": true
+        },
+        "sendIcon": "native",
+        "blur": 10,
+        "radius": 10,
+        "borderWidth": 1,
+        "shadow": "soft"
+      },
+      "backgroundMode": "reasoning",
+      "homeCards": [
+        {
+          "mode": "color",
+          "color": "rgba(13, 31, 49, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(15, 37, 53, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(17, 31, 53, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(12, 35, 47, 0.94)"
+        }
+      ],
+      "reasoningBackgrounds": {
+        "low": {
+          "image": "deepseek-low.png",
+          "imageSha256": "1c32ffa38ea375ec7423f2c13b47bd39d5ff732f4eef8bfe91a83d4e05dbb44c"
+        },
+        "medium": {
+          "image": "deepseek-medium.png",
+          "imageSha256": "5be6abda58f78405d9fe584cd4a1a698f4e49c20bbf521b133c05c05405e2a61"
+        },
+        "high": {
+          "image": "deepseek-high.png",
+          "imageSha256": "ce8fbe4925e37e51c49978bee86248e5d0e93891eab04579c76035a86561e9ca"
+        },
+        "xhigh": {
+          "image": "deepseek-xhigh.png",
+          "imageSha256": "d2195637306aa89dc8741d981c579142971cc058d3eb48f404e5630d80fa526f"
+        },
+        "max": {
+          "image": "deepseek-max.png",
+          "imageSha256": "87b6235aeedc521a47c0fc8b8453dac3e490117b384d45fdf551da1d550faf56"
+        },
+        "ultra": {
+          "image": "deepseek-ultra.png",
+          "imageSha256": "654a14d93d0ce5a2611d7341bab0870f3cdf82fbbe0c85b2c3149fb2ff0320f0"
+        }
+      }
+    },
+    {
+      "presetId": "claude-reasoning",
+      "themeId": "b1457903-85f1-4754-8722-1968f97b395c",
+      "name": "Claude · 琥珀书庭",
+      "description": "暖黑底、象牙白与琥珀金，书页与花形光轮随六档思考强度逐步盛放。完整人物置右，保留安静阅读空间。",
+      "image": "claude-low.png",
+      "imageSha256": "7a20aa67614be7a8f241af2ed4e256619b0d6cbc50851ce609446f28240de761",
+      "previousImageSha256": [
+        "de886d8ac697f21a24774a29348484bc21c0fc1fae0b3396ff68d13ec4e61532"
+      ],
+      "previousFingerprints": [
+        "d4f98452f4910f873a0c08f7e209678cc94dc3fd86698c60d27abd01e7617b19"
+      ],
+      "backgroundScope": "window",
+      "sidebarOverlayOpacity": 0,
+      "appearance": "dark",
+      "art": {
+        "focusX": 0.83,
+        "focusY": 0.5,
+        "safeArea": "left",
+        "taskMode": "full"
+      },
+      "colors": {
+        "background": "rgba(26, 18, 16, 0)",
+        "panel": "rgba(31, 23, 20, 0.84)",
+        "sidebarText": "#EFDFCC",
+        "threadTabBackground": "rgba(58, 40, 29, 0.94)",
+        "threadTabText": "#FFD5A7",
+        "homeTitleText": "#FFF3E4",
+        "homeCardBackground": "rgba(40, 29, 24, 0.94)",
+        "homeCardText": "#F5E5D1",
+        "panelAlt": "rgba(39, 29, 24, 0.95)",
+        "composerText": "#FFF2E3",
+        "assistantPanel": "rgba(29, 22, 19, 0.78)",
+        "assistantMessageText": "#F2E8DD",
+        "userMessageText": "#FFF2E3",
+        "changeCardBackground": "rgba(44, 32, 25, 0.95)",
+        "changeCardText": "#F7E6D1",
+        "activityBackground": "#34261E",
+        "activityText": "#EDD0AB",
+        "activityMuted": "#C9B39A",
+        "topBarBackground": "rgba(25, 18, 16, 0.88)",
+        "topBarText": "#DAC6B0",
+        "accent": "#F1BC83",
+        "accentText": "#3C2412",
+        "accentAlt": "#FFDBB3",
+        "secondary": "#E8C7A3",
+        "highlight": "#DFA66C",
+        "selectionText": "#2A1B10",
+        "text": "#F8EDDF",
+        "muted": "#CCB8A5",
+        "line": "rgba(209, 162, 115, 0.25)"
+      },
+      "style": {
+        "mode": "configured",
+        "recipes": {
+          "sidebar": true,
+          "composer": true,
+          "message": true,
+          "dialog": true
+        },
+        "sendIcon": "native",
+        "blur": 10,
+        "radius": 10,
+        "borderWidth": 1,
+        "shadow": "soft"
+      },
+      "backgroundMode": "reasoning",
+      "homeCards": [
+        {
+          "mode": "color",
+          "color": "rgba(40, 29, 24, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(46, 32, 24, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(38, 31, 25, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(43, 27, 25, 0.94)"
+        }
+      ],
+      "reasoningBackgrounds": {
+        "low": {
+          "image": "claude-low.png",
+          "imageSha256": "7a20aa67614be7a8f241af2ed4e256619b0d6cbc50851ce609446f28240de761"
+        },
+        "medium": {
+          "image": "claude-medium.png",
+          "imageSha256": "475dc5bf95ad46178b4e943cdd95a7fce7cd3ca3b4ce44abf3fdb9c1dcecd43f"
+        },
+        "high": {
+          "image": "claude-high.png",
+          "imageSha256": "2ea8b87fb847b4d431f02daf5c952c1615521a4b86f931c79a07e8beab2e06c5"
+        },
+        "xhigh": {
+          "image": "claude-xhigh.png",
+          "imageSha256": "7a4fc484e528f74e2e6f8c91714aeb66bf2c241f6662c8141a6ccc2150925d84"
+        },
+        "max": {
+          "image": "claude-max.png",
+          "imageSha256": "5f46556c678dd3c645e3709f15d7eb279c6b5093b05da267cac862b5883b2ddd"
+        },
+        "ultra": {
+          "image": "claude-ultra.png",
+          "imageSha256": "acfd2ab3fabe63f879caf707f973a173363edef502844670eed131f67b49d987"
+        }
+      }
+    },
+    {
+      "presetId": "gemini-reasoning",
+      "themeId": "a4b467dd-7162-45d3-8827-4505a264be98",
+      "name": "Gemini · 星穹双子",
+      "description": "深星紫与蓝粉极光，四角星和星轨随轻度至 Ultra 六档逐步点亮。角色完整置右，左侧保持清爽易读。",
+      "image": "gemini-low.png",
+      "imageSha256": "1906b0cf8242bc383fe53995a74b8ada8c1f5997505952c1c8aa9bdf501f1c8c",
+      "previousImageSha256": [
+        "33a5130180d29fc09ba1fb89d7f0f439db725efa322467db2132d78e9f7beb47"
+      ],
+      "previousFingerprints": [
+        "c005dca2bb1f59d840ecdff989583083289cffb0dbec3654cf5499c18a60bfd5"
+      ],
+      "backgroundScope": "window",
+      "sidebarOverlayOpacity": 0,
+      "appearance": "dark",
+      "art": {
+        "focusX": 0.83,
+        "focusY": 0.5,
+        "safeArea": "left",
+        "taskMode": "full"
+      },
+      "colors": {
+        "background": "rgba(16, 14, 36, 0)",
+        "panel": "rgba(23, 19, 44, 0.83)",
+        "sidebarText": "#E5DCF7",
+        "threadTabBackground": "rgba(43, 31, 68, 0.94)",
+        "threadTabText": "#DCCBFF",
+        "homeTitleText": "#FBF4FF",
+        "homeCardBackground": "rgba(30, 23, 52, 0.94)",
+        "homeCardText": "#EDE4FF",
+        "panelAlt": "rgba(30, 24, 53, 0.95)",
+        "composerText": "#F8F1FF",
+        "assistantPanel": "rgba(22, 18, 42, 0.76)",
+        "assistantMessageText": "#EEE8FB",
+        "userMessageText": "#F8F1FF",
+        "changeCardBackground": "rgba(34, 27, 59, 0.95)",
+        "changeCardText": "#EBE1FF",
+        "activityBackground": "#251D43",
+        "activityText": "#DDCDFB",
+        "activityMuted": "#BDB0D5",
+        "topBarBackground": "rgba(17, 14, 34, 0.88)",
+        "topBarText": "#D8CBEF",
+        "accent": "#C8B2FF",
+        "accentText": "#2B1648",
+        "accentAlt": "#E5D7FF",
+        "secondary": "#9CE0EE",
+        "highlight": "#B8A0EB",
+        "selectionText": "#201038",
+        "text": "#F0EBFF",
+        "muted": "#BEB1D7",
+        "line": "rgba(171, 145, 224, 0.26)"
+      },
+      "style": {
+        "mode": "configured",
+        "recipes": {
+          "sidebar": true,
+          "composer": true,
+          "message": true,
+          "dialog": true
+        },
+        "sendIcon": "native",
+        "blur": 10,
+        "radius": 10,
+        "borderWidth": 1,
+        "shadow": "soft"
+      },
+      "backgroundMode": "reasoning",
+      "homeCards": [
+        {
+          "mode": "color",
+          "color": "rgba(30, 23, 52, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(26, 30, 53, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(39, 24, 51, 0.94)"
+        },
+        {
+          "mode": "color",
+          "color": "rgba(27, 23, 47, 0.94)"
+        }
+      ],
+      "reasoningBackgrounds": {
+        "low": {
+          "image": "gemini-low.png",
+          "imageSha256": "1906b0cf8242bc383fe53995a74b8ada8c1f5997505952c1c8aa9bdf501f1c8c"
+        },
+        "medium": {
+          "image": "gemini-medium.png",
+          "imageSha256": "d5be9f28e22e62cac2f8f9a2979d13ef04c512dd3cf74bf2f11a127b724a1b0d"
+        },
+        "high": {
+          "image": "gemini-high.png",
+          "imageSha256": "2c97dcb84c6f4bd93c0b9109f132f518fb84a5abcb7cb197e8b67f869964092d"
+        },
+        "xhigh": {
+          "image": "gemini-xhigh.png",
+          "imageSha256": "3cd230d1a54693d19bd12da47283747bb260d40f5d7e24ac016719af0be974f7"
+        },
+        "max": {
+          "image": "gemini-max.png",
+          "imageSha256": "353a6a046c6cf930229926fc16525a704e2e4f9ff63a4f37a9318660f53e3a1d"
+        },
+        "ultra": {
+          "image": "gemini-ultra.png",
+          "imageSha256": "37e60d904272ee301c6dbe8e6dd9058cc0fc2c798630a0a24a32f4a3134f540c"
+        }
+      }
+    }
+  ]
+}
