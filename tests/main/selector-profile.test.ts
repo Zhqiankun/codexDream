@@ -4,8 +4,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   CODEX_SELECTOR_PROFILE,
+  MAIN_TOP_FADE_SELECTOR,
   SELECTOR_PARTS,
   THREAD_BOTTOM_FADE_SELECTOR,
+  THREAD_FOOTER_BACKDROP_SELECTOR,
   isCompatibleSelectorProbe,
   selectorProbeExpression,
 } from "../../src/main/session/selector-profile";
@@ -47,7 +49,7 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
-    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/29");
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/30");
     expect(SELECTOR_PARTS).toContainEqual([
       "titlebar",
       'div[class*="_ApplicationMenuTopBar_"]',
@@ -148,10 +150,15 @@ describe("versioned selector profile", () => {
           <div aria-hidden="true" class="pointer-events-none sticky bottom-0">
             <div id="legacy" aria-hidden="true" class="${paintClasses} bg-gradient-to-t"></div>
             <div id="module" aria-hidden="true" class="${paintClasses} _background_future_2 _fade_future_2"></div>
+            <div id="current" aria-hidden="true" class="background-uNUrfY fade-AcMqqj ${paintClasses}"></div>
+            <div id="current-reordered" aria-hidden="true" class="${paintClasses} fade-AcMqqj background-uNUrfY"></div>
             <div id="missing-background" aria-hidden="true" class="${paintClasses} _fade_future_2"></div>
+            <div id="missing-current-background" aria-hidden="true" class="${paintClasses} fade-AcMqqj"></div>
+            <div id="unrelated-prefix" aria-hidden="true" class="${paintClasses} card-background-uNUrfY card-fade-AcMqqj"></div>
             <div id="surface" aria-hidden="true" class="${paintClasses} _background_future_2 _surface_future_2"></div>
           </div>
           <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="card-fade" aria-hidden="true" class="${paintClasses} _background_future_2 _fade_future_2"></div></div></section>
+          <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="current-card-fade" aria-hidden="true" class="background-uNUrfY fade-AcMqqj ${paintClasses}"></div></div></section>
         </div>
       </div></div>
       <div id="outside-fade" aria-hidden="true" class="${paintClasses} _background_future_2 _fade_future_2"></div>`;
@@ -160,7 +167,44 @@ describe("versioned selector profile", () => {
       [...document.querySelectorAll(THREAD_BOTTOM_FADE_SELECTOR)].map(
         (node) => node.id,
       ),
-    ).toEqual(["legacy", "module"]);
+    ).toEqual(["legacy", "module", "current", "current-reordered"]);
+  });
+
+  it("matches current top fades only inside their shell paint container", () => {
+    document.body.innerHTML = `
+      <div id="parent" data-app-shell-main-content-top-fade="visible">
+        <div id="old" aria-hidden="true" class="_MainContentTopFade_old"></div>
+        <div id="current" aria-hidden="true" class="MainContentTopFade-T6W4RS background-j0etS7"></div>
+        <div id="reordered" aria-hidden="true" class="background-j0etS7 MainContentTopFade-T6W4RS"></div>
+        <div aria-hidden="true" class="UnrelatedMainContentTopFade-T6W4RS"></div>
+        <div class="MainContentTopFade-T6W4RS"></div>
+      </div>
+      <div aria-hidden="true" class="MainContentTopFade-T6W4RS"></div>`;
+    expect(
+      [...document.querySelectorAll(MAIN_TOP_FADE_SELECTOR)].map(
+        (node) => node.id,
+      ),
+    ).toEqual(["old", "current", "reordered"]);
+  });
+
+  it("limits current footer surfaces to the direct footer paint slot", () => {
+    const paintClasses = "pointer-events-none absolute bg-surface";
+    document.body.innerHTML = `
+      <div class="group/thread-scroll-layout"><div class="thread-scroll-container">
+        <div data-thread-scroll-footer="true">
+          <div id="current" aria-hidden="true" class="background-uNUrfY surface-nr8PSS ${paintClasses}"></div>
+          <div id="reordered" aria-hidden="true" class="${paintClasses} surface-nr8PSS background-uNUrfY"></div>
+          <div aria-hidden="true" class="${paintClasses} surface-nr8PSS"></div>
+          <div aria-hidden="true" class="${paintClasses} card-background-uNUrfY card-surface-nr8PSS"></div>
+          <section><div aria-hidden="true" class="background-uNUrfY surface-nr8PSS ${paintClasses}"></div></section>
+        </div>
+        <section><div data-thread-scroll-footer="true"><div aria-hidden="true" class="background-uNUrfY surface-nr8PSS ${paintClasses}"></div></div></section>
+      </div></div>`;
+    expect(
+      [...document.querySelectorAll(THREAD_FOOTER_BACKDROP_SELECTOR)].map(
+        (node) => node.id,
+      ),
+    ).toEqual(["current", "reordered"]);
   });
 
   it("rejects a shell when either managed top bar anchor is missing", () => {

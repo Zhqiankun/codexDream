@@ -69,9 +69,9 @@ const nativeCss = `
   #tooltip { position: fixed; left: 700px; background: #fff; }
   #unowned-sidebar { position: fixed; left: 820px; top: 80px; width: 100px; height: 100px; }
   #top-parent { background: rgba(10, 20, 30, .2); }
-  [class*="_MainContentTopFade_"] { position: absolute; top: 0; height: 28px; background: linear-gradient(var(--native-surface), transparent); pointer-events: none; }
+  [class*="_MainContentTopFade_"], .MainContentTopFade-T6W4RS { position: absolute; top: 0; height: 28px; background: linear-gradient(var(--native-surface), transparent); pointer-events: none; }
   .bg-gradient-to-t { background-image: linear-gradient(to top, var(--native-surface), transparent); }
-  ._fade_106nk_2 { height: 32px; background-image: linear-gradient(to top, var(--native-surface), transparent); }
+  ._fade_106nk_2, .fade-AcMqqj { height: 32px; background-image: linear-gradient(to top, var(--native-surface), transparent); }
   .bg-surface, [data-thread-scroll-footer]:has([data-thread-focus-mode]) { background-color: var(--native-surface); }
   .pointer-events-none { pointer-events: none; }
   .absolute { position: absolute; }
@@ -87,7 +87,7 @@ const nativeCss = `
   #split-fade { top: -32px; height: 32px; }
   #footer { height: 144px; }
   #footer-plate { top: -32px; margin-top: 32px; }
-  #footer-plate._surface_18hic_2 { inset-inline: 16px; bottom: 0; }
+  #footer-plate._surface_18hic_2, #footer-plate.surface-nr8PSS { inset-inline: 16px; bottom: 0; }
   #composer { position: relative; z-index: 10; margin-left: 200px; width: 360px; height: 96px; pointer-events: auto; }
   #user-message { width: fit-content; }
   #thread-layout[data-presentation="compact"] #scroll { flex-direction: column; }
@@ -95,7 +95,7 @@ const nativeCss = `
   #composer, #user-message { background: var(--native-surface); }
 `;
 
-type SurfaceVersion = "current" | "previous" | "legacy";
+type SurfaceVersion = "current" | "module" | "previous" | "legacy";
 
 function sidebarHtml(version: SurfaceVersion = "current"): string {
   const content = `<div id="sidebar-content" class="sidebar-navigation" data-slate-sidebar-content>
@@ -274,10 +274,13 @@ for (const appearance of ["light", "dark"] as const) {
   });
 }
 
-const splitFade = `<div id="split-fade" aria-hidden="true" class="_background_106nk_2 _fade_106nk_2 pointer-events-none absolute inset-x-0 z-0 from-surface"></div>`;
+// Store 26.1029.7803.0 changes CSS modules from _name_hash to name-hash.
+const splitFade = `<div id="split-fade" aria-hidden="true" class="background-uNUrfY fade-AcMqqj pointer-events-none absolute inset-x-0 z-0 from-surface"></div>`;
+const moduleSplitFade = `<div id="split-fade" aria-hidden="true" class="_background_106nk_2 _fade_106nk_2 pointer-events-none absolute inset-x-0 z-0 from-surface"></div>`;
 const legacySplitFade = `<div id="split-fade" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 h-8 bg-gradient-to-t from-surface to-transparent"></div>`;
 // Store 26.1023.6123.0 moves the surface's horizontal inset into its CSS module.
-const footerPlate = `<div id="footer-plate" aria-hidden="true" class="_background_18hic_2 _surface_18hic_2 pointer-events-none absolute z-0 bottom-0 bg-surface"></div>`;
+const footerPlate = `<div id="footer-plate" aria-hidden="true" class="background-uNUrfY surface-nr8PSS pointer-events-none absolute z-0 bottom-0 bg-surface"></div>`;
+const moduleFooterPlate = `<div id="footer-plate" aria-hidden="true" class="_background_18hic_2 _surface_18hic_2 pointer-events-none absolute z-0 bottom-0 bg-surface"></div>`;
 const previousFooterPlate = `<div id="footer-plate" aria-hidden="true" class="pointer-events-none absolute inset-x-0 -top-8 z-0 bottom-0 mt-8 bg-surface"></div>`;
 type ThreadPresentation = "default" | "panel" | "compact";
 
@@ -289,10 +292,10 @@ function edgeHtml(
 ): string {
   const compact = presentation === "compact";
   const footer = `<div id="footer" data-thread-scroll-footer="true" class="pointer-events-none absolute inset-x-0 z-20 bottom-0 has-[[data-thread-focus-mode]]:bg-surface">
-    ${compact ? "" : version === "current" ? footerPlate : previousFooterPlate}<div data-codex-composer-root data-thread-focus-mode><div id="composer" data-composer-surface-variant="default"><div data-composer-layout><div data-codex-composer contenteditable="true" role="textbox" aria-label="Message">Composer</div></div></div></div>
+    ${compact ? "" : version === "current" ? footerPlate : version === "module" ? moduleFooterPlate : previousFooterPlate}<div data-codex-composer-root data-thread-focus-mode><div id="composer" data-composer-surface-variant="default"><div data-composer-layout><div data-codex-composer contenteditable="true" role="textbox" aria-label="Message">Composer</div></div></div></div>
   </div>`;
   return `${sidebarHtml(version)}<main id="edge-main" class="main-surface">
-  <div id="top-parent" data-app-shell-main-content-top-fade="true"><div id="top-fade" aria-hidden="true" class="_MainContentTopFade_test"></div></div>
+  <div id="top-parent" data-app-shell-main-content-top-fade="true"><div id="top-fade" aria-hidden="true" class="${version === "current" ? "MainContentTopFade-T6W4RS" : "_MainContentTopFade_test"}"></div></div>
   <div id="legacy-top" aria-hidden="true" data-app-shell-main-content-top-fade="true" class="bg-surface"></div>
   <div id="thread-layout" class="group/thread-scroll-layout" data-presentation="${presentation}">
     <div id="scroll" class="thread-scroll-container">
@@ -300,10 +303,10 @@ function edgeHtml(
         <div id="message-content" data-mcp-app-portal-target="true" data-thread-user-message-navigation-content="true">
           <div id="legacy-fade" aria-hidden="true" class="bg-gradient-to-t from-surface via-surface to-transparent"></div>
           <div id="user-message" data-user-message-bubble="true">Message</div>
-          <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="card-gradient" aria-hidden="true" class="_background_106nk_2 _fade_106nk_2 pointer-events-none absolute inset-x-0 from-surface"></div></div></section>
-          <section><div id="nested-footer" data-thread-scroll-footer="true" class="bg-surface"><div id="nested-footer-surface" aria-hidden="true" class="_background_18hic_2 _surface_18hic_2 pointer-events-none absolute bg-surface"></div></div></section>
+          <section><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="card-gradient" aria-hidden="true" class="background-uNUrfY fade-AcMqqj pointer-events-none absolute inset-x-0 from-surface"></div></div></section>
+          <section><div id="nested-footer" data-thread-scroll-footer="true" class="bg-surface"><div id="nested-footer-surface" aria-hidden="true" class="background-uNUrfY surface-nr8PSS pointer-events-none absolute bg-surface"></div></div></section>
         </div>
-        <div id="sticky-plate" aria-hidden="true" class="pointer-events-none sticky bottom-0 z-10 mt-auto w-full shrink-0">${compact ? "" : version === "legacy" ? legacySplitFade : splitFade}</div>
+        <div id="sticky-plate" aria-hidden="true" class="pointer-events-none sticky bottom-0 z-10 mt-auto w-full shrink-0">${compact ? "" : version === "legacy" ? legacySplitFade : version === "current" ? splitFade : moduleSplitFade}</div>
       </div>
       ${compact ? "" : footer}
     </div>
@@ -505,21 +508,66 @@ test("native edges and content sidebar retain their scoped fallbacks", async ({
   }
 });
 
-test("the previous inset-x footer surface remains transparent", async ({
+for (const version of ["module", "previous"] as const) {
+  test(`the ${version} paint layers remain transparent`, async ({ shell }) => {
+    await shell.setContent(
+      `<style>${nativeCss}</style>${edgeHtml("default", version)}`,
+    );
+    expect(await shell.evaluate(payload(settings(), await pinkArt()))).toBe(
+      true,
+    );
+    for (const id of edgeIds("default")) {
+      const after = await paint(shell, id);
+      expect(after.color).toBe("rgba(0, 0, 0, 0)");
+      expect(after.image).toBe("none");
+    }
+    await expect(shell.locator("#footer-plate")).toHaveAttribute(
+      "data-ds-part",
+      "composer-backdrop",
+    );
+  });
+}
+
+test("surface compatibility survives changed CSS-module hashes", async ({
   shell,
 }) => {
-  await shell.setContent(
-    `<style>${nativeCss}</style>${edgeHtml("default", "previous")}`,
-  );
-  expect(await shell.evaluate(payload(settings(), await pinkArt()))).toBe(true);
-  await expect(shell.locator("#footer-plate")).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
-  );
-  await expect(shell.locator("#footer-plate")).toHaveAttribute(
-    "data-ds-part",
-    "composer-backdrop",
-  );
+  // 同时更新原生样式和 DOM，模拟新版构建更换哈希，避免失去原生背景造成假通过。
+  const changedHashes = [
+    ["MainContentTopFade-T6W4RS", "MainContentTopFade-v7Qx9z"],
+    ["background-uNUrfY", "background-p4Nm8R"],
+    ["fade-AcMqqj", "fade-k2Yw5T"],
+    ["surface-nr8PSS", "surface-j9Lc3F"],
+    ["_MainContentTopFade_test", "_MainContentTopFade_next_4"],
+    ["_background_106nk_2", "_background_changed_9"],
+    ["_fade_106nk_2", "_fade_changed_9"],
+    ["_background_18hic_2", "_background_next_7"],
+    ["_surface_18hic_2", "_surface_next_7"],
+  ] as const;
+  for (const version of ["current", "module"] as const) {
+    await shell.goto("app://test/");
+    let markup = `<style>${nativeCss}</style>${edgeHtml("default", version)}`;
+    for (const [previous, next] of changedHashes) {
+      markup = markup.replaceAll(previous, next);
+    }
+    await shell.setContent(markup);
+    expect((await paint(shell, "top-fade")).image).toContain("linear-gradient");
+    expect((await paint(shell, "split-fade")).image).toContain(
+      "linear-gradient",
+    );
+    expect((await paint(shell, "footer-plate")).color).toBe(
+      "rgb(255, 255, 255)",
+    );
+    const cardBefore = await paint(shell, "card-gradient");
+    expect(await shell.evaluate(payload(settings(), await pinkArt()))).toBe(
+      true,
+    );
+    for (const id of edgeIds("default")) {
+      const after = await paint(shell, id);
+      expect(after.color).toBe("rgba(0, 0, 0, 0)");
+      expect(after.image).toBe("none");
+    }
+    expect(await paint(shell, "card-gradient")).toEqual(cardBefore);
+  }
 });
 
 test("advanced sidebar blur stays custom, with zero alpha still fully clear", async ({

@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/29" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/30" as const;
 
 // 回合提示在 26.1016.6573.0 移除了箭头的淡色类；保留按钮结构约束，
 // 用两版共有的图标尺寸标记识别，避免颜色类变化使整段用时失配。
@@ -15,23 +15,46 @@ const workDividerSelector =
 export const WORK_DURATION_SELECTOR =
   `:is(${workDividerSelector} > span[class~="tabular-nums"], ${workDividerSelector} > div[class~="flex"][class~="items-start"][class~="gap-2"] > span[class~="tabular-nums"])` as const;
 
-// Store 26.1002.7124.0 keeps fade state on a container, but paints its child.
-export const MAIN_TOP_FADE_SELECTOR =
-  ':is([data-app-shell-main-content-top-fade][aria-hidden="true"], [data-app-shell-main-content-top-fade] [aria-hidden="true"][class*="_MainContentTopFade_"])' as const;
+// 已确认的新旧外观以兼容数组并存，任一项命中即可；仍须满足对应区域的层级。
+// 连字符分支只匹配完整类名前缀，兼容类顺序，不绑定每次构建变化的哈希后缀。
+const mainTopFadeCompatibilitySelectors = [
+  // 旧版直接在状态节点绘制；Store 26.1002.7124.0 改为容器内的绘制子层。
+  '[data-app-shell-main-content-top-fade][aria-hidden="true"]',
+  '[data-app-shell-main-content-top-fade] [aria-hidden="true"][class*="_MainContentTopFade_"]',
+  // Store 26.1029.7803.0：CSS 模块由 _名称_哈希 改为 名称-哈希。
+  '[data-app-shell-main-content-top-fade] [aria-hidden="true"][class^="MainContentTopFade-"]',
+  '[data-app-shell-main-content-top-fade] [aria-hidden="true"][class*=" MainContentTopFade-"]',
+] as const;
+export const MAIN_TOP_FADE_SELECTOR = `:is(${mainTopFadeCompatibilitySelectors.join(", ")})`;
 
-// Store 26.1002.7124.0 nests the sticky fade inside the transcript wrapper.
-// Default/panel footers sit beside that wrapper in the scroll container; compact
-// footers sit directly in the layout root. Store 26.1013.4894.0 keeps this slot
-// but paints its fade with CSS modules instead of bg-gradient-to-t. Keep both
-// versions bounded to the same slot, leaving message-card gradients native.
-export const THREAD_BOTTOM_FADE_SELECTOR =
-  '[class~="group/thread-scroll-layout"] > .thread-scroll-container > [class~="[container-name:thread-content]"] > [aria-hidden="true"][class~="pointer-events-none"][class~="sticky"][class~="bottom-0"] > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="from-surface"]:is([class~="bg-gradient-to-t"], [class*="_background_"][class*="_fade_"])' as const;
+// Store 26.1002.7124.0 起，底部渐变固定在 transcript 的直接 sticky 子层。
+// 所有兼容项共用此层级，消息卡片中的渐变不属于该装饰层。
+const threadBottomFadePaintSlot =
+  '[class~="group/thread-scroll-layout"] > .thread-scroll-container > [class~="[container-name:thread-content]"] > [aria-hidden="true"][class~="pointer-events-none"][class~="sticky"][class~="bottom-0"] > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="inset-x-0"][class~="from-surface"]';
+const threadBottomFadeCompatibilitySelectors = [
+  // 旧版 utility 渐变；Store 26.1013.4894.0 改为下划线格式的 CSS 模块。
+  '[class~="bg-gradient-to-t"]',
+  '[class*="_background_"][class*="_fade_"]',
+  // Store 26.1029.7803.0 的连字符格式，同样要求 background 与 fade 同时存在。
+  '[class^="background-"][class*=" fade-"]',
+  '[class*=" background-"][class^="fade-"]',
+  '[class*=" background-"][class*=" fade-"]',
+] as const;
+export const THREAD_BOTTOM_FADE_SELECTOR = `${threadBottomFadePaintSlot}:is(${threadBottomFadeCompatibilitySelectors.join(", ")})`;
+
+// default/panel 的 footer 位于滚动容器内，compact 则直接位于布局根节点。
 export const THREAD_FOOTER_SELECTOR =
   ':is([class~="group/thread-scroll-layout"], [class~="group/thread-scroll-layout"] > .thread-scroll-container) > [data-thread-scroll-footer="true"]' as const;
-// Store 26.1023.6123.0 moves the surface inset into its CSS module. Retain
-// the direct footer slot and paint anchors for both that surface and older builds.
-export const THREAD_FOOTER_BACKDROP_SELECTOR =
-  `${THREAD_FOOTER_SELECTOR} > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="bg-surface"]:is([class~="inset-x-0"], [class*="_background_"][class*="_surface_"])` as const;
+const threadFooterBackdropCompatibilitySelectors = [
+  // 旧版 utility 背景；Store 26.1023.6123.0 将水平 inset 移入 CSS 模块。
+  '[class~="inset-x-0"]',
+  '[class*="_background_"][class*="_surface_"]',
+  // Store 26.1029.7803.0 的连字符格式，仍限定为 footer 的直接绘制子层。
+  '[class^="background-"][class*=" surface-"]',
+  '[class*=" background-"][class^="surface-"]',
+  '[class*=" background-"][class*=" surface-"]',
+] as const;
+export const THREAD_FOOTER_BACKDROP_SELECTOR = `${THREAD_FOOTER_SELECTOR} > [aria-hidden="true"][class~="pointer-events-none"][class~="absolute"][class~="bg-surface"]:is(${threadFooterBackdropCompatibilitySelectors.join(", ")})`;
 
 export const THREAD_USER_MESSAGE_NAVIGATION_RAIL_SELECTOR =
   "[data-thread-user-message-navigation-rail-list]" as const;
