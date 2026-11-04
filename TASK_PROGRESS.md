@@ -2,11 +2,14 @@
 
 更新时间：2026-11-04
 
-## 2026-11-04 v1.3.34 发布准备
+## 2026-11-04 v1.3.34 发布完成
 
 - 用户明确授权提交、推送并发布，确认版本 `v1.3.34`。本次包含 Store 26.1029.7803.0 适配、局部兼容降级及工作台状态提示；Assistant 插件仍为 `0.1.2`。package/lock、双语 README 与 CHANGELOG 已同步，保留插件背景工具的最低工作台版本 1.3.33 说明。
-- 已确认本地和远端 `v1.3.34` 标签不存在，同名 Release 查询返回 404；远端 main 与本地起点 `51c8ddb` 一致。沙箱 Git 网络查询失败后，以普通用户网络权限完成只读核对。复用本轮 252 项相关测试、类型/lint/格式/架构及生产构建，发布元数据另行检查；正式全量回归、干净 native 构建、打包和资产校验由标签触发的既有 Release Actions 执行。
-- 提交仅包含本轮产品、测试、规则/需求和发行文档，诊断、隔离数据及 output 产物留在本地。当前工作台和 Codex 不重启、不安装或热注入；后续以 Actions 和公开发行资产结果确认发布状态。
+- 发布前已确认本地和远端 `v1.3.34` 标签不存在，同名 Release 查询返回 404；远端 main 与本地起点 `51c8ddb` 一致。沙箱 Git 网络查询失败后，以普通用户网络权限完成只读核对。复用本轮 252 项相关测试、类型/lint/格式/架构及生产构建，发布元数据另行检查；正式全量回归、干净 native 构建、打包和资产校验由标签触发的既有 Release Actions 完成。
+- 发布提交 `bbffa5d9f6d33b3707571e807b1ae39222001280` 及注释标签 `v1.3.34` 已推送；[Release Actions 41760167216](https://github.com/Zhqiankun/codexDream/actions/runs/41760167216) 首次执行全部成功。主进程 41 文件 / 479 项、renderer 6 文件 / 118 项、acceptance 2 文件 / 9 项、Electron 91 项通过，共 697 项，无失败、跳过、重试或 flaky。CI 未单独运行 `test:mcp` smoke，真实 STDIO MCP 覆盖来自 Electron 测试。
+- [v1.3.34](https://github.com/Zhqiankun/codexDream/releases/tag/v1.3.34) 于北京时间 2026-11-04 10:31:49 公开并确认为最新稳定版。安装包、ZIP、blockmap、latest.yml 和 SHA256SUMS 五类资产齐全；两个下载文本资产的长度/SHA-256、四项资产摘要、更新版本/不可变 URL/大小/SHA-512 字段均通过核对，在线中文更新内容及完整中英发布正文与 CHANGELOG 精确一致。安装包实际 SHA-512 由同次成功 Actions 校验；本地核对记录为 `output/release-1.3.34/published/release-verification.json`。
+- 按用户要求清理仓库内 27 个 `.codexstyle-localappdata-*`、`.codexstyle-sentinel-*` 和 `.codexstyle-ownership-sentinel-*` 测试残留目录，共 16,029,366 字节（约 15.3 MiB），清理后剩余 0 个。删除前核对了源码用途、未跟踪状态、绝对路径范围及无 reparse point；实际用户主题库、源码和发布产物未改动。
+- 提交仅包含本轮产品、测试、规则/需求和发行文档，诊断及 output 产物留在本地。未下载或运行安装程序，当前工作台、Codex 和已安装 MCP 插件未重启、更换或热注入；正式受管窗口效果仍需升级后通过既有启动流程确认。
 
 ## 2026-11-04 局部兼容降级
 
