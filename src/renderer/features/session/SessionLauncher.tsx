@@ -1,5 +1,11 @@
 import { useState } from "react";
-import type { Result, SessionState, ThemeSnapshot } from "../../../contracts";
+import type {
+  Result,
+  SessionCompatibility,
+  SessionCompatibilityFeature,
+  SessionState,
+  ThemeSnapshot,
+} from "../../../contracts";
 import { bridge } from "../../api/bridge";
 
 export const SESSION_LABELS: Record<SessionState, string> = {
@@ -12,6 +18,13 @@ export const SESSION_LABELS: Record<SessionState, string> = {
   PAUSED_FUTURE: "已暂停后续注入",
   INCOMPATIBLE: "不兼容",
   ORPHANED: "上次会话待确认",
+};
+
+const COMPATIBILITY_MESSAGES: Record<SessionCompatibilityFeature, string> = {
+  sidebar: "侧栏样式暂不可用",
+  titlebar: "标题栏样式暂不可用",
+  header: "页头样式暂不可用",
+  "reasoning-background": "档位切换暂不可用，已使用普通背景",
 };
 
 export function SessionLauncher({
@@ -30,7 +43,15 @@ export function SessionLauncher({
   const state = snapshot?.session.state ?? "NO_SESSION";
   const messageKey = snapshot?.session.messageKey;
   const ownedVerified = Boolean(snapshot?.session.canEnd);
-  const checks = sessionCheckStates(state, messageKey, ownedVerified);
+  // 暂停或离开受管会话后，不把之前的报告当作当前适配结果。
+  const compatibility =
+    state === "THEMED_SESSION" ? snapshot?.session.compatibility : undefined;
+  const checks = sessionCheckStates(
+    state,
+    messageKey,
+    ownedVerified,
+    compatibility,
+  );
   const canRecheck =
     !snapshot?.paused &&
     !ownedVerified &&
@@ -124,14 +145,31 @@ export function SessionLauncher({
           <CheckRow label="主题与当前版本兼容" state={checks.compatibility} />
         </div>
       </div>
+      {state === "THEMED_SESSION" && compatibility?.status !== "full" && (
+        <div
+          className={`session-compatibility ${compatibility?.status === "partial" ? "is-partial" : "is-checking"}`}
+          role="status"
+          aria-label="主题适配状态"
+        >
+          <strong>
+            {compatibility?.status === "partial" ? "部分适配" : "等待适配检查"}
+          </strong>
+          <p>
+            {compatibility?.status === "partial"
+              ? `${compatibility.unavailable.map((feature) => COMPATIBILITY_MESSAGES[feature]).join("；")}。其他可用效果继续生效，识别恢复后会自动恢复。`
+              : "主题已应用，正在等待当前页面的适配检查结果。"}
+          </p>
+        </div>
+      )}
       <p className="session-launcher-safety">
-        外部启动的 Codex 不受控制；身份或选择器不兼容时保持原样。
+        外部启动的 Codex
+        不受控制；身份或主窗口无法确认时保持原样，局部样式失配只停用对应效果。
       </p>
     </section>
   );
 }
 
-type CheckState = "pass" | "fail" | "pending";
+type CheckState = "pass" | "partial" | "fail" | "pending";
 
 interface SessionCheckStates {
   package: CheckState;
@@ -143,6 +181,7 @@ function sessionCheckStates(
   state: SessionState,
   messageKey: string | undefined,
   ownedVerified: boolean,
+  compatibility: SessionCompatibility | undefined,
 ): SessionCheckStates {
   const checks: SessionCheckStates = {
     package: "pending",
@@ -154,7 +193,12 @@ function sessionCheckStates(
     return {
       package: "pass",
       ownership: "pass",
-      compatibility: "pass",
+      compatibility:
+        compatibility?.status === "full"
+          ? "pass"
+          : compatibility?.status === "partial"
+            ? "partial"
+            : "pending",
     };
   }
 
@@ -217,15 +261,23 @@ function sessionCheckStates(
 
 function CheckRow({ label, state }: { label: string; state: CheckState }) {
   const passed = state === "pass";
+  const status =
+    state === "pass"
+      ? "通过"
+      : state === "partial"
+        ? "部分适配"
+        : state === "fail"
+          ? "未通过"
+          : "等待";
   return (
-    <div className="check-row">
+    <div className="check-row" aria-label={`${label}：${status}`}>
       <span
-        className={`check-circle ${passed ? "ok" : state === "fail" ? "failed" : ""}`}
+        className={`check-circle ${passed ? "ok" : state === "partial" ? "partial" : state === "fail" ? "failed" : ""}`}
       >
-        {passed ? "✓" : state === "fail" ? "!" : "·"}
+        {passed ? "✓" : state === "fail" || state === "partial" ? "!" : "·"}
       </span>
       <span>{label}</span>
-      <small>{passed ? "通过" : state === "fail" ? "未通过" : "等待"}</small>
+      <small>{status}</small>
     </div>
   );
 }
@@ -248,7 +300,7 @@ function messageForState(
   if (state === "INCOMPATIBLE" && messageKey === "session.identityMismatch")
     return "检测到了端口或进程，但 PID、用户身份、启动参数或 Browser ID 不匹配。为安全起见未连接，请关闭刚打开的 Codex 后重试。";
   if (state === "INCOMPATIBLE" && messageKey === "session.targetIncompatible")
-    return "本地 CDP 已验证，但当前 Codex 页面结构与主题选择器不兼容，需要更新 CodexStyle 的兼容配置。";
+    return "本地连接已验证，但无法唯一确认 Codex 主窗口，未注入主题。请关闭刚打开的 Codex 后重试；若持续出现，需要更新主窗口适配。";
   if (state === "INCOMPATIBLE" && messageKey === "session.injectionFailed")
     return "会话身份与页面兼容性已通过，但主题注入没有完整成功，Codex 已保持原样。";
   if (state === "INCOMPATIBLE" && messageKey === "session.storePackageNotFound")
@@ -260,7 +312,7 @@ function messageForState(
   if (state === "INCOMPATIBLE" && messageKey === "session.recheckFailed")
     return "基础检查未能完成，请查看错误提示后重新检测。";
   if (state === "INCOMPATIBLE")
-    return "当前 Store 版本未提供可验证的 CDP 或选择器，工具不会绕过安全边界。";
+    return "当前 Store 版本未提供可验证的连接或主窗口，工具不会绕过安全边界。";
   if (state === "ORPHANED")
     return "检测到上次由 CodexStyle 启动的会话记录，但当前无法安全确认它仍受控。请先确认并关闭相关 Codex 窗口，再重新启动；CodexStyle 不会自动连接或关闭它。";
   if (state === "THEMED_SESSION")

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppController } from "../../src/main/app/controller";
 import { MainOperationGate } from "../../src/main/app/operation-gate";
-import type { ThemeLiveApplyResult, UpdateSnapshot } from "../../src/contracts";
+import type {
+  SessionCompatibility,
+  ThemeLiveApplyResult,
+  UpdateSnapshot,
+} from "../../src/contracts";
 
 type RegisteredHandler = (event: unknown, payload: unknown) => Promise<unknown>;
 
@@ -170,6 +174,77 @@ describe("AppController operation gate", () => {
       },
     });
     expect(fixture.broadcast).toHaveBeenCalledOnce();
+  });
+
+  it("broadcasts a compatibility change through the operation gate only when the snapshot changes", async () => {
+    const fixture = controllerFixture({
+      state: "THEMED_SESSION",
+      canEnd: true,
+    });
+    const report: SessionCompatibility = {
+      status: "partial",
+      unavailable: ["titlebar"],
+    };
+    fixture.session.updateCompatibilityForWatcher.mockImplementation(
+      (_pid, _nonce, _epoch, compatibility) => {
+        fixture.state.compatibility = compatibility;
+      },
+    );
+    const controller = fixture.controller as unknown as {
+      handleWatcherCompatibilityChange(
+        pid: number,
+        nonce: string,
+        epoch: number,
+        compatibility: SessionCompatibility,
+      ): Promise<void>;
+    };
+    await controller.handleWatcherCompatibilityChange(42, "nonce", 7, report);
+    expect(fixture.session.updateCompatibilityForWatcher).toHaveBeenCalledWith(
+      42,
+      "nonce",
+      7,
+      report,
+    );
+    expect(fixture.broadcast).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        session: expect.objectContaining({ compatibility: report }),
+      }),
+    );
+    await controller.handleWatcherCompatibilityChange(42, "nonce", 7, report);
+    expect(fixture.broadcast).toHaveBeenCalledOnce();
+  });
+
+  it("drops a compatibility notification while a user command owns the operation gate", async () => {
+    const fixture = controllerFixture({
+      state: "THEMED_SESSION",
+      canEnd: true,
+    });
+    let release!: () => void;
+    fixture.session.pause.mockImplementation(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    const pause = fixture.controller.pause();
+    await vi.waitFor(() =>
+      expect(fixture.session.pause).toHaveBeenCalledOnce(),
+    );
+    const controller = fixture.controller as unknown as {
+      handleWatcherCompatibilityChange(
+        pid: number,
+        nonce: string,
+        epoch: number,
+        compatibility: SessionCompatibility,
+      ): Promise<void>;
+    };
+    await controller.handleWatcherCompatibilityChange(42, "nonce", 7, {
+      status: "partial",
+      unavailable: ["header"],
+    });
+    expect(
+      fixture.session.updateCompatibilityForWatcher,
+    ).not.toHaveBeenCalled();
+    expect(fixture.broadcast).not.toHaveBeenCalled();
+    release();
+    await pause;
   });
 
   it("allows requestQuit to compose owned-session cleanup without opening a second operation", async () => {
@@ -571,6 +646,7 @@ function controllerFixture(
     messageKey: "session.ready",
     canEnd: initial.canEnd ?? false,
     launchedByTool: initial.canEnd ?? false,
+    compatibility: undefined as SessionCompatibility | undefined,
   };
   const platform = { launchStore: vi.fn() };
   const session = {
@@ -580,6 +656,7 @@ function controllerFixture(
     resume: vi.fn(),
     endOwned: vi.fn(),
     applySavedTheme: vi.fn(),
+    updateCompatibilityForWatcher: vi.fn(),
     snapshot: vi.fn(() => state),
   };
   const updateState: UpdateSnapshot = {

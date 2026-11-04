@@ -54,22 +54,22 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 - A viewport-bounded, independently scrolling theme library with instant name search, clear/no-result feedback, and off-screen rendering optimization for large collections. Studio initially opens and reveals the checked next-launch theme.
 - Optional constrained Safe CSS for advanced styling.
 - A dedicated Windows app icon, tray icon, and packaged application identity.
-- Managed Codex launch on the theme-design page, with Store package detection, session isolation, CDP identity checks, and selector-profile compatibility checks. Failed checks offer a read-only **Recheck** beside **Launch Codex**.
+- Managed Codex launch on the theme-design page, with Store package detection, session isolation, CDP identity checks, and main-window identification. Optional styling can degrade independently; Studio reports unavailable effects. Failed launch checks offer a read-only **Recheck** beside **Launch Codex**.
 - Local-first storage with a native Windows x64 secure-store component.
 - User-initiated verified downloads for the installed Windows build, with progress, cancellation, restart-to-install, and install-on-exit choices. Background checks read only fixed release metadata; they never download or install silently.
 - Privacy-bounded daily diagnostic logs with a 7-day retention window and a one-click **Open logs** action for troubleshooting.
 
 ## Download
 
-Download `v1.3.33` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.34` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.33-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.33-x64.zip` — portable archive.
+- `CodexStyle-1.3.34-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.34-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.33` adds MCP tools for draft background modes and six reasoning backgrounds, with revision checks and cancellation protection. Before upgrading, end the Codex session owned by CodexStyle and exit the tool. Install over the existing copy, reopen CodexStyle, choose **Install / update** in its Assistant card, then open a new Codex task to load plugin 0.1.2. Saved themes and settings are retained.
+`v1.3.34` restores compatibility with Codex 26.1029.7803.0 and adds partial compatibility: unavailable shell styling does not block other effects, and unrecognized reasoning controls fall back to the normal background. Exit Codex and CodexStyle before upgrading, install over the existing copy, then reopen Studio and launch Codex through it. Saved themes and settings are retained. Assistant remains at 0.1.2; this compatibility update does not require reinstalling the plugin.
 
 ## Requirements
 
@@ -94,7 +94,7 @@ Assistant 0.1.2 reads background modes and per-effort image status, changes a dr
 
 Use **Export theme ZIP** to preserve all current theme fields. An untouched imported formal package can be rebuilt with its original formal contents intact; editing it disables original-formal export. CodexStyle no longer creates lossy ZIPs for v1.0.x–v1.2.x clients.
 
-CodexStyle verifies that the launched Store Codex session belongs to it before applying the selected theme. If the installed Codex build no longer matches the supported selector profile, CodexStyle stops at the compatibility boundary instead of injecting uncertain styles.
+CodexStyle verifies ownership and uniquely identifies the main Store Codex window before applying a theme. Missing optional sidebar, titlebar, header, or reasoning controls only disable the affected effect, with a partial-compatibility notice in Studio. Identity failures or an unrecognized main window still prevent injection; major changes to those boundaries may require an update.
 
 ## Safety boundaries
 

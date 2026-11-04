@@ -1,4 +1,4 @@
-export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/27" as const;
+export const CODEX_SELECTOR_PROFILE = "openai-codex-shell/29" as const;
 
 // 回合提示在 26.1016.6573.0 移除了箭头的淡色类；保留按钮结构约束，
 // 用两版共有的图标尺寸标记识别，避免颜色类变化使整段用时失配。
@@ -43,8 +43,9 @@ export const HOME_COMPOSER_RAIL_SELECTOR =
   '[data-composer-placement="home"][data-composer-rail-item][data-composer-rail-placement="above"][data-composer-rail-variant="controls"]' as const;
 
 // Store 26.1027.3384.0 原生控件直接提供当前档位；不依赖本地化标签或隐藏的动画文案。
+// 26.1029.7803.0 将 trigger 标记替换为 reasoning 导航目标，仍限定在主输入区。
 export const REASONING_EFFORT_CONTROL_SELECTOR =
-  "[data-codex-composer-root] [data-codex-intelligence-trigger][data-selected-reasoning-effort]" as const;
+  '[data-codex-composer-root] :is([data-codex-intelligence-trigger], [data-composer-navigation-target="reasoning"])[data-selected-reasoning-effort]' as const;
 
 // Legacy search rails still need their page-specific anchors. Store
 // 26.1007.2314.0 changes the Plugins search ID and omits search in some states;
@@ -159,19 +160,35 @@ export const SELECTOR_PARTS = [
 ] as const;
 
 /**
- * The profile is deliberately small and versioned. A target must expose the
- * app protocol plus both stable shell anchors before any style is injected.
+ * 主窗口身份与可选样式分开：新版用已核对的 frame/workspace/main 骨架，
+ * 旧版保留完整 shell 分支。标题栏或侧栏失配不能否定新版主窗口；辅助窗口
+ * 即使使用同一入口也不授权注入，多个候选仍由 session 层拒绝。
  */
 export function selectorProbeExpression(): string {
   return `(() => {
-    const shell = document.querySelector('main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])');
+    const entry = new URL(location.href);
+    const route = new URL(entry.searchParams.get("initialRoute") || "/", "app://-");
+    const isMainEntry = entry.protocol === "app:" && entry.hostname === "-" &&
+      !entry.port && !entry.username && !entry.password &&
+      ["/", "/index.html"].includes(entry.pathname) &&
+      route.protocol === "app:" && route.hostname === "-" && !route.port && !route.username && !route.password &&
+      !/^\\/(?:avatar-overlay|spotlight|global-dictation|hotkey-window)(?:\\/|$)/u.test(route.pathname) &&
+      entry.searchParams.get("window") !== "page" && route.searchParams.get("window") !== "page" &&
+      !document.documentElement.classList.contains("compact-window");
+    const active = (node) => !node.closest('[data-app-shell-active-page="false"]');
+    const shells = Array.from(document.querySelectorAll('main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])')).filter(active);
     const sidebar = document.querySelector('aside.app-shell-left-panel');
-    const titlebar = document.querySelector('div[class*="_ApplicationMenuTopBar_"]');
+    const titlebar = document.querySelector('div[class*="_ApplicationMenuTopBar_"], header[data-app-shell-titlebar="true"][data-pip-obstacle="app-shell-header"]');
     const header = document.querySelector('header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [class*="_Header_"])');
+    const frames = document.querySelectorAll('[data-app-shell-frame="true"]');
+    const rows = frames.length === 1 ? frames[0].querySelectorAll(':scope > [data-app-shell-workspace-row="true"]') : [];
+    const mainSurfaces = rows.length === 1 ? Array.from(rows[0].querySelectorAll('main[data-app-shell-main-surface]')).filter(active) : [];
+    const stableFrame = document.documentElement.getAttribute("data-codex-window-type") === "electron" && mainSurfaces.length === 1 && shells.length === 1;
+    const legacyShell = shells.length === 1 && sidebar && titlebar && header;
     return {
       protocol: location.protocol,
       profile: ${JSON.stringify(CODEX_SELECTOR_PROFILE)},
-      compatible: Boolean(shell && sidebar && titlebar && header),
+      compatible: Boolean(isMainEntry && (stableFrame || legacyShell)),
     };
   })()`;
 }

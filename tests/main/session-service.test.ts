@@ -383,6 +383,7 @@ describe("CodexSessionService", () => {
   });
 
   it("reinstalls only the future-document script when resuming a paused owned session", async () => {
+    vi.useFakeTimers();
     const client = {
       command: vi.fn().mockResolvedValue({ identifier: "script-1" }),
       close: vi.fn(),
@@ -442,6 +443,7 @@ describe("CodexSessionService", () => {
     expect(session.snapshot()).toMatchObject({
       state: "THEMED_SESSION",
       messageKey: "session.resumeNextLaunch",
+      compatibility: { status: "checking", unavailable: [] },
     });
   });
 

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   readThemeConfiguration,
+  type SessionCompatibility,
   type SessionSnapshot,
   type SessionState,
   type ThemeLiveApplyResult,
@@ -20,7 +21,11 @@ import {
   isCompatibleSelectorProbe,
   selectorProbeExpression,
 } from "./selector-profile";
-import { buildThemePayload } from "./theme-payload";
+import {
+  buildThemePayload,
+  parseThemeCompatibility,
+  readThemeCompatibilityExpression,
+} from "./theme-payload";
 import {
   WindowsPlatform,
   type ProcessIdentity,
@@ -40,6 +45,7 @@ interface OwnedSession {
   themeFingerprint: string;
   client: CdpClient;
   newDocumentScriptId?: string;
+  compatibility?: SessionCompatibility;
 }
 
 export const CODEX_STARTUP_VERIFY_TIMEOUT_MS = 90_000;
@@ -98,6 +104,12 @@ export class CodexSessionService {
       pid: number,
       nonce: string,
     ) => Promise<void> | void,
+    private readonly onCompatibilityChanged?: (
+      pid: number,
+      nonce: string,
+      epoch: number,
+      compatibility: SessionCompatibility,
+    ) => Promise<void> | void,
   ) {}
 
   snapshot(): SessionSnapshot {
@@ -106,6 +118,9 @@ export class CodexSessionService {
       messageKey: this.messageKey,
       canEnd: Boolean(this.owned),
       launchedByTool: Boolean(this.owned),
+      ...(this.state === "THEMED_SESSION" && this.owned?.compatibility
+        ? { compatibility: this.owned.compatibility }
+        : {}),
     };
   }
 
@@ -231,6 +246,8 @@ export class CodexSessionService {
       return;
     }
     const owned = this.owned;
+    // 暂停使先前在途的报告失效，当前页面保留原主题；后台身份检查继续运行。
+    this.stopWatcher();
     try {
       await this.verifyOwnedIdentity(owned, true);
       if (owned.newDocumentScriptId) {
@@ -245,6 +262,8 @@ export class CodexSessionService {
     } catch (error) {
       this.markOrphaned(owned);
       throw new Error("CLEANUP_FAILED:pause");
+    } finally {
+      if (this.owned === owned) this.startWatcher();
     }
   }
 
@@ -258,13 +277,17 @@ export class CodexSessionService {
     // 对当前页面的即时更新由保存同一主题的独立入口执行。
     if (this.state !== "PAUSED_FUTURE") return;
     const owned = this.owned;
+    this.stopWatcher();
     try {
       await this.registerFutureInjection(owned);
       this.state = "THEMED_SESSION";
       this.messageKey = "session.resumeNextLaunch";
+      owned.compatibility = { status: "checking", unavailable: [] };
     } catch (error) {
       this.markOrphaned(owned);
       throw error;
+    } finally {
+      if (this.owned === owned) this.startWatcher();
     }
   }
 
@@ -349,6 +372,7 @@ export class CodexSessionService {
       owned.themeFingerprint = saved.record.fingerprint;
       await this.persistOwnership(owned);
       await this.markLastKnownGood?.(libraryId, saved.record.fingerprint);
+      owned.compatibility = await this.readCompatibility(owned);
       this.messageKey = "session.themed";
       return { status: "applied" };
     } catch {
@@ -382,6 +406,26 @@ export class CodexSessionService {
     const owned = this.owned;
     if (owned && owned.pid === pid && owned.nonce === nonce)
       this.markOrphaned(owned);
+  }
+
+  /** 只由 controller 持有 operation gate 后提交；读报告期间的保存/暂停会使 epoch 失效。 */
+  updateCompatibilityForWatcher(
+    pid: number,
+    nonce: string,
+    epoch: number,
+    compatibility: SessionCompatibility,
+  ): void {
+    const owned = this.owned;
+    if (
+      !owned ||
+      owned.pid !== pid ||
+      owned.nonce !== nonce ||
+      this.watcherEpoch !== epoch ||
+      this.state !== "THEMED_SESSION" ||
+      compatibilitiesEqual(owned.compatibility, compatibility)
+    )
+      return;
+    owned.compatibility = compatibility;
   }
 
   private async verifyNewProcess(
@@ -552,6 +596,7 @@ export class CodexSessionService {
       if (runtimeValue(injected) !== true)
         throw new Error("INJECTION_FAILED:runtime-result");
       await this.persistOwnership(session);
+      session.compatibility = await this.readCompatibility(session);
     } catch (error) {
       await session.client
         .command("Page.removeScriptToEvaluateOnNewDocument", { identifier })
@@ -716,6 +761,43 @@ export class CodexSessionService {
     } catch {
       if (this.owned === owned && this.watcherEpoch === epoch)
         await this.onStateChanged?.(owned.pid, owned.nonce);
+      return;
+    }
+    if (
+      this.owned !== owned ||
+      this.watcherEpoch !== epoch ||
+      this.state !== "THEMED_SESSION"
+    )
+      return;
+    const compatibility = await this.readCompatibility(owned);
+    if (
+      this.owned === owned &&
+      this.watcherEpoch === epoch &&
+      this.state === "THEMED_SESSION" &&
+      !compatibilitiesEqual(owned.compatibility, compatibility)
+    )
+      await this.onCompatibilityChanged?.(
+        owned.pid,
+        owned.nonce,
+        epoch,
+        compatibility,
+      );
+  }
+
+  private async readCompatibility(
+    owned: OwnedSession,
+  ): Promise<SessionCompatibility> {
+    try {
+      const report = await owned.client.command("Runtime.evaluate", {
+        expression: readThemeCompatibilityExpression(
+          `codexstyle-${owned.themeLibraryId}`,
+        ),
+        returnByValue: true,
+      });
+      return parseThemeCompatibility(runtimeValue(report));
+    } catch {
+      // 页面重建或报告读取失败只影响适配状态，不能把已验证的会话误判为身份失效。
+      return { status: "checking", unavailable: [] };
     }
   }
 
@@ -781,6 +863,17 @@ export class CodexSessionService {
     this.messageKey = messageKey;
     throw new Error(code);
   }
+}
+
+function compatibilitiesEqual(
+  current: SessionCompatibility | undefined,
+  next: SessionCompatibility,
+): boolean {
+  return (
+    current?.status === next.status &&
+    current.unavailable.length === next.unavailable.length &&
+    current.unavailable.every((feature) => next.unavailable.includes(feature))
+  );
 }
 
 // 初次注入、恢复后的文档与保存后的当前页面使用完全相同的主题生成和图片校验。

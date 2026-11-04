@@ -1,6 +1,31 @@
 # CodexStyle 任务进度
 
-更新时间：2026-11-03
+更新时间：2026-11-04
+
+## 2026-11-04 v1.3.34 发布准备
+
+- 用户明确授权提交、推送并发布，确认版本 `v1.3.34`。本次包含 Store 26.1029.7803.0 适配、局部兼容降级及工作台状态提示；Assistant 插件仍为 `0.1.2`。package/lock、双语 README 与 CHANGELOG 已同步，保留插件背景工具的最低工作台版本 1.3.33 说明。
+- 已确认本地和远端 `v1.3.34` 标签不存在，同名 Release 查询返回 404；远端 main 与本地起点 `51c8ddb` 一致。沙箱 Git 网络查询失败后，以普通用户网络权限完成只读核对。复用本轮 252 项相关测试、类型/lint/格式/架构及生产构建，发布元数据另行检查；正式全量回归、干净 native 构建、打包和资产校验由标签触发的既有 Release Actions 执行。
+- 提交仅包含本轮产品、测试、规则/需求和发行文档，诊断、隔离数据及 output 产物留在本地。当前工作台和 Codex 不重启、不安装或热注入；后续以 Actions 和公开发行资产结果确认发布状态。
+
+## 2026-11-04 局部兼容降级
+
+- 用户明确同意增加降级方案。profile `/29` 将主窗口识别与可选样式拆开：新版使用已离线核对的 electron HTML、frame → workspace row → 活动主 surface 骨架，旧版完整 shell 保留。两个分支共同限制主入口并排除 compact/辅助窗口、独立 Space page；忽略缓存的非活动 main，多个活动 main 或 CDP 目标仍拒绝。完整包、进程、nonce、SID、监听者和 Browser ID 校验保持。
+- 标题栏、页头、侧栏失配只跳过对应效果；档位控件缺失、隐藏、歧义或未知时回退普通背景，控件恢复后自动恢复。已知档位未配图、正常模式、画面关闭不误报档位不兼容。复用既有增量映射和单观察器，用少量部件集合记录固定枚举报告，不重新扫描整个页面；报告不含对话文字、主题内容、图片或路径。
+- SessionSnapshot 增加可选只读 compatibility，普通 IPC 保持 v9。首次注入和保存成功后读取本 owner 的有界报告；已有串行 watcher 在完整身份核验通过后读取，变化通过原 operation gate、PID/nonce/epoch/状态二次核验提交和广播。暂停不读或展示旧报告，恢复先 checking，报告缺失/异常不会将已注入主题误判失败，也不会当作全部通过。没有新增生产模块、通用框架、依赖、持久化字段或外部附着路径。
+- 工作台在既有会话卡片持续显示黄色“部分适配”及具体回退项；正常恢复后移除提示，等待报告时明确显示等待。身份检查独立保留，主窗口无法确认仍为硬失败。修改需求、计划与项目规则，保留上轮未发布的 26.1029 兼容修复。
+- 验证共 252 项通过：selector 主窗口与拒绝边界 59、session/controller 状态及并发 117、payload/有界报告 45、renderer 新增 8 与既有定向 5、隔离 Electron 18。Electron 包含档位背景 11、保存/重注入 3、增量映射 3、工作台提示 1；最后一项使用真实 main/preload/renderer 构建和独立 native 存储，会话快照为测试替身。首轮 renderer 沙箱缓存 rename EPERM 未进入用例，普通用户权限重跑通过；定向 renderer 的其他用例未运行，不将其记为整套通过。
+- TypeScript、相关 ESLint/Prettier、架构和 diff 检查通过；electron-vite main/preload/renderer 生产构建通过，未重建未改动的 native 模块。最终 Electron 记录在 `test-results/compat-partial-final/.last-run.json`，partial/full/checking 三张截图已目检，960px 工作台无横向溢出。
+- 独立只读工程审查未发现新增阻断项，核对主入口/辅助窗口边界、部件集合清理、普通缺图与识别失败的区分、报告 owner/大小/枚举验证，以及 watcher 读取前后和 gate 内的会话/epoch 复核；没有为审查重复执行测试。
+- 未连接、热注入、重启或替换当前正式 Codex/工作台，未操作实际用户主题库。正式受管窗口及安装包交付未验证；本批未提交、推送或发布。
+
+## 2026-11-04 Codex 更新后的注入与档位识别兼容
+
+- 用户更新到 Store Codex `26.1029.7803.0` 后背景未生效。通过工作台插件确认“白龙 · 思考进阶”使用按档位模式且六档图片存在；当日日志两次启动均返回 `TARGET_INCOMPATIBLE`。离线安装包核对发现旧 `_ApplicationMenuTopBar_` 和 `data-codex-intelligence-trigger` 不再存在；新版标题栏合并到带双语义属性的 header，档位按钮改用 `data-composer-navigation-target="reasoning"`，仍提供 `data-selected-reasoning-effort`。这些明确差异解释了兼容探针与档位识别的失配路径，未将静态包证据当作实时窗口结果。
+- selector profile 升至 `/28`，仅扩展探针的 titlebar 分支，保留 main/sidebar/header 与完整会话身份验证。SELECTOR_PARTS 不变，新版合并 header 继续映射 `header`，避免改变高级 CSS 语义；档位 selector 保留旧控件并兼容新导航标记，单一观察器同步监听其变化。没有新增模块、共享抽象、依赖、数据迁移、IPC 或外部附着能力。
+- 独立测试修改并验证：selector profile 10 项、隔离 Electron 档位背景 8 项全部通过，覆盖新旧 shell、必要标记缺失拒绝、header 角色、六档真实 PNG 切换、未知档位回退、动态属性/控件重建、非目标控件排除及原有 owner/隐藏/歧义/重注入/单 observer 回归。相关 payload 与启动就绪单元测试另有 34 项通过，合计 52 项。TypeScript、相关 ESLint/Prettier、架构、diff 检查与 electron-vite main/preload/renderer 生产构建通过。
+- 初次沙箱测试在 Vitest 缓存 rename EPERM 或 Electron 启动阶段被阻止，尚未进入用例；普通用户权限下完整重跑上述测试通过。保留初次失败记录，最终 Electron 证据为 `test-results/compat-26.1029-user/.last-run.json`，静态核对为 `output/diagnostics/codex-26.1029-compat/compat-findings.md`。
+- 当前工作台和 Codex 未重启、替换或热注入，用户主题数据未改动；正式受管窗口效果尚未验证。改动未提交、推送或发布，需部署包含此修复的工作台后再通过既有受管启动流程确认实际恢复。
 
 ## 2026-11-03 v1.3.33 发布完成
 

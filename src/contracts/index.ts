@@ -188,11 +188,27 @@ export type SessionState =
   | "INCOMPATIBLE"
   | "ORPHANED";
 
+export const SESSION_COMPATIBILITY_FEATURES = [
+  "sidebar",
+  "titlebar",
+  "header",
+  "reasoning-background",
+] as const;
+export type SessionCompatibilityFeature =
+  (typeof SESSION_COMPATIBILITY_FEATURES)[number];
+
+/** 只报告已应用主题的局部适配，不代替会话身份或主窗口核验。 */
+export interface SessionCompatibility {
+  status: "checking" | "full" | "partial";
+  unavailable: SessionCompatibilityFeature[];
+}
+
 export interface SessionSnapshot {
   state: SessionState;
   messageKey: string;
   canEnd: boolean;
   launchedByTool: boolean;
+  compatibility?: SessionCompatibility;
 }
 
 export interface UpdateSnapshot {

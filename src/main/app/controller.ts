@@ -31,6 +31,7 @@ import {
   type ExportResult,
   type ImportResult,
   type Result,
+  type SessionCompatibility,
   type StudioRuntimeInfo,
   type StartupSettings,
   type ThemeCommitResult,
@@ -131,6 +132,8 @@ export class AppController {
       (libraryId, fingerprint) =>
         this.store.markLastKnownGood(libraryId, fingerprint),
       (pid, nonce) => this.handleWatcherStateChange(pid, nonce),
+      (pid, nonce, epoch, compatibility) =>
+        this.handleWatcherCompatibilityChange(pid, nonce, epoch, compatibility),
     );
     this.themeService = new ThemeService(
       this.store,
@@ -952,6 +955,26 @@ export class AppController {
       );
     } catch {
       // A concurrent command leaves the watcher intact for its next check.
+    }
+  }
+
+  private async handleWatcherCompatibilityChange(
+    pid: number,
+    nonce: string,
+    epoch: number,
+    compatibility: SessionCompatibility,
+  ): Promise<void> {
+    try {
+      await this.runMainOperation(() =>
+        this.session.updateCompatibilityForWatcher(
+          pid,
+          nonce,
+          epoch,
+          compatibility,
+        ),
+      );
+    } catch {
+      // 与用户命令并发时本次报告作废，由下一次完整身份核验后重读。
     }
   }
 

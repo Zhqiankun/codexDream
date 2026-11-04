@@ -3429,6 +3429,35 @@ input.opacity-range {
   height: 14px;
   font-size: 8px;
 }
+.session-launcher-checks .check-circle.partial {
+  border-color: #d7a847;
+  color: #f5c968;
+  background: rgba(245, 185, 76, 0.1);
+}
+.session-compatibility {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid #3b4967;
+  border-radius: 7px;
+  color: #bdc8db;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.session-compatibility.is-partial {
+  border-color: #7c622f;
+  background: rgba(245, 185, 76, 0.06);
+}
+.session-compatibility strong {
+  color: #f5c968;
+}
+.session-compatibility.is-checking strong {
+  color: #bdc8db;
+}
+.session-compatibility p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
 .session-launcher-safety {
   grid-column: 1 / -1;
   margin: -2px 0 0;

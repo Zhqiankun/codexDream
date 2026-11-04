@@ -6,9 +6,11 @@ import {
   themeTokenDeclarations,
   builtInSendIconMask,
   REASONING_EFFORTS,
+  SESSION_COMPATIBILITY_FEATURES,
   type BackgroundScope,
   type ReasoningEffort,
   type ThemeConfiguration,
+  type SessionCompatibility,
 } from "../../contracts";
 import {
   ASSISTANT_ACTION_BUTTON_SELECTOR,
@@ -41,6 +43,7 @@ interface PayloadConfig {
   backgroundMode: "normal" | "reasoning";
   reasoningBackgroundDataUrls: Partial<Record<ReasoningEffort, string>>;
   reasoningControlSelector: string;
+  reasoningEfforts: readonly ReasoningEffort[];
   backgroundScope: BackgroundScope;
   sidebarSurface: string;
   sidebarSurfaceTransparent: boolean;
@@ -110,6 +113,7 @@ export function buildThemePayload(
           )
         : {},
     reasoningControlSelector: REASONING_EFFORT_CONTROL_SELECTOR,
+    reasoningEfforts: REASONING_EFFORTS,
     backgroundScope: settings.backgroundScope,
     sidebarSurface: sidebarSurface.color,
     sidebarSurfaceTransparent: sidebarSurface.transparent,
@@ -179,10 +183,16 @@ export function buildThemePayload(
     const reasoningEnabled = config.backgroundMode === "reasoning" && config.art.taskMode !== "off" && Object.keys(config.reasoningBackgroundDataUrls).length > 0;
     const reasoningControls = new Set();
     let reasoningStyle;
+    let reasoningUnavailable = false;
+    // 沿用增量映射记录少量能力节点，诊断无需重复扫描整页。
+    const compatibilityParts = new Map(["main", "sidebar", "titlebar", "header"].map(part => [part, new Set()]));
 
     const setPart = (node, part) => {
       if (!node || typeof node.setAttribute !== "function") return;
       if (foreignOwner(node)) return;
+      const previousPart = node.getAttribute(partAttribute);
+      if (previousPart !== part) compatibilityParts.get(previousPart)?.delete(node);
+      compatibilityParts.get(part)?.add(node);
       if (node.getAttribute(ownerAttribute) !== config.marker) {
         node.setAttribute(ownerAttribute, config.marker);
       }
@@ -193,6 +203,7 @@ export function buildThemePayload(
 
     const clearPart = (node) => {
       if (node.getAttribute(ownerAttribute) !== config.marker) return;
+      compatibilityParts.get(node.getAttribute(partAttribute))?.delete(node);
       node.removeAttribute(partAttribute);
       node.removeAttribute(partMarkerAttribute);
       node.removeAttribute(homeCardIndexAttribute);
@@ -241,6 +252,32 @@ export function buildThemePayload(
       style.setAttribute(styleMarkerAttribute, "1");
       (document.head || root).appendChild(style);
       return style;
+    };
+
+    const publishCompatibility = () => {
+      const style = ownedStyle();
+      if (!style || foreignOwner(document.documentElement)) return;
+      const available = (part) => Array.from(compatibilityParts.get(part)).filter(node => {
+        if (node.getRootNode() !== document || node.getAttribute(ownerAttribute) !== config.marker || node.getAttribute(partAttribute) !== part) {
+          compatibilityParts.get(part).delete(node);
+          return false;
+        }
+        return !node.closest('[data-app-shell-active-page="false"]');
+      });
+      // 页面重载或主内容尚未挂载时只报告待检查，避免临时空壳冒充全部适配。
+      if (available("main").length !== 1) {
+        style.removeAttribute("data-codexstyle-compatibility");
+        return;
+      }
+      const headers = available("header");
+      const unavailable = [];
+      if (available("sidebar").length === 0) unavailable.push("sidebar");
+      if (available("titlebar").length === 0 && !headers.some(node =>
+        node.matches('header[data-app-shell-titlebar="true"][data-pip-obstacle="app-shell-header"]'))) unavailable.push("titlebar");
+      if (headers.length === 0) unavailable.push("header");
+      if (reasoningUnavailable) unavailable.push("reasoning-background");
+      const report = JSON.stringify(unavailable);
+      if (style.getAttribute("data-codexstyle-compatibility") !== report) style.setAttribute("data-codexstyle-compatibility", report);
     };
 
     const ownedParts = (scope) => {
@@ -627,6 +664,7 @@ export function buildThemePayload(
               : "");
       const source = config.css + "\\n" + tokenBridge + "\\n" + backgroundBridge + mainSurfaceBridge + edgeFadeBridge + threadNavigationRailBridge + pageSearchRailBridge + nativeForegroundBridge + markdownDocumentBridge + sidebarBridge + sidebarTextBridge + dialogTextBridge + topBarBridge + threadTabBridge + instantThreadTitleBridge + homeTitleBridge + homeCardBridge + userMessageTextBridge + assistantMessageTextBridge + changeCardBridge + activityBridge + thinkingBridge + workDurationBridge + turnDisclosureBridge + composerTextBridge + composerMutedBridge + composerIconBridge + messageEditorTextBridge + messageEditorSurfaceBridge + configuredSurfaceBridge + assistantMessageBridge + sendIconBridge;
       if (style.textContent !== source) style.textContent = source;
+      publishCompatibility();
       return true;
     };
 
@@ -652,11 +690,13 @@ export function buildThemePayload(
           reasoningControls.delete(control);
           continue;
         }
-        if (control.closest('[hidden], [aria-hidden="true"], [data-codexstyle-owner]:not([data-codexstyle-owner="' + config.marker + '"])')) continue;
+        if (control.closest('[hidden], [aria-hidden="true"], [data-app-shell-active-page="false"], [data-codexstyle-owner]:not([data-codexstyle-owner="' + config.marker + '"])')) continue;
         if (typeof control.checkVisibility === "function" && !control.checkVisibility({ visibilityProperty: true })) continue;
         eligible.push(control);
       }
       const effort = eligible.length === 1 ? eligible[0].getAttribute("data-selected-reasoning-effort") : null;
+      // 已知档位没配图是正常回退；无控件、歧义或未知值才属于局部适配不可用。
+      reasoningUnavailable = !config.reasoningEfforts.includes(effort);
       const image = effort && Object.prototype.hasOwnProperty.call(config.reasoningBackgroundDataUrls, effort)
         ? config.reasoningBackgroundDataUrls[effort] : undefined;
       if (!reasoningStyle?.isConnected || reasoningStyle.getAttribute(ownerAttribute) !== config.marker) {
@@ -669,17 +709,18 @@ export function buildThemePayload(
       const targets = config.backgroundScope === "window" ? target("root") + ', ' + target("canvas") : target("main");
       const source = image ? targets + ' { background-image: ' + backgroundImageFor(image) + ' !important; }' : '';
       if (reasoningStyle.textContent !== source) reasoningStyle.textContent = source;
+      publishCompatibility();
     };
     const syncReasoningBackground = (records) => {
       if (!reasoningEnabled) return;
       let changed = false;
       for (const record of records) {
         if (record.type === "attributes") {
-          if (["data-selected-reasoning-effort", "data-codex-intelligence-trigger", "data-codex-composer-root"].includes(record.attributeName)) {
+          if (["data-selected-reasoning-effort", "data-codex-intelligence-trigger", "data-composer-navigation-target", "data-codex-composer-root"].includes(record.attributeName)) {
             changed = addReasoningControls(record.target) || changed;
             for (const control of reasoningControls) if (record.target.contains(control)) changed = true;
           }
-          if (["class", "hidden", "aria-hidden"].includes(record.attributeName)) {
+          if (["class", "hidden", "aria-hidden", "data-app-shell-active-page"].includes(record.attributeName)) {
             for (const control of reasoningControls) if (record.target.contains(control)) changed = true;
           }
           continue;
@@ -723,7 +764,7 @@ export function buildThemePayload(
         subtree: true,
         attributes: true,
         attributeOldValue: true,
-        attributeFilter: ["aria-label", "aria-selected", "class", "id", "role", "data-sticky", "data-app-shell-inline-page-header", "data-language", "data-user-message-bubble", "data-markdown-text-style", ...(reasoningEnabled ? ["data-selected-reasoning-effort", "data-codex-intelligence-trigger", "data-codex-composer-root", "hidden", "aria-hidden"] : [])],
+        attributeFilter: ["aria-label", "aria-selected", "class", "id", "role", "data-sticky", "data-app-shell-inline-page-header", "data-app-shell-main-surface", "data-app-shell-header-edge-scroll", "data-app-shell-titlebar", "data-pip-obstacle", "data-app-shell-active-page", "data-language", "data-user-message-bubble", "data-markdown-text-style", ...(reasoningEnabled ? ["data-selected-reasoning-effort", "data-codex-intelligence-trigger", "data-composer-navigation-target", "data-codex-composer-root", "hidden", "aria-hidden"] : [])],
       });
     }
     const retire = (event) => {
@@ -748,6 +789,7 @@ export function buildThemePayload(
       if (style?.getAttribute(ownerAttribute) === config.marker) style.remove();
       if (reasoningStyle?.getAttribute(ownerAttribute) === config.marker) reasoningStyle.remove();
       reasoningControls.clear();
+      for (const nodes of compatibilityParts.values()) nodes.clear();
       dirtyRoots.clear();
       ancestors.clear();
       removedRoots.clear();
@@ -773,6 +815,47 @@ export function buildThemePayload(
       document.addEventListener("DOMContentLoaded", ready, { once: true });
     });
   })()`;
+}
+
+/** 仅读取本 owner 发布的固定能力枚举，不取页面文本、主题内容或任意全局函数。 */
+export function readThemeCompatibilityExpression(marker: string): string {
+  return `(() => {
+    const marker = ${JSON.stringify(marker)};
+    if (location.protocol !== "app:" || document.documentElement?.getAttribute("data-codexstyle-owner") !== marker) return null;
+    const styles = Array.from(document.querySelectorAll('style[data-codexstyle-style="1"]')).filter(node => node.getAttribute("data-codexstyle-owner") === marker);
+    const report = styles.length === 1 ? styles[0].getAttribute("data-codexstyle-compatibility") : null;
+    return report !== null && report.length <= 256 ? report : null;
+  })()`;
+}
+
+export function parseThemeCompatibility(value: unknown): SessionCompatibility {
+  const checking: SessionCompatibility = {
+    status: "checking",
+    unavailable: [],
+  };
+  if (typeof value !== "string" || value.length > 256) return checking;
+  let entries: unknown;
+  try {
+    entries = JSON.parse(value);
+  } catch {
+    return checking;
+  }
+  if (
+    !Array.isArray(entries) ||
+    entries.length > SESSION_COMPATIBILITY_FEATURES.length ||
+    new Set(entries).size !== entries.length ||
+    entries.some(
+      (entry) =>
+        typeof entry !== "string" ||
+        !(SESSION_COMPATIBILITY_FEATURES as readonly string[]).includes(entry),
+    )
+  )
+    return checking;
+  // 固定顺序避免同一状态仅因页面报告顺序不同而重复广播。
+  const unavailable = SESSION_COMPATIBILITY_FEATURES.filter((feature) =>
+    entries.includes(feature),
+  );
+  return { status: unavailable.length ? "partial" : "full", unavailable };
 }
 
 function defaultPayloadSettings(): ThemePayloadSettings {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SessionCompatibility } from "../../src/contracts";
 import type { WindowsPlatform } from "../../src/main/platform/windows";
 import * as cdp from "../../src/main/session/cdp-client";
 import { CODEX_SELECTOR_PROFILE } from "../../src/main/session/selector-profile";
@@ -43,6 +44,25 @@ function fixture() {
       webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/target-1",
     },
   ]);
+  const report = vi.fn().mockResolvedValue({
+    result: { value: "[]" },
+  });
+  const command = vi.fn(
+    async (method: string, params?: Record<string, unknown>) => {
+      if (method !== "Runtime.evaluate") return {};
+      if (String(params?.expression).includes("compatible:"))
+        return {
+          result: {
+            value: {
+              protocol: "app:",
+              profile: CODEX_SELECTOR_PROFILE,
+              compatible: true,
+            },
+          },
+        };
+      return report();
+    },
+  );
   const owned = {
     packageInfo,
     ...identity,
@@ -51,9 +71,12 @@ function fixture() {
     browserId: "browser-1",
     targetId: "target-1",
     selectorProfile: CODEX_SELECTOR_PROFILE,
-    client: { close: vi.fn(), command: vi.fn() },
+    themeLibraryId: "00000000-0000-4000-8000-000000000000",
+    compatibility: { status: "full", unavailable: [] } as SessionCompatibility,
+    client: { close: vi.fn(), command },
   };
   const changed = vi.fn();
+  const compatibilityChanged = vi.fn();
   const service = new CodexSessionService(
     platform as unknown as WindowsPlatform,
     async () => undefined,
@@ -61,15 +84,22 @@ function fixture() {
     undefined,
     undefined,
     changed,
+    compatibilityChanged,
+  );
+  compatibilityChanged.mockImplementation((pid, nonce, epoch, compatibility) =>
+    service.updateCompatibilityForWatcher(pid, nonce, epoch, compatibility),
   );
   // Stub only ownership setup and OS/CDP boundaries; the actual watcher and
   // complete identity-verification sequence run under a deterministic clock.
   const harness = service as unknown as {
     owned: typeof owned;
+    state: string;
+    watcherEpoch: number;
     startWatcher(): void;
     stopWatcher(): void;
   };
   harness.owned = owned;
+  harness.state = "THEMED_SESSION";
   return {
     service,
     harness,
@@ -77,12 +107,109 @@ function fixture() {
     platform,
     packageInfo,
     changed,
+    compatibilityChanged,
+    report,
     version,
     targets,
   };
 }
 
 describe("owned-session background checks", () => {
+  it("reports only compatibility changes after full identity verification", async () => {
+    const f = fixture();
+    const partial = { status: "partial", unavailable: ["titlebar"] };
+    f.report.mockResolvedValue({
+      result: { value: JSON.stringify(partial.unavailable) },
+    });
+    f.harness.startWatcher();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(f.compatibilityChanged).toHaveBeenCalledExactlyOnceWith(
+      42,
+      f.owned.nonce,
+      f.harness.watcherEpoch,
+      partial,
+    );
+    expect(f.service.snapshot()).toMatchObject({
+      state: "THEMED_SESSION",
+      compatibility: partial,
+    });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(f.compatibilityChanged).toHaveBeenCalledOnce();
+    f.report.mockResolvedValue({
+      result: { value: "[]" },
+    });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(f.compatibilityChanged).toHaveBeenCalledTimes(2);
+    expect(f.service.snapshot().compatibility?.status).toBe("full");
+    expect(f.platform.listeningPids).toHaveBeenCalledTimes(3);
+    expect(f.changed).not.toHaveBeenCalled();
+    expect(f.owned.client.close).not.toHaveBeenCalled();
+    f.harness.stopWatcher();
+  });
+
+  it("treats an unavailable report as checking without orphaning a verified session", async () => {
+    const f = fixture();
+    f.report.mockRejectedValueOnce(
+      new Error("Execution context was destroyed"),
+    );
+    f.harness.startWatcher();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(f.service.snapshot()).toMatchObject({
+      state: "THEMED_SESSION",
+      compatibility: { status: "checking", unavailable: [] },
+    });
+    expect(f.changed).not.toHaveBeenCalled();
+    expect(f.owned.client.close).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(f.service.snapshot().compatibility?.status).toBe("full");
+    f.harness.stopWatcher();
+  });
+
+  it.each(["pause", "endOwned"] as const)(
+    "discards a report that completes after %s and does not revive the old watcher",
+    async (action) => {
+      const f = fixture();
+      let finish!: (value: unknown) => void;
+      f.report.mockImplementationOnce(
+        () => new Promise((resolve) => (finish = resolve)),
+      );
+      f.harness.startWatcher();
+      await vi.advanceTimersByTimeAsync(1500);
+      await f.service[action]();
+      finish({
+        result: {
+          value: JSON.stringify(["header"]),
+        },
+      });
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(f.compatibilityChanged).not.toHaveBeenCalled();
+      expect(f.service.snapshot().compatibility).toBeUndefined();
+      expect(f.service.snapshot().state).toBe(
+        action === "pause" ? "PAUSED_FUTURE" : "NO_SESSION",
+      );
+      // Paused sessions still verify ownership, but never read styling reports.
+      expect(f.report).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(action === "pause" ? 1 : 0);
+      f.harness.stopWatcher();
+    },
+  );
+
+  it("rejects delayed compatibility notifications for a different owner or watcher epoch", () => {
+    const f = fixture();
+    f.harness.startWatcher();
+    const epoch = f.harness.watcherEpoch;
+    const partial: SessionCompatibility = {
+      status: "partial",
+      unavailable: ["reasoning-background"],
+    };
+    f.service.updateCompatibilityForWatcher(99, f.owned.nonce, epoch, partial);
+    f.service.updateCompatibilityForWatcher(42, "other-nonce", epoch, partial);
+    f.harness.startWatcher();
+    f.service.updateCompatibilityForWatcher(42, f.owned.nonce, epoch, partial);
+    expect(f.service.snapshot().compatibility?.status).toBe("full");
+    f.harness.stopWatcher();
+  });
+
   it("waits for a slow full check and then leaves a 1.5 second gap", async () => {
     const f = fixture();
     let finish!: (value: typeof f.packageInfo) => void;
@@ -149,6 +276,7 @@ describe("owned-session background checks", () => {
     await vi.advanceTimersByTimeAsync(10_000);
     expect(f.changed).toHaveBeenCalledExactlyOnceWith(42, f.owned.nonce);
     expect(f.owned.client.command).not.toHaveBeenCalled();
+    expect(f.compatibilityChanged).not.toHaveBeenCalled();
     expect(f.service.snapshot().state).toBe("ORPHANED");
     expect(vi.getTimerCount()).toBe(0);
   });

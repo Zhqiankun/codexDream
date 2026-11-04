@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.34 — 2026-11-04
+
+### English
+
+- Restored compatibility with Store Codex 26.1029.7803.0, including its merged titlebar and renamed reasoning-effort controls. All six reasoning backgrounds remain supported, alongside older controls.
+- Added partial compatibility: supported main windows can retain their backgrounds and other available effects when sidebar, titlebar, or header styling cannot be matched. Unrecognized reasoning controls fall back to the normal background and recover automatically when recognized again. Known efforts without an image continue to use the normal background without a compatibility warning.
+- Studio now shows which effects are temporarily unavailable and distinguishes partial compatibility from checks still in progress. Session ownership, main-window identification, and auxiliary-window exclusions remain enforced; a cosmetic mismatch no longer blocks the entire theme.
+
+### 简体中文
+
+- 适配 Store Codex 26.1029.7803.0 的合并标题栏和新版档位按钮，恢复六档背景识别，并继续兼容旧版控件。
+- 新增局部降级：已确认的主窗口在侧栏、标题栏或页头样式失配时，仍保留背景和其他可用效果。档位无法识别时回退普通背景，恢复识别后自动恢复切图；已知档位未配置图片仍正常使用普通背景，不误报兼容问题。
+- 工作台持续显示“部分适配”和暂不可用的效果，检查尚未完成时明确显示等待。完整会话身份、主窗口识别和辅助窗口排除规则继续保留，局部界面变化不再直接阻断整套主题。
+
+> 升级前退出当前 Codex 和 CodexStyle，覆盖安装后重新打开工作台，并通过工作台启动 Codex。已有主题和配置保留，Assistant 插件仍为 0.1.2，无需因本次兼容修复重新安装插件。
+
 ## v1.3.33 — 2026-11-03
 
 ### English

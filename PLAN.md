@@ -2,6 +2,10 @@
 
 本文件连同 `REQUIREMENTS.md` 构成本轮实现的最终契约。其他历史或并行设计说明不是实现依据；冲突时以此处锁定的固定源后台检查、用户触发下载与安装、严格声明资产的主题 ZIP、受管启动及保存当前主题即时更新和本文件 IPC 契约为准。
 
+2026-11-04 局部降级：profile `/29` 将新版稳定 frame/workspace/main 骨架与旧版完整 shell 作为主窗口识别的有限分支，仍要求唯一 CDP 目标和完整实例身份。payload 复用既有部件映射与档位候选，按本 owner 的实际可用部件维护固定枚举报告，正常缺图回退与兼容失配分开。SessionSnapshot 增加可选只读 `compatibility`（`checking/full/partial`、`unavailable` 固定枚举）；沿现有 v9 响应兼容扩展，不新增 IPC 请求、路径或写入权限。session 首次注入/保存后读取报告，既有串行 watcher 在身份通过后读取有界状态；controller 通过 operation gate 和会话/epoch 检查提交变化并广播，诊断失败只进入 checking、不伪装注入失败或触发重启。renderer 在现有会话卡片持续显示部分适配与具体回退，未知报告显示待检查。验收包括缺可选部件继续注入、真实图片回退与恢复、普通模式不误报、任意 main/非主窗口/多目标拒绝、身份失败不放宽、迟到诊断不覆盖当前会话，以及真实隔离 Electron 和工作台提示；未获授权不发布或操作当前正式会话。
+
+2026-11-04 Store 26.1029.7803.0 兼容：selector profile 升至 `/28`，仅为 shell probe 的 titlebar 检查增加已核对的双属性 header 分支；保留 SELECTOR_PARTS 角色优先级，新 header 仍由原 header 映射。档位 selector 在原 composer root 与选中档位属性约束内兼容新版 reasoning 导航标记；现有单一 MutationObserver 增加该属性监听。复用背景覆盖层、未知/歧义回退与生命周期，不新增数据、IPC、依赖、通用模块或外部附着路径。验证覆盖新版探针成功及缺失锚点拒绝、旧版兼容、六档图片和动态标记、既有可见性/owner/重注入/增量映射回归；静态包证据、隔离运行与正式窗口结果分开记录。
+
 2026-11-02 更新说明与离线历史：保留 `update.request` 作为用户确认后的下载操作，新增具名 `update.check` 只检查元数据；普通 IPC 升至 v9，bootstrap 保持 v1。UpdateSnapshot 与 UpdateService 的 ReleaseInfo 增加可选有界纯文本 releaseNotes、releaseDate；ElectronUpdaterGateway 沿固定 generic source 读取，缺失说明不阻断更新，检查/下载/取消/错误状态保留同一版本说明。托盘先检查并展示说明，用户确认后才下载；后台轮询仍静默。发布脚本从 CHANGELOG 当前版本段生成 latest.yml 的中文说明；renderer 以固定 Vite raw import 将同一 CHANGELOG 编入离线历史，不新增历史网络源或文件 IPC。新增更新弹窗与常驻历史入口，复用现有焦点、按钮和更新进度/安装流程。验收覆盖检查不下载、确认下载、关闭/失败/重试、说明缺失与不可信文本、后台不弹窗、托盘确认、离线历史与当前版本标记，以及原更新校验和会话边界。
 
 2026-11-02 删除反馈与右键入口：复用 `theme.delete`、既有确认弹窗及后端删除保护，不修改 IPC、存储或会话边界。ThemeList 管理右键菜单的位置、键盘和关闭；App 统一管理删除目标、忙碌、持久错误及成功快照。删除非编辑项不刷新或重置编辑器；删除编辑项才选择剩余项，并忽略已失效的详情读取。验收覆盖真实隔离 Electron 的右键确认与取消、删除持久化，以及 renderer 的保护拒绝、异常、重复提交和延迟响应。

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"app://-/index.html"}
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   CODEX_SELECTOR_PROFILE,
   SELECTOR_PARTS,
@@ -10,6 +10,29 @@ import {
   selectorProbeExpression,
 } from "../../src/main/session/selector-profile";
 import { CODEX_STARTUP_VERIFY_TIMEOUT_MS } from "../../src/main/session/session-service";
+
+const mainEntry = "app://-/index.html";
+const stableFrame =
+  '<div data-app-shell-frame="true"><div data-app-shell-workspace-row="true"><section data-app-shell-active-page="true"><main data-app-shell-main-surface="default"></main></section></div></div>';
+const legacyShell =
+  '<div class="_ApplicationMenuTopBar_fixture"></div><aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface><header class="app-header-tint"></header></main>';
+
+function navigate(url: string) {
+  // Vitest exposes its isolated JSDOM instance. Reconfigure avoids treating
+  // an app: entry as an HTTP history navigation or mutating global URL parsing.
+  (
+    globalThis as typeof globalThis & {
+      jsdom: { reconfigure(options: { url: string }): void };
+    }
+  ).jsdom.reconfigure({ url });
+}
+
+beforeEach(() => {
+  navigate(mainEntry);
+  document.documentElement.removeAttribute("data-codex-window-type");
+  document.documentElement.className = "";
+});
+afterEach(() => navigate(mainEntry));
 
 describe("versioned selector profile", () => {
   it("accepts the stable shell before optional composer controls mount", () => {
@@ -24,7 +47,7 @@ describe("versioned selector profile", () => {
       compatible: true,
     });
     expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
-    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/27");
+    expect(CODEX_SELECTOR_PROFILE).toBe("openai-codex-shell/29");
     expect(SELECTOR_PARTS).toContainEqual([
       "titlebar",
       'div[class*="_ApplicationMenuTopBar_"]',
@@ -75,6 +98,48 @@ describe("versioned selector profile", () => {
     ]);
   });
 
+  it("accepts the merged Store titlebar without changing its header part", () => {
+    document.body.innerHTML =
+      '<aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface="default"><header data-app-shell-titlebar="true" data-pip-obstacle="app-shell-header" data-app-shell-header-edge-scroll="false"></header></main>';
+
+    expect(window.eval(selectorProbeExpression())).toEqual({
+      protocol: "app:",
+      profile: CODEX_SELECTOR_PROFILE,
+      compatible: true,
+    });
+    const header = document.querySelector("header")!;
+    expect(
+      SELECTOR_PARTS.find(([, selector]) => header.matches(selector))?.[0],
+    ).toBe("header");
+    expect(document.querySelector("[data-codex-composer-root]")).toBeNull();
+  });
+
+  it.each(["main", "aside", "header"])(
+    "rejects the merged shell without its %s anchor",
+    (selector) => {
+      document.body.innerHTML =
+        '<aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface="default"><header data-app-shell-titlebar="true" data-pip-obstacle="app-shell-header" data-app-shell-header-edge-scroll="false"></header></main>';
+      document.querySelector(selector)!.remove();
+
+      expect(window.eval(selectorProbeExpression())).toMatchObject({
+        compatible: false,
+      });
+    },
+  );
+
+  it.each(["data-app-shell-titlebar", "data-pip-obstacle"])(
+    "rejects a generic header missing the titlebar's %s marker",
+    (attribute) => {
+      document.body.innerHTML =
+        '<aside class="app-shell-left-panel"></aside><main data-app-shell-main-surface="default"><header data-app-shell-titlebar="true" data-pip-obstacle="app-shell-header" data-app-shell-header-edge-scroll="false"></header></main>';
+      document.querySelector("header")!.removeAttribute(attribute);
+
+      expect(window.eval(selectorProbeExpression())).toMatchObject({
+        compatible: false,
+      });
+    },
+  );
+
   it("limits legacy and module fades to the transcript's direct sticky slot", () => {
     const paintClasses = "pointer-events-none absolute inset-x-0 from-surface";
     document.body.innerHTML = `
@@ -122,4 +187,133 @@ describe("versioned selector profile", () => {
       }),
     ).toBe(true);
   });
+});
+
+describe("main-window identity gate", () => {
+  beforeEach(() => {
+    document.documentElement.setAttribute("data-codex-window-type", "electron");
+    document.body.innerHTML = stableFrame;
+  });
+
+  it("accepts the active frame without optional sidebar, titlebar, header or composer", () => {
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: true,
+    });
+    document
+      .querySelector("main")!
+      .setAttribute("data-app-shell-main-surface", "panel");
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: true,
+    });
+  });
+
+  it("ignores inactive cached pages but rejects a second active main", () => {
+    const row = document.querySelector("[data-app-shell-workspace-row]")!;
+    row.insertAdjacentHTML(
+      "beforeend",
+      '<section id="cached" data-app-shell-active-page="false"><main data-app-shell-main-surface="default"></main></section>',
+    );
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: true,
+    });
+    document
+      .querySelector("#cached")!
+      .setAttribute("data-app-shell-active-page", "true");
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: false,
+    });
+  });
+
+  it.each([
+    "<main data-app-shell-main-surface></main>",
+    '<div data-app-shell-frame="true"></div>',
+  ])("rejects ambiguous shell structure %s", (extra) => {
+    document.body.insertAdjacentHTML("beforeend", extra);
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: false,
+    });
+  });
+
+  it.each([
+    ["[data-app-shell-frame]", "data-app-shell-frame"],
+    ["[data-app-shell-workspace-row]", "data-app-shell-workspace-row"],
+    ["main", "data-app-shell-main-surface"],
+    ["html", "data-codex-window-type"],
+  ])("requires the %s anchor's %s marker", (selector, attribute) => {
+    document.querySelector(selector)!.removeAttribute(attribute);
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: false,
+    });
+  });
+
+  it("requires a direct workspace row and an active main inside that row", () => {
+    const row = document.querySelector("[data-app-shell-workspace-row]")!;
+    const wrapper = document.createElement("div");
+    row.replaceWith(wrapper);
+    wrapper.append(row);
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: false,
+    });
+    document.body.innerHTML = stableFrame;
+    document
+      .querySelector("[data-app-shell-active-page]")!
+      .setAttribute("data-app-shell-active-page", "false");
+    expect(window.eval(selectorProbeExpression())).toMatchObject({
+      compatible: false,
+    });
+  });
+
+  for (const skeleton of ["frame", "legacy"] as const) {
+    it.each([
+      "app://-/",
+      "app://-/index.html?initialRoute=%2Fthread%2Ffixture%3Fmode%3Dchat&theme=dark",
+    ])(`accepts a main entry with ${skeleton} skeleton: %s`, (url) => {
+      if (skeleton === "legacy") document.body.innerHTML = legacyShell;
+      navigate(url);
+      expect(window.eval(selectorProbeExpression())).toMatchObject({
+        compatible: true,
+      });
+    });
+
+    it.each([
+      "app://test/index.html",
+      "https://-/index.html",
+      "app://-:123/index.html",
+      "app://user:password@-/index.html",
+      "app://-/avatar-overlay",
+      "app://-/index.html?window=page",
+      ...[
+        "/avatar-overlay",
+        "/spotlight",
+        "/global-dictation",
+        "/global-dictation/recording",
+        "/hotkey-window",
+        "/hotkey-window/settings",
+        "/thread/fixture?window=page",
+        "https://example.test/thread/fixture",
+        "app://foreign/thread/fixture",
+        "app://-:123/thread/fixture",
+        "app://user:password@-/thread/fixture",
+      ].map(
+        (route) => `${mainEntry}?initialRoute=${encodeURIComponent(route)}`,
+      ),
+    ])(
+      `rejects an auxiliary or foreign entry with ${skeleton} skeleton: %s`,
+      (url) => {
+        if (skeleton === "legacy") document.body.innerHTML = legacyShell;
+        navigate(url);
+        expect(window.eval(selectorProbeExpression())).toMatchObject({
+          compatible: false,
+        });
+      },
+    );
+
+    it(`rejects compact windows even with a complete ${skeleton} skeleton`, () => {
+      if (skeleton === "legacy") document.body.innerHTML = legacyShell;
+      document.documentElement.classList.add("compact-window");
+      expect(window.eval(selectorProbeExpression())).toMatchObject({
+        compatible: false,
+      });
+    });
+  }
 });

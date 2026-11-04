@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SessionCompatibility } from "../../src/contracts";
 import type { WindowsPlatform } from "../../src/main/platform/windows";
 import * as cdp from "../../src/main/session/cdp-client";
 import { CODEX_SELECTOR_PROFILE } from "../../src/main/session/selector-profile";
+import { readThemeCompatibilityExpression } from "../../src/main/session/theme-payload";
 import {
   CodexSessionService,
   type ReadyThemePayload,
@@ -70,9 +72,18 @@ function readinessFixture() {
         String(params?.expression).includes("compatible:")
       )
         return probe();
+      if (
+        method === "Runtime.evaluate" &&
+        params?.expression ===
+          readThemeCompatibilityExpression(
+            `codexstyle-${theme.record.libraryId}`,
+          )
+      )
+        return report();
       return { result: { value: true } };
     },
   );
+  const report = vi.fn().mockResolvedValue({ result: { value: "[]" } });
   const image = Buffer.from([0]);
   const theme: ReadyThemePayload = {
     image,
@@ -113,6 +124,7 @@ function readinessFixture() {
     themeLibraryId: theme.record.libraryId,
     themeFingerprint: theme.record.fingerprint,
     client: { command, close: vi.fn() },
+    compatibility: undefined as SessionCompatibility | undefined,
   };
   const service = new CodexSessionService(
     platform as unknown as WindowsPlatform,
@@ -126,11 +138,35 @@ function readinessFixture() {
     platform,
     probe,
     command,
+    report,
+    owned,
     inject: () => harness.inject(owned, theme),
   };
 }
 
 describe("startup shell readiness before injection", () => {
+  it.each(["partial", "missing"])(
+    "keeps a successful injection when the capability report is %s",
+    async (status) => {
+      const fixture = readinessFixture();
+      fixture.report.mockResolvedValue({
+        result: { value: status === "partial" ? '["header"]' : null },
+      });
+      await expect(fixture.inject()).resolves.toBeUndefined();
+      expect(fixture.owned.compatibility).toEqual(
+        status === "partial"
+          ? { status: "partial", unavailable: ["header"] }
+          : { status: "checking", unavailable: [] },
+      );
+      expect(fixture.owned.client.close).not.toHaveBeenCalled();
+      expect(
+        fixture.command.mock.calls.some(
+          ([method]) => method === "Page.removeScriptToEvaluateOnNewDocument",
+        ),
+      ).toBe(false);
+    },
+  );
+
   it.each(["missing-shell", "Execution context was destroyed."])(
     "waits through %s and injects only after revalidating ownership",
     async (failure) => {

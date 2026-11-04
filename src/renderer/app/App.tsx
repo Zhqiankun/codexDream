@@ -317,7 +317,7 @@ const errorMessages: Record<string, string> = {
   "session.launchFailed": "Windows 未能启动 Store Codex，请重试。",
   "session.cdpUnavailable": "当前 Codex 未开放可验证的本地调试端点。",
   "session.identityMismatch": "Codex 会话身份验证失败，未执行注入。",
-  "session.targetIncompatible": "当前 Codex 页面与安全选择器不兼容。",
+  "session.targetIncompatible": "无法唯一确认 Codex 主窗口，未执行注入。",
   "session.injectionFailed": "主题注入失败，Codex 保持原样。",
   "session.cleanupFailed": "无法安全结束受管会话。",
   "session.paused": "后续注入已暂停，请先恢复。",

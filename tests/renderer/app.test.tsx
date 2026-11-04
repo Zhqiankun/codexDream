@@ -3339,7 +3339,7 @@ describe("Studio renderer", () => {
     },
     {
       messageKey: "session.targetIncompatible",
-      message: /本地 CDP 已验证，但当前 Codex 页面结构/u,
+      message: /无法唯一确认 Codex 主窗口/u,
       ownership: "通过",
       compatibility: "未通过",
     },

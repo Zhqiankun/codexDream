@@ -4,6 +4,7 @@ import type { WindowsPlatform } from "../../src/main/platform/windows";
 import type { SecureManagedStore } from "../../src/main/infra/secure-store";
 import * as cdp from "../../src/main/session/cdp-client";
 import { CODEX_SELECTOR_PROFILE } from "../../src/main/session/selector-profile";
+import { readThemeCompatibilityExpression } from "../../src/main/session/theme-payload";
 import {
   CodexSessionService,
   type ReadyThemePayload,
@@ -59,6 +60,9 @@ function fixture() {
     },
   });
   const evaluate = vi.fn().mockResolvedValue({ result: { value: true } });
+  const report = vi.fn().mockResolvedValue({
+    result: { value: "[]" },
+  });
   const scripts = new Set(["original-script"]);
   let serial = 0;
   const command = vi.fn(
@@ -73,10 +77,18 @@ function fixture() {
         scripts.delete(String(params?.identifier));
         return {};
       }
-      if (method === "Runtime.evaluate")
-        return String(params?.expression).includes("compatible:")
-          ? probe()
-          : evaluate();
+      if (method === "Runtime.evaluate") {
+        const expression = String(params?.expression);
+        if (expression.includes("compatible:")) return probe();
+        if (
+          expression ===
+          readThemeCompatibilityExpression(
+            `codexstyle-${saved.record.libraryId}`,
+          )
+        )
+          return report();
+        return evaluate();
+      }
       throw new Error(`unexpected command: ${method}`);
     },
   );
@@ -127,6 +139,7 @@ function fixture() {
   const ownership = { writeFileAtomic: vi.fn() };
   const markGood = vi.fn();
   const changed = vi.fn();
+  const compatibilityChanged = vi.fn();
   const service = new CodexSessionService(
     platform as unknown as WindowsPlatform,
     selected,
@@ -134,6 +147,7 @@ function fixture() {
     ownership as unknown as SecureManagedStore,
     markGood,
     changed,
+    compatibilityChanged,
   );
   const harness = service as unknown as {
     owned: typeof owned | undefined;
@@ -153,6 +167,7 @@ function fixture() {
     probe,
     command,
     evaluate,
+    report,
     scripts,
     saved,
     paused,
@@ -160,12 +175,37 @@ function fixture() {
     ownership,
     markGood,
     changed,
+    compatibilityChanged,
     load,
     apply: () => service.applySavedTheme(saved.record.libraryId, load),
   };
 }
 
 describe("save the current managed theme", () => {
+  it.each(["partial", "unavailable"])(
+    "keeps a successful live apply when compatibility is %s",
+    async (status) => {
+      const f = fixture();
+      if (status === "partial")
+        f.report.mockResolvedValue({
+          result: {
+            value: JSON.stringify(["sidebar"]),
+          },
+        });
+      else f.report.mockRejectedValue(new Error("CDP_UNAVAILABLE"));
+      expect(await f.apply()).toEqual({ status: "applied" });
+      expect(f.service.snapshot()).toMatchObject({
+        state: "THEMED_SESSION",
+        compatibility:
+          status === "partial"
+            ? { status: "partial", unavailable: ["sidebar"] }
+            : { status: "checking", unavailable: [] },
+      });
+      expect(f.markGood).toHaveBeenCalledOnce();
+      expect(f.owned.client.close).not.toHaveBeenCalled();
+    },
+  );
+
   it("revalidates all identity fields, updates immediately and replaces each reload script", async () => {
     const f = fixture();
     expect(await f.apply()).toEqual({ status: "applied" });
@@ -366,6 +406,29 @@ describe("save the current managed theme", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(f.changed).not.toHaveBeenCalled();
     expect(f.service.snapshot().state).toBe("THEMED_SESSION");
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it("discards an old compatibility report after a successful theme replacement", async () => {
+    const f = fixture();
+    let finish!: (value: unknown) => void;
+    f.report.mockImplementationOnce(
+      () => new Promise((resolve) => (finish = resolve)),
+    );
+    f.harness.startWatcher();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(await f.apply()).toEqual({ status: "applied" });
+    finish({
+      result: {
+        value: JSON.stringify(["header"]),
+      },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(f.compatibilityChanged).not.toHaveBeenCalled();
+    expect(f.service.snapshot().compatibility).toEqual({
+      status: "full",
+      unavailable: [],
+    });
     expect(vi.getTimerCount()).toBe(1);
   });
 });
