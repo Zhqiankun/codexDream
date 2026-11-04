@@ -53,6 +53,7 @@ import {
   ADDITIONAL_BUNDLED_PRESET_PACK_ID,
   MASCOT_BUNDLED_PRESET_PACK_ID,
   REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
+  DIVINE_ULTRA_BUNDLED_PRESET_PACK_ID,
   createBundledPresetSource,
 } from "../infra/bundled-presets";
 import { CodexAssistantBridge } from "../assistant/assistant-bridge";
@@ -121,6 +122,10 @@ export class AppController {
       createBundledPresetSource(
         join(presetRoot, REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID),
         REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
+      ),
+      createBundledPresetSource(
+        join(presetRoot, DIVINE_ULTRA_BUNDLED_PRESET_PACK_ID),
+        DIVINE_ULTRA_BUNDLED_PRESET_PACK_ID,
       ),
     ]);
     this.session = new CodexSessionService(

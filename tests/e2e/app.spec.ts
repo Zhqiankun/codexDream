@@ -189,7 +189,7 @@ test("starts the real Electron shell with native storage and completes a local w
       await readFile(
         resolve(
           projectRoot,
-          "resources/presets/mascot-redesign-2026-11-04-v10/catalog.json",
+          "resources/presets/mascot-ultra-divine-2026-11-04-v11/catalog.json",
         ),
         "utf8",
       ),
@@ -229,7 +229,7 @@ test("starts the real Electron shell with native storage and completes a local w
       },
       redesignedCatalog.themes.map((theme) => theme.name),
     );
-    // 39 个图片主题加两个基础主题；v10 必须替换旧三套，而不是再追加副本。
+    // 39 个图片主题加两个基础主题；v11 仅更新原四套 Ultra，不追加主题副本。
     expect(installedMascots.total).toBe(41);
     for (const [index, installed] of installedMascots.themes.entries()) {
       const expected = redesignedCatalog.themes[index];

@@ -61,15 +61,15 @@ CodexStyle 用于设计、实时预览、保存、导入和导出 Microsoft Stor
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.35`：
+从 [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest) 下载 `v1.3.36`：
 
-- `CodexStyle-1.3.35-x64.exe` — Windows 安装程序。
-- `CodexStyle-1.3.35-x64.zip` — 免安装压缩包。
+- `CodexStyle-1.3.36-x64.exe` — Windows 安装程序。
+- `CodexStyle-1.3.36-x64.zip` — 免安装压缩包。
 - `SHA256SUMS.txt` — 发布包与更新元数据的 SHA-256 校验值。
 
 当前发布包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”提示。运行前请先核对 SHA-256 校验值。
 
-`v1.3.35` 带来 GPT、Claude、DeepSeek、Gemini 四套共 24 张重绘背景，整体升级符合条件的内置背景，并修复 Codex 26.1029.7803.0 上下白边，继续兼容旧版类名格式。Assistant 0.1.3 新增无需选图窗口的批量换图并保存。升级前退出 Codex 和 CodexStyle；覆盖安装后重新打开工作台，并通过工作台启动 Codex。已有主题配置和当前选择保留，用户修改过的主题不自动覆盖。使用新工具需点击 Assistant 的“安装 / 更新”，再新建 Codex 任务。
+`v1.3.36` 将四套 Ultra 升级为神圣空灵的终态，普通背景、前五档、配色与阅读配置保持不变。符合旧版基线的内置主题原位升级；用户编辑、草稿、已删除以及已提前更换 Ultra 的主题保持原样。升级前退出 Codex 和 CodexStyle；覆盖安装后重新打开工作台，并通过工作台启动 Codex。Assistant 仍为 0.1.3，已安装该版本无需因本次图片更新重新安装。
 
 ## 运行要求
 

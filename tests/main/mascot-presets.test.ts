@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readThemeConfiguration } from "../../src/contracts";
 import {
   createBundledPresetSource,
+  DIVINE_ULTRA_BUNDLED_PRESET_PACK_ID,
   MASCOT_BUNDLED_PRESET_PACK_ID,
   REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
 } from "../../src/main/infra/bundled-presets";
@@ -21,6 +23,11 @@ const redesignedSource = () =>
   createBundledPresetSource(
     resolve("resources/presets", REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID),
     REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
+  );
+const divineUltraSource = () =>
+  createBundledPresetSource(
+    resolve("resources/presets", DIVINE_ULTRA_BUNDLED_PRESET_PACK_ID),
+    DIVINE_ULTRA_BUNDLED_PRESET_PACK_ID,
   );
 const efforts = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
 // 每个场景完整解码 18 张发行图片；事务场景还会验证受管副本和重启读取。
@@ -187,6 +194,210 @@ describe("mascot reasoning preset pack", () => {
     );
     expect(after.checkpoints).toEqual(before.checkpoints);
     store.managedStore.close();
+  }, 60_000);
+
+  it("upgrades only Ultra from actual v10 while retaining all four identities, configuration and recovery references", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const legacy = new LocalThemeStore(managed.root, [redesignedSource()]);
+    await legacy.init();
+    const originals = legacy
+      .listRecords()
+      .filter((item) => item.json.backgroundMode === "reasoning")
+      .map((item) => ({
+        record: structuredClone(item),
+        normal: legacy.getBackground(item.libraryId)!,
+        reasoning: legacy.getReasoningBackgrounds(item.libraryId),
+      }));
+    expect(originals).toHaveLength(4);
+    const selected = originals[0].record;
+    await legacy.select(selected.libraryId, selected.revision);
+    await legacy.markLastKnownGood(selected.libraryId, selected.fingerprint);
+    await legacy.setPaused(true);
+    legacy.managedStore.close();
+
+    const pack = await divineUltraSource().load();
+    expect(pack.replacesPackIds).toEqual([
+      REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
+    ]);
+    expect(pack.introducedThemeIds).toEqual([]);
+    expect(pack.themes.map((theme) => theme.themeId).sort()).toEqual(
+      originals.map(({ record }) => record.themeId).sort(),
+    );
+    for (const { record } of originals) {
+      const expected = pack.themes.find(
+        (theme) => theme.themeId === record.themeId,
+      )!;
+      // 普通图未变时，必须靠真实 v10 安装结果的完整指纹识别升级资格。
+      expect(expected.imageSha256).toBe(record.backgroundSha256);
+      expect(expected.previousImageSha256).toEqual([]);
+      expect(expected.previousFingerprints).toEqual([record.fingerprint]);
+    }
+    const next = { packId: pack.packId, load: vi.fn(async () => pack) };
+    const store = new LocalThemeStore(managed.root, [next]);
+    await store.init();
+    expect(store.listRecords()).toHaveLength(6);
+    for (const { record, normal, reasoning } of originals) {
+      const updated = store.get(record.libraryId)!;
+      const expected = pack.themes.find(
+        (theme) => theme.themeId === record.themeId,
+      )!;
+      expect(
+        store.listRecords().filter((theme) => theme.themeId === record.themeId),
+      ).toHaveLength(1);
+      expect(updated).toMatchObject({
+        libraryId: record.libraryId,
+        themeId: record.themeId,
+        name: record.name,
+        description: record.description,
+        css: record.css,
+        backgroundScope: record.backgroundScope,
+        sidebarOverlayOpacity: record.sidebarOverlayOpacity,
+        backgroundSha256: record.backgroundSha256,
+        backgroundBytes: record.backgroundBytes,
+        status: "ready",
+        revision: record.revision + 1,
+        packageFormat: record.packageFormat,
+        signed: record.signed,
+      });
+      expect(readThemeConfiguration(updated.json)).toEqual(
+        readThemeConfiguration(record.json),
+      );
+      expect(store.getBackground(record.libraryId)!.equals(normal)).toBe(true);
+      const updatedReasoning = store.getReasoningBackgrounds(record.libraryId);
+      expect(Object.keys(updatedReasoning)).toEqual(efforts);
+      for (const effort of efforts) {
+        expect(
+          updatedReasoning[effort]!.equals(expected.reasoningImages![effort]!),
+        ).toBe(true);
+        expect(updatedReasoning[effort]!.equals(reasoning[effort]!)).toBe(
+          effort !== "ultra",
+        );
+      }
+    }
+    const after = store.managedStore.readFile(MANAGED_FILES.index)!;
+    expect(JSON.parse(after.toString())).toMatchObject({
+      selectedLibraryId: selected.libraryId,
+      lastKnownGoodLibraryId: selected.libraryId,
+      paused: true,
+      checkpoints: [],
+      installedPresetPacks: [
+        REDESIGNED_MASCOT_BUNDLED_PRESET_PACK_ID,
+        DIVINE_ULTRA_BUNDLED_PRESET_PACK_ID,
+      ],
+    });
+    store.managedStore.close();
+    next.load.mockClear();
+    const reopened = new LocalThemeStore(managed.root, [next]);
+    await reopened.init();
+    expect(next.load).not.toHaveBeenCalled();
+    expect(reopened.managedStore.readFile(MANAGED_FILES.index)).toEqual(after);
+    expect(reopened.listRecords()).toHaveLength(6);
+    for (const { record, normal } of originals) {
+      const expected = pack.themes.find(
+        (theme) => theme.themeId === record.themeId,
+      )!;
+      expect(reopened.getBackground(record.libraryId)!.equals(normal)).toBe(
+        true,
+      );
+      for (const effort of efforts)
+        expect(
+          reopened
+            .getReasoningBackgrounds(record.libraryId)
+            [effort]!.equals(expected.reasoningImages![effort]!),
+        ).toBe(true);
+    }
+    reopened.managedStore.close();
+  }, 60_000);
+
+  it("preserves edited ready, already replaced Ultra, draft checkpoints and deleted v10 themes", async () => {
+    const managed = await createManagedRoot();
+    cleanup.push(managed.cleanup);
+    const legacy = new LocalThemeStore(managed.root, [redesignedSource()]);
+    await legacy.init();
+    const originals = legacy
+      .listRecords()
+      .filter((item) => item.json.backgroundMode === "reasoning");
+    expect(originals).toHaveLength(4);
+    const pack = await divineUltraSource().load();
+    const edited = await legacy.patch(
+      originals[0].libraryId,
+      originals[0].revision,
+      { name: "User's saved v10 mascot" },
+    );
+    await legacy.commit(edited.libraryId, edited.revision);
+    const replacement = pack.themes.find(
+      (theme) => theme.themeId === originals[1].themeId,
+    )!;
+    // 复用 MCP 最终调用的保存入口；用户已换成同一新版 Ultra 也不能再次改 revision 或文件引用。
+    const replaced = await legacy.replaceAndSaveBackgrounds(
+      originals[1].libraryId,
+      originals[1].revision,
+      {
+        ultra: {
+          data: replacement.reasoningImages!.ultra!,
+          fileName: "user-ultra.png",
+        },
+      },
+    );
+    expect(replaced.fingerprint).not.toBe(originals[1].fingerprint);
+    expect(replacement.previousFingerprints).not.toContain(
+      replaced.fingerprint,
+    );
+    await legacy.select(replaced.libraryId, replaced.revision);
+    await legacy.markLastKnownGood(replaced.libraryId, replaced.fingerprint);
+    await legacy.patch(originals[2].libraryId, originals[2].revision, {
+      name: "User's draft v10 mascot",
+    });
+    await legacy.delete(originals[3].libraryId, originals[3].revision);
+    const preserved = originals.slice(0, 3).map((original) => ({
+      record: structuredClone(legacy.get(original.libraryId)!),
+      normal: legacy.getBackground(original.libraryId)!,
+      reasoning: legacy.getReasoningBackgrounds(original.libraryId),
+    }));
+    expect(preserved.map(({ record }) => record.status)).toEqual([
+      "ready",
+      "ready",
+      "draft",
+    ]);
+    const before = JSON.parse(
+      legacy.managedStore.readFile(MANAGED_FILES.index)!.toString(),
+    );
+    expect(before.checkpoints).toHaveLength(1);
+    legacy.managedStore.close();
+    const next = { packId: pack.packId, load: vi.fn(async () => pack) };
+    const store = new LocalThemeStore(managed.root, [next]);
+    await store.init();
+    expect(store.listRecords()).toHaveLength(5);
+    for (const { record, normal, reasoning } of preserved) {
+      expect(store.get(record.libraryId)).toEqual(record);
+      expect(store.getBackground(record.libraryId)!.equals(normal)).toBe(true);
+      for (const effort of efforts)
+        expect(
+          store
+            .getReasoningBackgrounds(record.libraryId)
+            [effort]!.equals(reasoning[effort]!),
+        ).toBe(true);
+    }
+    expect(
+      store
+        .listRecords()
+        .some((theme) => theme.themeId === originals[3].themeId),
+    ).toBe(false);
+    const after = store.managedStore.readFile(MANAGED_FILES.index)!;
+    expect(JSON.parse(after.toString())).toMatchObject({
+      selectedLibraryId: before.selectedLibraryId,
+      lastKnownGoodLibraryId: before.lastKnownGoodLibraryId,
+      checkpoints: before.checkpoints,
+    });
+    store.managedStore.close();
+    next.load.mockClear();
+    const reopened = new LocalThemeStore(managed.root, [next]);
+    await reopened.init();
+    expect(next.load).not.toHaveBeenCalled();
+    expect(reopened.managedStore.readFile(MANAGED_FILES.index)).toEqual(after);
+    expect(reopened.listRecords()).toHaveLength(5);
+    reopened.managedStore.close();
   }, 60_000);
 
   it(

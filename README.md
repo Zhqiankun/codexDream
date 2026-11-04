@@ -61,15 +61,15 @@ CodexStyle lets you design, preview, save, import, and export visual themes for 
 
 ## Download
 
-Download `v1.3.35` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
+Download `v1.3.36` from [GitHub Releases](https://github.com/Zhqiankun/codexDream/releases/latest):
 
-- `CodexStyle-1.3.35-x64.exe` — guided Windows installer.
-- `CodexStyle-1.3.35-x64.zip` — portable archive.
+- `CodexStyle-1.3.36-x64.exe` — guided Windows installer.
+- `CodexStyle-1.3.36-x64.zip` — portable archive.
 - `SHA256SUMS.txt` — SHA-256 checksums for the release and update artifacts.
 
 The release is currently unsigned. Windows SmartScreen may show an unknown-publisher warning; verify the SHA-256 checksum before running the application.
 
-`v1.3.35` adds 24 redesigned wallpapers for GPT, Claude, DeepSeek, and Gemini, upgrades eligible bundled backgrounds together, and fixes top and bottom white edges in Codex 26.1029.7803.0 while retaining older class formats. Assistant 0.1.3 adds batch background replacement and saving without a file picker. Exit Codex and CodexStyle before upgrading, install over the existing copy, then reopen Studio and launch Codex through it. Existing theme settings and selection are retained; user-edited themes are not automatically overwritten. Choose **Install / update** in the Assistant card, then open a new Codex task to load the new tools.
+`v1.3.36` gives the four Ultra wallpapers a divine, ethereal presence while keeping normal backgrounds, the first five stages, palettes, and reading settings unchanged. Eligible untouched presets upgrade in place; edited themes, drafts, deleted themes, and themes whose Ultra was already replaced are preserved. Exit Codex and CodexStyle before upgrading, install over the existing copy, then reopen Studio and launch Codex through it. Assistant remains at 0.1.3; an installed 0.1.3 plugin does not need reinstalling for this artwork update.
 
 ## Requirements
 

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { gunzipSync } from "node:zlib";
 import { load as loadYaml } from "js-yaml";
 import { releaseNotesForVersion } from "./release-notes.mjs";
@@ -47,6 +48,13 @@ const presetCatalogSpecs = [
     packId: "mascot-redesign-2026-11-04-v10",
     themeCount: 4,
   },
+  {
+    label: "v11 divine Ultra preset catalog",
+    entry: "resources/presets/mascot-ultra-divine-2026-11-04-v11/catalog.json",
+    directory: "resources/presets/mascot-ultra-divine-2026-11-04-v11",
+    packId: "mascot-ultra-divine-2026-11-04-v11",
+    themeCount: 4,
+  },
 ];
 const presetCatalogs = presetCatalogSpecs.map((spec) => {
   const bytes = readFileSync(resolve(root, spec.entry));
@@ -54,12 +62,18 @@ const presetCatalogs = presetCatalogSpecs.map((spec) => {
   const themes = Array.isArray(catalog.themes) ? catalog.themes : [];
   return { ...spec, bytes, catalog, themes };
 });
-const [presetCatalogV7, presetCatalogV8, presetCatalogV9, presetCatalogV10] =
-  presetCatalogs;
+const [
+  presetCatalogV7,
+  presetCatalogV8,
+  presetCatalogV9,
+  presetCatalogV10,
+  presetCatalogV11,
+] = presetCatalogs;
 const presetDocumentation = [
   "resources/presets/user-wallpapers-2026-08-31-v8/SOURCES.md",
   "resources/presets/mascot-reasoning-2026-11-02-v9/SOURCES.md",
   "resources/presets/mascot-redesign-2026-11-04-v10/SOURCES.md",
+  "resources/presets/mascot-ultra-divine-2026-11-04-v11/SOURCES.md",
 ];
 const presetAssets = presetCatalogs
   .flatMap((catalog) =>
@@ -134,8 +148,8 @@ if (
       isRecord(theme) ? theme.themeId : undefined,
     ),
   ) ||
-  presetAssets.length !== 77 ||
-  new Set(presetAssets.map((asset) => asset.entry)).size !== 77
+  presetAssets.length !== 101 ||
+  new Set(presetAssets.map((asset) => asset.entry)).size !== 101
 ) {
   console.error("Package verification failed; v8 preset catalog is invalid.");
   process.exit(1);
@@ -188,6 +202,65 @@ if (
   })
 ) {
   console.error("Package verification failed; v10 mascot catalog is invalid.");
+  process.exit(1);
+}
+// v10 已发行基线；Ultra-only 更新不得接纳本机修改后的主题作为自动升级来源。
+const v10MascotFingerprints = {
+  "e7f74c6f-1fa0-4c18-a83e-32ee26247e39":
+    "fb5fc8c652125d7b43730946c07c6e6edc1284a70053638e62cd08d443bf8321",
+  "bc6baa2d-eff3-436b-9cda-1e8f98d33a9a":
+    "2a955c3c98b453247db0351ff8820918736cb961fdd78c4f1abd751fe9b1c8f5",
+  "b1457903-85f1-4754-8722-1968f97b395c":
+    "cfd4444cfaecd79c609899d77c1b44ae7778bbc119d94b111946812aeea6efb2",
+  "a4b467dd-7162-45d3-8827-4505a264be98":
+    "91a27c1ed13838a6807114cfdb02687b3586bf5617413f95da7984b453652e3a",
+};
+if (
+  presetCatalogV11.catalog.schemaVersion !== 4 ||
+  presetCatalogV11.catalog.packId !== presetCatalogV11.packId ||
+  !haveSameStringSet(presetCatalogV11.catalog.replacesPackIds, [
+    presetCatalogV10.packId,
+  ]) ||
+  !haveSameStringSet(presetCatalogV11.catalog.introducedThemeIds, []) ||
+  presetCatalogV11.themes.length !== presetCatalogV11.themeCount ||
+  !hasValidPresetThemes(presetCatalogV11.themes) ||
+  !presetCatalogV11.themes.every(hasValidReasoningPreset) ||
+  !haveSameStringSet(
+    presetCatalogV11.themes.map((theme) => theme.themeId),
+    presetCatalogV10.themes.map((theme) => theme.themeId),
+  ) ||
+  presetCatalogV11.themes.some((theme) => {
+    const previous = presetCatalogV10.themes.find(
+      (entry) => entry.themeId === theme.themeId,
+    );
+    if (
+      !previous ||
+      !haveSameStringSet(theme.previousImageSha256, []) ||
+      !haveSameStringSet(theme.previousFingerprints, [
+        v10MascotFingerprints[theme.themeId],
+      ]) ||
+      theme.reasoningBackgrounds.ultra.image !==
+        previous.reasoningBackgrounds.ultra.image ||
+      theme.reasoningBackgrounds.ultra.imageSha256 ===
+        previous.reasoningBackgrounds.ultra.imageSha256
+    )
+      return true;
+    // 仅还原允许变化的字段后整体比较，锁定名称、配置、普通图和 low 至 max。
+    return !isDeepStrictEqual(
+      {
+        ...theme,
+        previousImageSha256: previous.previousImageSha256,
+        previousFingerprints: previous.previousFingerprints,
+        reasoningBackgrounds: {
+          ...theme.reasoningBackgrounds,
+          ultra: previous.reasoningBackgrounds.ultra,
+        },
+      },
+      previous,
+    );
+  })
+) {
+  console.error("Package verification failed; v11 Ultra catalog is invalid.");
   process.exit(1);
 }
 if (

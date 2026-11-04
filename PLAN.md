@@ -1,5 +1,7 @@
 # CodexStyle 交付计划与架构契约
 
+2026-11-04 Ultra 神性版本（1.3.36）：新增 `mascot-ultra-divine-2026-11-04-v11` source，紧接 v10 加载；克隆 v10 的既有配置与二十张前档图片，仅替换四张 Ultra。普通图片哈希不变，`previousImageSha256` 为空，以发行 v10 的完整 fingerprint 限定原位升级，`introducedThemeIds` 为空。复用既有 schema4、完整媒体校验与原子安装逻辑，不改变 IPC、存储算法或 Assistant 版本。验证真实 v10 → v11 升级、用户提前换图及编辑/草稿/删除保护、首次安装与资源打包；1.3.35 发行记录和资源保持原样。
+
 2026-11-04 MCP 批量换图：新增 `replace_and_save_theme_backgrounds`，在现有 assistant v1 具名请求中兼容扩展，普通 renderer IPC 保持 v9。仅此动作允许 ready 主题的背景替换并保存；既有草稿配色和原生选图接口的限制不变。主进程受限读取 1 至 7 个本地图片路径并复用图片校验，固定 HTTP 正文预算不扩大。controller 沿单一 gate 编排，ThemeService 转换输入，LocalThemeStore 负责完整图片集 COW/一次索引提交和回滚；保存后复用 applySavedTheme，响应不包含输入路径。只做本轮所需具名能力，不增加通用文件操作或自动删除主题。本机部署与主题更新必须保留当前 Codex 进程，孤立会话不重新附着；真实图片写入、插件安装、当前窗口效果及 Release 分开验证。
 
 2026-11-04 四角色重设计：固定新增 `mascot-redesign-2026-11-04-v10` source，复用 schema4 catalog、完整媒体/hash 校验与 secure-store 安装流程。v10 的三套既有主题沿用 v9 的 themeId，GPT 首次内置；旧配置指纹从已发行基线计算，不扩大自动覆盖用户编辑范围。普通背景与档位资源升级采用 copy-on-write，一次索引提交切换完整背景集，提交后清理无引用资产，失败恢复原索引与缓存并清理本次暂存。新图、24 个档位、完整颜色配置、首次安装/老库升级/重复启动/编辑与删除保护/失败回滚/资源打包均需具体验证；根元数据、catalog 与来源说明由负责人维护。

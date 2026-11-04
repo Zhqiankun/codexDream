@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.3.36 — 2026-11-04
+
+### English
+
+- Reimagined the Ultra wallpapers for GPT, Claude, DeepSeek, and Gemini with divine light, floating forms, and a welcoming gaze: a celestial white dragon, an amber scholar, an ocean oracle, and a violet-gold star goddess. Normal backgrounds and the first five reasoning stages retain their existing images and settings.
+- Eligible untouched bundled themes upgrade in place from v10 to v11, keeping their library identities and selection. User edits, drafts, deleted themes, and themes whose Ultra was already replaced are preserved. Existing v9 and v10 packs remain available for sequential upgrades.
+
+### 简体中文
+
+- 重绘 GPT、Claude、DeepSeek、Gemini 四套 Ultra：以神光、悬浮姿态和温和对视，呈现白龙神祇、琥珀大学者、深海神谕与紫金星穹。普通背景及前五档图片、配色与阅读配置保持不变。
+- 符合旧版基线的内置主题从 v10 原位升级至 v11，保留库 ID 和当前选择；用户编辑、草稿、已删除主题以及已提前更换 Ultra 的主题保持原样。保留 v9、v10 资源并依次升级。
+
+> 升级前退出当前 Codex 和 CodexStyle，覆盖安装后重新打开工作台，并通过工作台启动 Codex。Assistant 插件仍为 0.1.3，已安装该版本无需因本次图片更新重新安装。
+
 ## v1.3.35 — 2026-11-04
 
 ### English
